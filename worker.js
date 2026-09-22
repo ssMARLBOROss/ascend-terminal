@@ -5,6 +5,20 @@ export default {
   async fetch(request) {
     const incoming = new URL(request.url);
 
+    if (incoming.pathname === "/health") {
+      return Response.json({ ok: true, service: "ascend-terminal-edge", upstream: UPSTREAM }, { headers: { "cache-control": "no-store" } });
+    }
+
+    if (incoming.pathname.startsWith("/api/")) {
+      const api = new URL(incoming.pathname + incoming.search, UPSTREAM);
+      const response = await fetch(api, { method: request.method, headers: { "accept": "application/json", "user-agent": "ASCEND-Terminal/1.0" }, redirect: "follow" });
+      const out = new Headers(response.headers);
+      out.set("cache-control", "no-store");
+      out.set("access-control-allow-origin", "*");
+      out.set("x-ascend-upstream-status", String(response.status));
+      return new Response(response.body, { status: response.status, statusText: response.statusText, headers: out });
+    }
+
     if (incoming.pathname === "/" || incoming.pathname === "/analysis" || incoming.pathname === "/index.html") {
       const page = await fetch(FRONTEND, { cf: { cacheTtl: 30, cacheEverything: true } });
       const headers = new Headers(page.headers);
