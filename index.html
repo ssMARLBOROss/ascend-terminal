@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#070b12">
   <title>ASCEND Terminal</title>
-  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     :root{
       color-scheme:dark;
@@ -179,6 +179,11 @@ function label(v){return v>0?"LONG":v<0?"SHORT":"NEUTRAL"}
 
 function initChart(){
   const el=document.getElementById("chart");
+  if(!window.LightweightCharts){
+    el.innerHTML='<canvas id="fallbackChart" style="width:100%;height:100%;display:block"></canvas>';
+    new ResizeObserver(()=>drawFallback((state.candles[state.tf]||[]),magnets(state.candles["5m"]||state.candles[state.tf]||[]),atr(state.candles["5m"]||state.candles[state.tf]||[]))).observe(el);
+    return;
+  }
   chart=LightweightCharts.createChart(el,{
     width:el.clientWidth,height:el.clientHeight,
     layout:{background:{color:"#080e17"},textColor:"#73839a"},
@@ -191,7 +196,32 @@ function initChart(){
     upColor:"#3de39c",downColor:"#ff637d",borderVisible:false,
     wickUpColor:"#3de39c",wickDownColor:"#ff637d"
   });
-  new ResizeObserver(()=>chart.applyOptions({width:el.clientWidth,height:el.clientHeight})).observe(el);
+  new ResizeObserver(()=>chart&&chart.applyOptions({width:el.clientWidth,height:el.clientHeight})).observe(el);
+}
+
+function drawFallback(rows,m={},a=0){
+  const c=document.getElementById("fallbackChart"); if(!c||!rows||!rows.length)return;
+  const box=c.getBoundingClientRect(),dpr=Math.max(1,window.devicePixelRatio||1);
+  c.width=Math.max(1,Math.floor(box.width*dpr));c.height=Math.max(1,Math.floor(box.height*dpr));
+  const x=c.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);
+  const w=box.width,h=box.height,pad=18;
+  x.fillStyle="#080e17";x.fillRect(0,0,w,h);
+  const data=rows.slice(-100), highs=data.map(v=>v.high), lows=data.map(v=>v.low);
+  let max=Math.max(...highs),min=Math.min(...lows);
+  [m.main?.p,m.near?.p,m.lower?.p,m.current&&a?m.current+a*.45:null,m.current&&a?m.current-a*.45:null].filter(Number.isFinite).forEach(v=>{max=Math.max(max,v);min=Math.min(min,v)});
+  const span=Math.max(max-min,1e-9),Y=p=>pad+(max-p)/(span)*(h-pad*2);
+  x.strokeStyle="#101b29";x.lineWidth=1;
+  for(let i=1;i<5;i++){const yy=pad+i*(h-pad*2)/5;x.beginPath();x.moveTo(0,yy);x.lineTo(w,yy);x.stroke()}
+  const step=(w-pad*2)/Math.max(1,data.length),bw=Math.max(2,step*.55);
+  data.forEach((v,i)=>{
+    const xx=pad+i*step+step/2,up=v.close>=v.open,col=up?"#3de39c":"#ff637d";
+    x.strokeStyle=col;x.fillStyle=col;x.lineWidth=1;
+    x.beginPath();x.moveTo(xx,Y(v.high));x.lineTo(xx,Y(v.low));x.stroke();
+    const y1=Y(v.open),y2=Y(v.close);x.fillRect(xx-bw/2,Math.min(y1,y2),bw,Math.max(1,Math.abs(y2-y1)));
+  });
+  const line=(p,col,name,dash=[6,4])=>{if(!Number.isFinite(p))return;const yy=Y(p);x.save();x.setLineDash(dash);x.strokeStyle=col;x.beginPath();x.moveTo(0,yy);x.lineTo(w,yy);x.stroke();x.setLineDash([]);x.fillStyle=col;x.font="10px system-ui";x.fillText(name,8,Math.max(12,yy-4));x.restore()};
+  line(m.main?.p,"#ffc247","MAIN MAGNET");line(m.near?.p,"#52d8ff","NEAREST");line(m.lower?.p,"#9677ff","LOWER");
+  if(m.current&&a){line(m.current+a*.45,"#ff54c7","DECISION +",[3,4]);line(m.current-a*.45,"#ff54c7","DECISION -",[3,4])}
 }
 
 function trendOf(rows,n=40){
@@ -243,22 +273,26 @@ function riskScore(t1,t15,m5,deltaSign,magSide){
 function setBadge(id,v,text){
   const e=document.getElementById(id);e.className="badge "+cls(v);e.textContent=text||label(v);
 }
-function clearLines(){priceLines.forEach(l=>{try{candleSeries.removePriceLine(l)}catch{}});priceLines=[]}
+function clearLines(){
+  if(candleSeries)priceLines.forEach(l=>{try{candleSeries.removePriceLine(l)}catch{}});
+  priceLines=[];
+}
 function addLine(price,color,title,style=2){
-  if(!Number.isFinite(price))return;
+  if(!candleSeries||!Number.isFinite(price))return;
   const l=candleSeries.createPriceLine({price,color,lineWidth:1,lineStyle:style,axisLabelVisible:true,title});
   priceLines.push(l);
 }
 function render(){
   const rows=state.candles[state.tf]||[];
-  if(rows.length)candleSeries.setData(rows.map(x=>({time:x.time,open:x.open,high:x.high,low:x.low,close:x.close})));
+  if(rows.length&&candleSeries)candleSeries.setData(rows.map(x=>({time:x.time,open:x.open,high:x.high,low:x.low,close:x.close})));
   clearLines();
   const base=state.candles["5m"]||rows, m=magnets(base), a=atr(base);
   if(m.main)addLine(m.main.p,"#ffc247","MAIN MAGNET");
   if(m.near)addLine(m.near.p,"#52d8ff","NEAREST");
   if(m.lower)addLine(m.lower.p,"#9677ff","LOWER");
   if(m.current&&a){addLine(m.current+a*.45,"#ff54c7","DECISION +",3);addLine(m.current-a*.45,"#ff54c7","DECISION -",3)}
-  if(rows.length)chart.timeScale().fitContent();
+  if(!candleSeries&&rows.length)drawFallback(rows,m,a);
+  if(rows.length&&chart)chart.timeScale().fitContent();
 
   const t1=trendOf(state.candles["1h"]),t15=trendOf(state.candles["15m"]),m5=momentum(base);
   const d=dealDelta(state.deals), dsgn=d>0?1:d<0?-1:0;
@@ -294,22 +328,30 @@ function render(){
 }
 async function getJSON(url){const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw new Error(r.status);return r.json()}
 async function load(){
-  const s=state.symbol;
-  try{
-    const [ticker,deals,...frames]=await Promise.all([
-      getJSON("/api/ticker?symbol="+s),
-      getJSON("/api/deals?symbol="+s+"&limit=100"),
-      ...["1m","5m","15m","1h"].map(tf=>getJSON("/api/klines?symbol="+s+"&timeframe="+tf+"&limit=350"))
-    ]);
-    state.ticker=ticker;state.deals=deals.deals||[];
-    frames.forEach((x,i)=>state.candles[["1m","5m","15m","1h"][i]]=x.candles||[]);
+  const s=state.symbol, tfs=["1m","5m","15m","1h"];
+  const jobs=[
+    getJSON("/api/ticker?symbol="+s),
+    getJSON("/api/deals?symbol="+s+"&limit=100"),
+    ...tfs.map(tf=>getJSON("/api/klines?symbol="+s+"&timeframe="+tf+"&limit=350"))
+  ];
+  const res=await Promise.allSettled(jobs);
+  let ok=0;
+  if(res[0].status==="fulfilled"){
+    const ticker=res[0].value;state.ticker=ticker;ok++;
     document.getElementById("price").textContent=fmtPrice(ticker.last_price);
     const ch=ticker.change_24h||0;document.getElementById("change").textContent="24ч "+(ch>=0?"+":"")+ch.toFixed(2)+"%";
     document.getElementById("change").style.color=ch>=0?"#3de39c":"#ff637d";
-    render();
-  }catch(e){
+  }
+  if(res[1].status==="fulfilled"){state.deals=res[1].value.deals||[];ok++}
+  tfs.forEach((tf,i)=>{const r=res[i+2];if(r.status==="fulfilled"){state.candles[tf]=r.value.candles||[];ok++}});
+  if(Object.values(state.candles).some(x=>x&&x.length))render();
+  const live=document.querySelector(".live");
+  if(ok===jobs.length){live.style.color="#3de39c";live.innerHTML='<span class="dot"></span> LIVE ANALYTICS'}
+  else if(ok>0){live.style.color="#ffc247";live.innerHTML='<span class="dot" style="background:#ffc247;box-shadow:0 0 14px #ffc247"></span> PARTIAL DATA'}
+  else{
+    live.style.color="#ff637d";live.innerHTML='<span class="dot" style="background:#ff637d;box-shadow:0 0 14px #ff637d"></span> DATA OFFLINE';
     document.getElementById("decision").textContent="DATA ERROR";
-    document.getElementById("decisionReason").textContent="Не удалось обновить часть рыночных данных. Повторная попытка автоматически.";
+    document.getElementById("decisionReason").textContent="Backend не отвечает. Повторная попытка идёт автоматически.";
   }
 }
 function clock(){
