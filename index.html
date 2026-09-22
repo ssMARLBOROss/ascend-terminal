@@ -367,6 +367,11 @@ document.getElementById("symbol").addEventListener("change",e=>{
 document.querySelectorAll("[data-tf]").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll("[data-tf]").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.tf=b.dataset.tf;render()
 }));
-initChart();clock();setInterval(clock,1000);load();setInterval(load,15000);
+try{initChart()}catch(e){
+  console.error("chart init",e);
+  const el=document.getElementById("chart");
+  el.innerHTML='<canvas id="fallbackChart" style="width:100%;height:100%;display:block"></canvas>';
+}
+clock();setInterval(clock,1000);load();setInterval(load,15000);
 </script>
 </body></html>
