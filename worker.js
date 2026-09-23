@@ -24,6 +24,10 @@ export default {
       const headers = new Headers(page.headers);
       headers.set("content-type", "text/html; charset=utf-8");
       headers.set("cache-control", "no-store, max-age=0");
+    headers.delete("content-security-policy");
+    headers.delete("content-security-policy-report-only");
+    headers.delete("x-frame-options");
+    headers.set("content-security-policy", "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self' data:;");
       return new Response(page.body, { status: page.status, headers });
     }
 
