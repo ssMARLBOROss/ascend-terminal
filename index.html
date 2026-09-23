@@ -72,6 +72,35 @@
     .scenario-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.scenario{padding:14px}.scenario h4{margin:0 0 8px;font-size:12px}.scenario p{margin:0;color:#95a4b8;font-size:10px;line-height:1.55}.scenario .path{font-size:15px;font-weight:900;margin:9px 0 6px}.up{color:var(--green)}.down{color:var(--red)}
     .horizons{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}.horizon{padding:10px;border:1px solid var(--line);border-radius:10px;background:#0a121d}.horizon small{color:var(--muted);font-size:9px}.horizon b{font-size:12px;display:block;margin-top:4px}
     .mobile-title{display:none}
+
+    /* BASE CORE V1 */
+    .workspace{grid-template-columns:minmax(0,1fr) 410px}
+    .core-status-card{padding:12px 14px;margin-bottom:12px;background:linear-gradient(135deg,rgba(82,216,255,.10),rgba(61,227,156,.06) 50%,rgba(11,18,28,.96));border-color:rgba(82,216,255,.28)}
+    .core-status-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .core-status-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:900;letter-spacing:.05em}
+    .core-pulse{width:9px;height:9px;border-radius:50%;background:var(--cyan);box-shadow:0 0 18px rgba(82,216,255,.85)}
+    .core-status-value{font-size:11px;font-weight:900;text-align:right}
+    .core-status-note{margin-top:8px;font-size:10px;color:#91a1b7;line-height:1.45}
+    .trend-kpi .v{font-size:18px}
+    .trend-kpi .s{line-height:1.35}
+    .check-list{display:grid;gap:6px}
+    .check{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 9px;border:1px solid #19283b;border-radius:10px;background:#0a121d}
+    .check-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:950;background:#111d2c;color:#9aabc0;border:1px solid #26384f}
+    .check b{font-size:10px;display:block}.check small{font-size:8px;color:var(--muted);display:block;margin-top:2px;line-height:1.3}
+    .check-state{font-size:8px;font-weight:950;padding:4px 6px;border-radius:999px;border:1px solid #2a394d;color:#aab8ca}
+    .check.pass{border-color:rgba(61,227,156,.26)}.check.pass .check-num,.check.pass .check-state{color:#8cf4c3;border-color:rgba(61,227,156,.34);background:rgba(61,227,156,.08)}
+    .check.wait{border-color:rgba(255,194,71,.22)}.check.wait .check-num,.check.wait .check-state{color:#ffd889;border-color:rgba(255,194,71,.34);background:rgba(255,194,71,.07)}
+    .check.fail{border-color:rgba(255,99,125,.28)}.check.fail .check-num,.check.fail .check-state{color:#ff91a4;border-color:rgba(255,99,125,.38);background:rgba(255,99,125,.08)}
+    .core-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+    .core-summary .horizon{min-height:62px}
+    .verdict-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+    .verdict-box{padding:10px;border:1px solid var(--line);border-radius:10px;background:#0a121d;font-size:10px;font-weight:900;color:#66768c}
+    .verdict-box.active.enter{border-color:rgba(61,227,156,.65);color:#8cf4c3;background:rgba(61,227,156,.09)}
+    .verdict-box.active.wait{border-color:rgba(255,194,71,.65);color:#ffd889;background:rgba(255,194,71,.09)}
+    .verdict-box.active.skip{border-color:rgba(255,99,125,.65);color:#ff91a4;background:rgba(255,99,125,.09)}
+    .lg-sma20{background:#52d8ff}.lg-sma50{background:#ffc247}.lg-sma200{background:#9677ff}.lg-sr{background:#3de39c}.lg-risk{background:#ff637d}
+    .decision .action.enter{color:var(--green)}.decision .action.wait{color:var(--yellow)}.decision .action.skip{color:var(--red)}
+
     @media(max-width:1100px){.workspace{grid-template-columns:1fr}.right{grid-template-columns:1fr 1fr}.decision{grid-row:span 1}.factor-card{grid-row:span 1}}
     @media(max-width:780px){
       .app{display:block}.sidebar{display:none}.topbar{height:60px;padding:0 12px}.content{padding:10px 10px 24px}.mobile-title{display:block;font-weight:950;letter-spacing:.13em;font-size:12px}.pair{display:none}
@@ -90,7 +119,7 @@
       <a class="active" href="#">◉ Дашборд</a>
       <a href="#">Рынок</a><a href="#">Аналитика</a><a href="#">Сигналы</a><a href="#">Журнал</a>
     </nav>
-    <div class="discipline"><b>Дисциплина создаёт свободу.</b>Магнит — причина ждать реакцию, а не команда на вход.</div>
+    <div class="discipline"><b>BASE CORE V1</b>1D → 4H → 1H → уровень → реакция → подтверждение → SL/TP → R:R.</div>
   </aside>
 
   <main class="main">
@@ -119,66 +148,76 @@
 
       <section class="kpis">
         <div class="card kpi"><div class="l">Цена</div><div class="v" id="price">—</div><div class="s" id="change">24ч —</div></div>
-        <div class="card kpi"><div class="l">Основной магнит</div><div class="v" id="mainMagnet">—</div><div class="s" id="mainMagnetSide">расчёт…</div></div>
-        <div class="card kpi"><div class="l">CVD / Delta</div><div class="v" id="delta">—</div><div class="s" id="pressure">поток сделок</div></div>
-        <div class="card kpi"><div class="l">Риск разворота</div><div class="v" id="reversalRisk">—</div><div class="s">structure + momentum</div></div>
+        <div class="card kpi trend-kpi"><div class="l">1D TREND</div><div class="v" id="trend1d">—</div><div class="s" id="trend1dInfo">SMA200 · структура</div></div>
+        <div class="card kpi trend-kpi"><div class="l">4H TREND</div><div class="v" id="trend4h">—</div><div class="s" id="trend4hInfo">SMA200 · структура</div></div>
+        <div class="card kpi trend-kpi"><div class="l">1H TREND</div><div class="v" id="trend1h">—</div><div class="s" id="trend1hInfo">SMA200 · структура</div></div>
       </section>
 
-      <section class="card zone-status-card">
-        <div class="zone-status-head">
-          <div class="zone-status-title"><span class="zone-pulse"></span>DECISION ZONE</div>
-          <div class="zone-status-value" id="zoneStatus">Собираю границы зоны…</div>
+      <section class="card core-status-card">
+        <div class="core-status-head">
+          <div class="core-status-title"><span class="core-pulse"></span>BASE CORE V1 · ТЕКУЩАЯ ПРОВЕРКА</div>
+          <div class="core-status-value" id="coreStatus">Собираю 1D / 4H / 1H…</div>
         </div>
-        <div class="zone-status-note">Главный экран сейчас — цветная зона решения: ждём касание/снятие магнита, реакцию, BOS/CHOCH и только потом ретест/вход.</div>
+        <div class="core-status-note" id="coreStatusNote">Решение строится только по тренду, ключевым S/R, реакции цены, свечному контексту, объёму, SMA20/50/200, подтверждению, структурному SL, следующему ключевому TP и R:R ≥ 1:2.</div>
       </section>
 
       <section class="workspace">
         <div>
           <div class="card chart-card">
             <div class="chart-head">
-              <div><h2 id="chartTitle">BTC/USDT · Карта рынка</h2><div class="sub">Liquidity · BOS/CHOCH · Decision Zone</div></div>
+              <div><h2 id="chartTitle">BTC/USDT · BASE CORE V1</h2><div class="sub">1D → 4H → 1H · Key S/R · SMA20/50/200 · Volume · Structural SL/TP</div></div>
               <div class="tfbar">
-                <button data-tf="1m">1m</button><button class="active" data-tf="5m">5m</button><button data-tf="15m">15m</button><button data-tf="1h">1H</button>
+                <button data-tf="5m">5m</button><button class="active" data-tf="1h">1H</button><button data-tf="4h">4H</button><button data-tf="1d">1D</button>
               </div>
             </div>
-            <div class="chart-wrap">
-              <div id="chart"></div>
-              <div class="decision-band" id="decisionBand"><span class="zone-edge top" id="zoneTop">ВЕРХ ЗОНЫ</span><span class="zone-edge bottom" id="zoneBottom">НИЗ ЗОНЫ</span></div>
-              <div class="event-chips"><span class="event-chip" id="evTouch">КАСАНИЕ</span><span class="event-chip" id="evSweep">SWEEP</span><span class="event-chip" id="evReturn">ВОЗВРАТ В ЗОНУ</span><span class="event-chip" id="evBos">BOS/CHOCH</span></div>
+            <div class="chart-wrap"><div id="chart"></div></div>
+            <div class="legend">
+              <span><i class="lg-sma20"></i>SMA20</span><span><i class="lg-sma50"></i>SMA50</span><span><i class="lg-sma200"></i>SMA200</span>
+              <span><i class="lg-sr"></i>Key S/R</span><span><i class="lg-risk"></i>Structural SL / TP</span>
             </div>
-            <div class="legend"><span><i class="lg-main"></i>Основной магнит</span><span><i class="lg-near"></i>Ближайший</span><span><i class="lg-low"></i>Нижний</span><span><i class="lg-decision"></i>Decision Zone</span></div>
-            <div class="horizons">
-              <div class="horizon"><small>Intraday</small><b id="h1">—</b></div>
-              <div class="horizon"><small>1–7 Days</small><b id="h2">—</b></div>
-              <div class="horizon"><small>1–4 Weeks</small><b id="h3">—</b></div>
-              <div class="horizon"><small>Long-term</small><b id="h4">—</b></div>
+            <div class="core-summary">
+              <div class="horizon"><small>Entry / close</small><b id="coreEntry">—</b></div>
+              <div class="horizon"><small>Structural SL</small><b id="coreSL">—</b></div>
+              <div class="horizon"><small>Next key level TP</small><b id="coreTP">—</b></div>
+              <div class="horizon"><small>R:R</small><b id="coreRR">—</b></div>
+            </div>
+            <div class="verdict-strip">
+              <div class="verdict-box enter" id="vEnter">🟢 ENTER</div>
+              <div class="verdict-box wait" id="vWait">🟡 WAIT-CHANGE</div>
+              <div class="verdict-box skip" id="vSkip">🔴 SKIP</div>
             </div>
           </div>
 
           <div class="scenario-grid">
-            <div class="card scenario"><h4>Сценарий A · продолжение</h4><div class="path up" id="scenarioA">—</div><p id="scenarioAText">Ждём данных структуры и реакции у ликвидности.</p></div>
-            <div class="card scenario"><h4>Сценарий B · разворот</h4><div class="path down" id="scenarioB">—</div><p id="scenarioBText">Ждём снятия ликвидности, CHOCH/BOS и ретеста.</p></div>
+            <div class="card scenario"><h4>Рабочий сценарий</h4><div class="path" id="scenarioA">—</div><p id="scenarioAText">Ждём синхронизации старших ТФ и реакции на ключевом уровне.</p></div>
+            <div class="card scenario"><h4>Что изменит решение</h4><div class="path" id="scenarioB">—</div><p id="scenarioBText">Новый закрытый бар может изменить тренд, уровень, подтверждение или R:R.</p></div>
           </div>
         </div>
 
         <aside class="right">
           <div class="card decision">
-            <div class="eyebrow">DECISION ZONE · АНАЛИТИКА</div>
-            <div class="action" id="decision">ЖДАТЬ</div>
-            <div class="confidence" id="confidence">Подтверждение: —</div>
+            <div class="eyebrow">BASE CORE V1 · ВЕРДИКТ</div>
+            <div class="action wait" id="decision">WAIT-CHANGE</div>
+            <div class="confidence" id="confidence">Готовность: —</div>
             <div class="meter"><div id="confidenceBar"></div></div>
-            <div class="reason" id="decisionReason">Собираю структуру, импульс, поток и положение цены относительно магнитов.</div>
+            <div class="reason" id="decisionReason">Собираю закрытые свечи 1D / 4H / 1H.</div>
           </div>
 
           <div class="card factor-card">
-            <div class="section-head"><h3>Факторы сейчас</h3><small>что меняет сценарий</small></div>
-            <div class="factor-list">
-              <div class="factor"><div><b>Структура 1H</b><small>старший контекст</small></div><span class="badge" id="f1">—</span></div>
-              <div class="factor"><div><b>Структура 15m</b><small>рабочий тренд</small></div><span class="badge" id="f2">—</span></div>
-              <div class="factor"><div><b>Momentum 5m</b><small>ускорение цены</small></div><span class="badge" id="f3">—</span></div>
-              <div class="factor"><div><b>Delta / CVD</b><small>агрессивный поток</small></div><span class="badge" id="f4">—</span></div>
-              <div class="factor"><div><b>Magnet position</b><small>куда ближе ликвидность</small></div><span class="badge" id="f5">—</span></div>
-              <div class="factor"><div><b>Decision zone</b><small>нужна реакция + BOS/CHOCH</small></div><span class="badge neu" id="f6">WAIT</span></div>
+            <div class="section-head"><h3>Цепочка BASE CORE V1</h3><small>PASS / WAIT / FAIL</small></div>
+            <div class="check-list">
+              <div class="check wait" id="cTrend"><span class="check-num">1</span><div><b>1D → 4H → 1H TREND</b><small id="cTrendText">—</small></div><span class="check-state">WAIT</span></div>
+              <div class="check wait" id="cLevel"><span class="check-num">2</span><div><b>KEY SUPPORT/RESISTANCE</b><small id="cLevelText">—</small></div><span class="check-state">WAIT</span></div>
+              <div class="check wait" id="cWait"><span class="check-num">3</span><div><b>WAIT PRICE AT LEVEL</b><small id="cWaitText">—</small></div><span class="check-state">WAIT</span></div>
+              <div class="check wait" id="cReaction"><span class="check-num">4</span><div><b>PRICE REACTION</b><small id="cReactionText">—</small></div><span class="check-state">WAIT</span></div>
+              <div class="check wait" id="cPattern"><span class="check-num">5</span><div><b>PIN BAR / ENGULFING / DOJI</b><small id="cPatternText">—</small></div><span class="check-state">WAIT</span></div>
+              <div class="check wait" id="cVolume"><span class="check-num">6</span><div><b>VOLUME</b><small id="cVolumeText">—</small></div><span class="check-state">WAIT</span></div>
+              <div class="check wait" id="cSma"><span class="check-num">7</span><div><b>SMA20/50/200</b><small id="cSmaText">—</small></div><span class="check-state">WAIT</span></div>
+              <div class="check wait" id="cBreak"><span class="check-num">8</span><div><b>BREAK + CLOSE + RETEST</b><small id="cBreakText">если был пробой</small></div><span class="check-state">WAIT</span></div>
+              <div class="check wait" id="cConfirm"><span class="check-num">9</span><div><b>CONFIRMATION</b><small id="cConfirmText">—</small></div><span class="check-state">WAIT</span></div>
+              <div class="check wait" id="cSl"><span class="check-num">10</span><div><b>STRUCTURAL SL</b><small id="cSlText">—</small></div><span class="check-state">WAIT</span></div>
+              <div class="check wait" id="cTp"><span class="check-num">11</span><div><b>NEXT KEY LEVEL TP</b><small id="cTpText">—</small></div><span class="check-state">WAIT</span></div>
+              <div class="check wait" id="cRR"><span class="check-num">12</span><div><b>R:R ≥ 1:2</b><small id="cRRText">—</small></div><span class="check-state">WAIT</span></div>
             </div>
           </div>
         </aside>
@@ -188,8 +227,8 @@
 </div>
 
 <script>
-const state={symbol:"BTC_USDT",tf:"5m",candles:{},ticker:null,deals:[]};
-let chart,candleSeries,priceLines=[];
+const state={symbol:"BTC_USDT",tf:"1h",candles:{},ticker:null};
+let chart,candleSeries,volumeSeries,sma20Series,sma50Series,sma200Series,priceLines=[];
 
 function fmtPrice(v){
   if(!Number.isFinite(v))return "—";
@@ -197,235 +236,239 @@ function fmtPrice(v){
   if(v>=1)return v.toFixed(4);
   return v.toPrecision(5);
 }
-function cls(v){return v>0?"pos":v<0?"neg":"neu"}
-function label(v){return v>0?"LONG":v<0?"SHORT":"NEUTRAL"}
-
-function initChart(){
-  const el=document.getElementById("chart");
-  if(!window.LightweightCharts){
-    el.innerHTML='<canvas id="fallbackChart" style="width:100%;height:100%;display:block"></canvas>';
-    new ResizeObserver(()=>drawFallback((state.candles[state.tf]||[]),magnets(state.candles["5m"]||state.candles[state.tf]||[]),atr(state.candles["5m"]||state.candles[state.tf]||[]))).observe(el);
-    return;
-  }
-  chart=LightweightCharts.createChart(el,{
-    width:el.clientWidth,height:el.clientHeight,
-    layout:{background:{color:"#080e17"},textColor:"#73839a"},
-    grid:{vertLines:{color:"#101b29"},horzLines:{color:"#101b29"}},
-    rightPriceScale:{borderColor:"#1c2a3d"},
-    timeScale:{borderColor:"#1c2a3d",timeVisible:true,secondsVisible:false},
-    crosshair:{mode:0},
-  });
-  candleSeries=chart.addCandlestickSeries({
-    upColor:"#3de39c",downColor:"#ff637d",borderVisible:false,
-    wickUpColor:"#3de39c",wickDownColor:"#ff637d"
-  });
-  new ResizeObserver(()=>chart&&chart.applyOptions({width:el.clientWidth,height:el.clientHeight})).observe(el);
-}
-
-function drawFallback(rows,m={},a=0){
-  const c=document.getElementById("fallbackChart"); if(!c||!rows||!rows.length)return;
-  const box=c.getBoundingClientRect(),dpr=Math.max(1,window.devicePixelRatio||1);
-  c.width=Math.max(1,Math.floor(box.width*dpr));c.height=Math.max(1,Math.floor(box.height*dpr));
-  const x=c.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);
-  const w=box.width,h=box.height,pad=18;
-  x.fillStyle="#080e17";x.fillRect(0,0,w,h);
-  const data=rows.slice(-100), highs=data.map(v=>v.high), lows=data.map(v=>v.low);
-  let max=Math.max(...highs),min=Math.min(...lows);
-  [m.main?.p,m.near?.p,m.lower?.p,m.current&&a?m.current+a*.45:null,m.current&&a?m.current-a*.45:null].filter(Number.isFinite).forEach(v=>{max=Math.max(max,v);min=Math.min(min,v)});
-  const span=Math.max(max-min,1e-9),Y=p=>pad+(max-p)/(span)*(h-pad*2);
-  x.strokeStyle="#101b29";x.lineWidth=1;
-  for(let i=1;i<5;i++){const yy=pad+i*(h-pad*2)/5;x.beginPath();x.moveTo(0,yy);x.lineTo(w,yy);x.stroke()}
-  const step=(w-pad*2)/Math.max(1,data.length),bw=Math.max(2,step*.55);
-  data.forEach((v,i)=>{
-    const xx=pad+i*step+step/2,up=v.close>=v.open,col=up?"#3de39c":"#ff637d";
-    x.strokeStyle=col;x.fillStyle=col;x.lineWidth=1;
-    x.beginPath();x.moveTo(xx,Y(v.high));x.lineTo(xx,Y(v.low));x.stroke();
-    const y1=Y(v.open),y2=Y(v.close);x.fillRect(xx-bw/2,Math.min(y1,y2),bw,Math.max(1,Math.abs(y2-y1)));
-  });
-  const line=(p,col,name,dash=[6,4])=>{if(!Number.isFinite(p))return;const yy=Y(p);x.save();x.setLineDash(dash);x.strokeStyle=col;x.beginPath();x.moveTo(0,yy);x.lineTo(w,yy);x.stroke();x.setLineDash([]);x.fillStyle=col;x.font="10px system-ui";x.fillText(name,8,Math.max(12,yy-4));x.restore()};
-  line(m.main?.p,"#ffc247","MAIN MAGNET");line(m.near?.p,"#52d8ff","NEAREST");line(m.lower?.p,"#9677ff","LOWER");
-  if(m.current&&a){line(m.current+a*.45,"#ff54c7","ВЕРХ ЗОНЫ",[3,4]);line(m.current-a*.45,"#ff54c7","НИЗ ЗОНЫ",[3,4])}
-}
-
-function trendOf(rows,n=40){
-  if(!rows||rows.length<n+2)return 0;
-  const a=rows.slice(-n);
-  const first=a.slice(0,Math.max(3,Math.floor(n*.25))).reduce((s,x)=>s+x.close,0)/Math.max(3,Math.floor(n*.25));
-  const last=a.slice(-Math.max(3,Math.floor(n*.25))).reduce((s,x)=>s+x.close,0)/Math.max(3,Math.floor(n*.25));
-  const d=(last-first)/first;
-  return d>.002?1:d<-.002?-1:0;
+function avg(a){return a.length?a.reduce((s,v)=>s+v,0)/a.length:0}
+function closed(rows){return rows&&rows.length>2?rows.slice(0,-1):(rows||[])}
+function smaValues(rows,period){
+  const out=[],q=[];let sum=0;
+  rows.forEach((x,i)=>{q.push(x.close);sum+=x.close;if(q.length>period)sum-=q.shift();out.push(q.length===period?sum/period:null)});
+  return out;
 }
 function atr(rows,n=14){
-  const a=rows.slice(-n-1); if(a.length<3)return 0;
-  let s=0,c=0;
+  const a=rows.slice(-n-1);if(a.length<3)return 0;let s=0,c=0;
   for(let i=1;i<a.length;i++){s+=Math.max(a[i].high-a[i].low,Math.abs(a[i].high-a[i-1].close),Math.abs(a[i].low-a[i-1].close));c++}
   return c?s/c:0;
 }
-function magnets(rows){
-  const r=rows.slice(-140); if(r.length<20)return {};
-  const current=r[r.length-1].close; const piv=[];
-  for(let i=3;i<r.length-3;i++){
-    const x=r[i], win=r.slice(i-3,i+4);
-    const hi=win.every(z=>x.high>=z.high), lo=win.every(z=>x.low<=z.low);
-    if(hi||lo){const range=Math.max(x.high-x.low,1e-12);piv.push({p:hi?x.high:x.low,type:hi?"H":"L",score:(x.volume||1)*range})}
-  }
-  const above=piv.filter(x=>x.p>current), below=piv.filter(x=>x.p<current);
-  const top=arr=>arr.length?arr.reduce((a,b)=>a.score>b.score?a:b):null;
-  const strongestAbove=top(above), strongestBelow=top(below);
-  const candidates=[strongestAbove,strongestBelow].filter(Boolean);
-  const main=candidates.length?candidates.reduce((a,b)=>a.score>b.score?a:b):null;
-  const all=piv.filter(x=>!main||x.p!==main.p);
-  const near=all.length?all.reduce((a,b)=>Math.abs(a.p-current)<Math.abs(b.p-current)?a:b):null;
-  return {current,main,near,lower:strongestBelow,upper:strongestAbove};
-}
-function dealDelta(deals){
-  return deals.reduce((s,x)=>s+(x.side==="BUY"?1:-1)*(x.volume||0),0);
-}
-function momentum(rows){
-  if(!rows||rows.length<5)return 0;
-  const a=rows.slice(-4); const d=(a[a.length-1].close-a[0].open)/a[0].open;
-  return d>.0012?1:d<-.0012?-1:0;
-}
-function riskScore(t1,t15,m5,deltaSign,magSide){
-  const votes=[t1,t15,m5,deltaSign,magSide].filter(x=>x!==0);
-  if(!votes.length)return 50;
-  const pos=votes.filter(x=>x>0).length,neg=votes.filter(x=>x<0).length;
-  const conflict=Math.min(pos,neg)/votes.length;
-  return Math.round(25+conflict*120);
-}
-function setBadge(id,v,text){
-  const e=document.getElementById(id);e.className="badge "+cls(v);e.textContent=text||label(v);
-}
-function clearLines(){
-  if(candleSeries)priceLines.forEach(l=>{try{candleSeries.removePriceLine(l)}catch{}});
-  priceLines=[];
+function initChart(){
+  const el=document.getElementById("chart");
+  chart=LightweightCharts.createChart(el,{width:el.clientWidth,height:el.clientHeight,layout:{background:{color:"#080e17"},textColor:"#73839a"},grid:{vertLines:{color:"#101b29"},horzLines:{color:"#101b29"}},rightPriceScale:{borderColor:"#1c2a3d",scaleMargins:{top:.06,bottom:.22}},timeScale:{borderColor:"#1c2a3d",timeVisible:true,secondsVisible:false},crosshair:{mode:0}});
+  candleSeries=chart.addCandlestickSeries({upColor:"#3de39c",downColor:"#ff637d",borderVisible:false,wickUpColor:"#3de39c",wickDownColor:"#ff637d"});
+  sma20Series=chart.addLineSeries({color:"#52d8ff",lineWidth:2,priceLineVisible:false,lastValueVisible:false});
+  sma50Series=chart.addLineSeries({color:"#ffc247",lineWidth:2,priceLineVisible:false,lastValueVisible:false});
+  sma200Series=chart.addLineSeries({color:"#9677ff",lineWidth:2,priceLineVisible:false,lastValueVisible:false});
+  volumeSeries=chart.addHistogramSeries({priceScaleId:"vol",priceFormat:{type:"volume"},priceLineVisible:false,lastValueVisible:false});
+  chart.priceScale("vol").applyOptions({scaleMargins:{top:.82,bottom:0},borderVisible:false});
+  new ResizeObserver(()=>chart.applyOptions({width:el.clientWidth,height:el.clientHeight})).observe(el);
 }
 function addLine(price,color,title,style=2){
-  if(!candleSeries||!Number.isFinite(price))return;
-  const l=candleSeries.createPriceLine({price,color,lineWidth:1,lineStyle:style,axisLabelVisible:true,title});
-  priceLines.push(l);
+  if(!Number.isFinite(price))return;
+  priceLines.push(candleSeries.createPriceLine({price,color,lineWidth:1,lineStyle:style,axisLabelVisible:true,title}));
 }
-function setRouteStep(id,state){
-  const e=document.getElementById(id);if(e)e.className="route-step "+state;
+function clearLines(){priceLines.forEach(l=>{try{candleSeries.removePriceLine(l)}catch{}});priceLines=[]}
+
+function trendState(rows){
+  const r=closed(rows);if(r.length<210)return{dir:0,label:"RANGE",structure:"недостаточно истории"};
+  const s20=smaValues(r,20).at(-1),s50=smaValues(r,50).at(-1),s200=smaValues(r,200).at(-1),close=r.at(-1).close;
+  const look=r.slice(-48),half=Math.floor(look.length/2),a=look.slice(0,half),b=look.slice(half);
+  const ah=Math.max(...a.map(x=>x.high)),al=Math.min(...a.map(x=>x.low)),bh=Math.max(...b.map(x=>x.high)),bl=Math.min(...b.map(x=>x.low));
+  let structure=0,structureText="MIXED";
+  if(bh>ah&&bl>al){structure=1;structureText="HH/HL"}else if(bh<ah&&bl<al){structure=-1;structureText="LH/LL"}
+  const smaDir=close>s200&&s20>s50?1:close<s200&&s20<s50?-1:0;
+  const dir=structure===smaDir?structure:(structure&&smaDir===0?structure:0);
+  return{dir,label:dir>0?"UP":dir<0?"DOWN":"RANGE",structure:structureText,s20,s50,s200,close};
 }
-function updateDecisionUX(m,a,rows){
-  if(!m||!m.current||!a||!rows||!rows.length)return;
-  const hi=m.current+a*.45,lo=m.current-a*.45,last=rows[rows.length-1];
-  const targets=[m.near?.p,m.main?.p,m.lower?.p].filter(Number.isFinite);
-  const touch=targets.some(p=>Math.abs(m.current-p)<=a*.15);
-  const sweptUp=targets.some(p=>last.high>=p&&last.close<p);
-  const sweptDown=targets.some(p=>last.low<=p&&last.close>p);
-  const sweep=sweptUp||sweptDown,inZone=m.current<=hi&&m.current>=lo;
-  const band=document.getElementById("decisionBand");
-  if(band&&candleSeries&&candleSeries.priceToCoordinate){
-    const y1=candleSeries.priceToCoordinate(hi),y2=candleSeries.priceToCoordinate(lo);
-    if(Number.isFinite(y1)&&Number.isFinite(y2)){band.style.display="block";band.style.top=Math.min(y1,y2)+"px";band.style.height=Math.max(2,Math.abs(y2-y1))+"px"}
+function trendColor(d){return d>0?"#3de39c":d<0?"#ff637d":"#ffc247"}
+
+function pivots(rows,weight){
+  const r=closed(rows).slice(-260),out=[];
+  for(let i=3;i<r.length-3;i++){
+    const x=r[i],w=r.slice(i-3,i+4);
+    if(w.every(z=>x.high>=z.high))out.push({p:x.high,type:"R",weight,ts:x.time});
+    if(w.every(z=>x.low<=z.low))out.push({p:x.low,type:"S",weight,ts:x.time});
   }
-  document.getElementById("zoneTop").textContent="ВЕРХ ЗОНЫ · "+fmtPrice(hi);
-  document.getElementById("zoneBottom").textContent="НИЗ ЗОНЫ · "+fmtPrice(lo);
-  document.getElementById("evTouch").classList.toggle("on",touch);
-  document.getElementById("evSweep").classList.toggle("on",sweep);
-  document.getElementById("evReturn").classList.toggle("on",inZone);
-  const zoneStatus=document.getElementById("zoneStatus");
-  if(zoneStatus)zoneStatus.textContent=`${fmtPrice(lo)} — ${fmtPrice(hi)} · ${touch||sweep?"реакция нужна сейчас":"цена вне триггера"}`;
-  setRouteStep("route0","done");
-  setRouteStep("route1",m.main||m.near?"done":"active");
-  setRouteStep("route2",touch||sweep?"done":"active");
-  ["route3","route4","route5","route6"].forEach(id=>setRouteStep(id,""));
-  const routeStatus=document.getElementById("routeStatus");
-  if(routeStatus)routeStatus.textContent=touch||sweep?"3/7 · ЖДЁМ SIGNAL₁":"2/7 · ЖДЁМ TOUCH / SWEEP";
+  return out;
+}
+function keyLevels(current){
+  const d=closed(state.candles["1d"]||[]),h=closed(state.candles["4h"]||[]);
+  const a4=atr(h),threshold=Math.max(current*.0016,a4*.28,1e-9);
+  const raw=[...pivots(d,3),...pivots(h,2)].sort((a,b)=>a.p-b.p),clusters=[];
+  raw.forEach(x=>{
+    let c=clusters.find(z=>Math.abs(z.center-x.p)<=threshold);
+    if(!c){c={center:x.p,points:[],score:0};clusters.push(c)}
+    c.points.push(x);c.score+=x.weight;c.center=avg(c.points.map(v=>v.p));
+  });
+  let zones=clusters.map(c=>({p:c.center,score:c.score,touches:c.points.length,half:Math.max(threshold*.52,current*.0008)}))
+    .filter(z=>z.touches>=2||z.score>=3);
+  zones.forEach(z=>z.type=z.p<current?"S":"R");
+  const near=zones.slice().sort((a,b)=>Math.abs(a.p-current)-Math.abs(b.p-current)).slice(0,8);
+  const chosen=near.sort((a,b)=>(b.score/(1+Math.abs(b.p-current)/threshold))-(a.score/(1+Math.abs(a.p-current)/threshold))).slice(0,5);
+  return chosen.sort((a,b)=>a.p-b.p);
+}
+function nearestZone(zones,price){
+  return zones.length?zones.reduce((a,b)=>Math.abs(a.p-price)<Math.abs(b.p-price)?a:b):null;
+}
+function patternInfo(rows,dir,zone){
+  const r=closed(rows);if(r.length<3)return{ok:false,name:"нет данных"};
+  const a=r.at(-2),b=r.at(-1),range=Math.max(b.high-b.low,1e-12),body=Math.abs(b.close-b.open),up=b.high-Math.max(b.open,b.close),lo=Math.min(b.open,b.close)-b.low;
+  const bullPin=lo>Math.max(body*2,range*.42)&&up<range*.28&&b.close>b.open;
+  const bearPin=up>Math.max(body*2,range*.42)&&lo<range*.28&&b.close<b.open;
+  const bullEng=b.close>b.open&&a.close<a.open&&b.close>=a.open&&b.open<=a.close;
+  const bearEng=b.close<b.open&&a.close>a.open&&b.open>=a.close&&b.close<=a.open;
+  const doji=body/range<=.12;
+  if(dir>0&&bullPin)return{ok:true,name:"Bullish pin bar"};
+  if(dir<0&&bearPin)return{ok:true,name:"Bearish pin bar"};
+  if(dir>0&&bullEng)return{ok:true,name:"Bullish engulfing"};
+  if(dir<0&&bearEng)return{ok:true,name:"Bearish engulfing"};
+  if(doji&&zone)return{ok:true,name:"Doji-context"};
+  return{ok:false,name:"нет подтверждающего паттерна"};
+}
+function reactionInfo(rows,dir,zone){
+  const r=closed(rows);if(r.length<2||!zone)return{ok:false,text:"ждём касание и реакцию"};
+  const b=r.at(-1),a=atr(r),touched=b.low<=zone.p+zone.half&&b.high>=zone.p-zone.half;
+  const moved=dir>0?(b.close-zone.p)>=a*.18:(zone.p-b.close)>=a*.18;
+  return{ok:touched&&moved,text:touched&&moved?"реакция от зоны подтверждена":touched?"касание есть, реакции мало":"цена не касалась зоны"};
+}
+function volumeInfo(rows){
+  const r=closed(rows);if(r.length<22)return{ok:false,ratio:0};
+  const last=r.at(-1).volume||0,base=avg(r.slice(-21,-1).map(x=>x.volume||0)),ratio=base?last/base:0;
+  return{ok:ratio>=1.05,ratio};
+}
+function smaInfo(rows,dir){
+  const r=closed(rows);if(r.length<210||!dir)return{ok:false,text:"ждём направление"};
+  const s20=smaValues(r,20).at(-1),s50=smaValues(r,50).at(-1),s200=smaValues(r,200).at(-1),p=r.at(-1).close;
+  const ok=dir>0?(p>s200&&s20>=s50):(p<s200&&s20<=s50);
+  return{ok,text:`P ${dir>0?">":"<"} SMA200 · SMA20 ${dir>0?">=":"<="} SMA50`,s20,s50,s200};
+}
+function breakoutRetest(rows,dir,zones){
+  const r=closed(rows);if(r.length<10||!dir||!zones.length)return{required:false,ok:true,text:"не требуется"};
+  const last=r.slice(-8),a=atr(r),pad=Math.max(a*.18,r.at(-1).close*.0007);
+  const candidates=zones.filter(z=>dir>0?z.p<r.at(-1).close:z.p>r.at(-1).close);
+  for(const z of candidates){
+    for(let i=1;i<last.length-1;i++){
+      const prev=last[i-1],cur=last[i];
+      const broke=dir>0?(prev.close<=z.p&&cur.close>z.p+pad):(prev.close>=z.p&&cur.close<z.p-pad);
+      if(!broke)continue;
+      const after=last.slice(i+1);
+      const retest=after.some(x=>dir>0?(x.low<=z.p+pad&&x.close>z.p):(x.high>=z.p-pad&&x.close<z.p));
+      return{required:true,ok:retest,text:retest?"break + close + retest подтверждены":"пробой есть, ждём ретест"};
+    }
+  }
+  return{required:false,ok:true,text:"не требуется"};
+}
+function riskTargets(entry,dir,zones,rows){
+  if(!Number.isFinite(entry)||!dir)return{sl:null,tp:null,rr:null};
+  const r=closed(rows),a=atr(r),support=zones.filter(z=>z.p<=entry).sort((x,y)=>y.p-x.p)[0],resistance=zones.filter(z=>z.p>=entry).sort((x,y)=>x.p-y.p)[0];
+  let sl=null,tp=null;
+  if(dir>0&&support){const swing=Math.min(...r.slice(-12).map(x=>x.low));sl=Math.min(support.p-support.half,swing)-a*.12;tp=resistance?.p??null}
+  if(dir<0&&resistance){const swing=Math.max(...r.slice(-12).map(x=>x.high));sl=Math.max(resistance.p+resistance.half,swing)+a*.12;tp=support?.p??null}
+  const risk=Number.isFinite(sl)?Math.abs(entry-sl):0,reward=Number.isFinite(tp)?Math.abs(tp-entry):0;
+  const rr=risk>0&&reward>0?reward/risk:null;
+  return{sl,tp,rr};
+}
+function setCheck(id,status,text){
+  const e=document.getElementById(id);if(!e)return;
+  e.className="check "+status;
+  const st=e.querySelector(".check-state");if(st)st.textContent=status==="pass"?"PASS":status==="fail"?"FAIL":"WAIT";
+  const t=document.getElementById(id+"Text");if(t)t.textContent=text;
+}
+function setTrendCard(id,infoId,t){
+  const e=document.getElementById(id);e.textContent=t.label;e.style.color=trendColor(t.dir);
+  document.getElementById(infoId).textContent=`${t.structure} · ${Number.isFinite(t.s200)?("SMA200 "+fmtPrice(t.s200)):"SMA200 —"}`;
+}
+function applyVerdict(v){
+  document.getElementById("decision").className="action "+(v==="ENTER"?"enter":v==="SKIP"?"skip":"wait");
+  document.getElementById("decision").textContent=v;
+  ["vEnter","vWait","vSkip"].forEach(id=>document.getElementById(id).classList.remove("active"));
+  document.getElementById(v==="ENTER"?"vEnter":v==="SKIP"?"vSkip":"vWait").classList.add("active");
 }
 function render(){
-  const rows=state.candles[state.tf]||[];
-  if(rows.length&&candleSeries)candleSeries.setData(rows.map(x=>({time:x.time,open:x.open,high:x.high,low:x.low,close:x.close})));
+  const rows=state.candles[state.tf]||[];if(!rows.length)return;
+  candleSeries.setData(rows.map(x=>({time:x.time,open:x.open,high:x.high,low:x.low,close:x.close})));
+  const s20=smaValues(rows,20),s50=smaValues(rows,50),s200=smaValues(rows,200);
+  sma20Series.setData(rows.map((x,i)=>s20[i]==null?null:{time:x.time,value:s20[i]}).filter(Boolean));
+  sma50Series.setData(rows.map((x,i)=>s50[i]==null?null:{time:x.time,value:s50[i]}).filter(Boolean));
+  sma200Series.setData(rows.map((x,i)=>s200[i]==null?null:{time:x.time,value:s200[i]}).filter(Boolean));
+  volumeSeries.setData(rows.map(x=>({time:x.time,value:x.volume||0,color:x.close>=x.open?"rgba(61,227,156,.34)":"rgba(255,99,125,.34)"})));
   clearLines();
-  const base=state.candles["5m"]||rows, m=magnets(base), a=atr(base);
-  if(m.main)addLine(m.main.p,"#ffc247","MAIN MAGNET");
-  if(m.near)addLine(m.near.p,"#52d8ff","NEAREST");
-  if(m.lower)addLine(m.lower.p,"#9677ff","LOWER");
-  if(m.current&&a){addLine(m.current+a*.45,"#ff54c7","ВЕРХ ЗОНЫ",3);addLine(m.current-a*.45,"#ff54c7","НИЗ ЗОНЫ",3)}
-  if(!candleSeries&&rows.length)drawFallback(rows,m,a);
-  if(rows.length&&chart)chart.timeScale().fitContent();
-  requestAnimationFrame(()=>updateDecisionUX(m,a,base));
 
-  const t1=trendOf(state.candles["1h"]),t15=trendOf(state.candles["15m"]),m5=momentum(base);
-  const d=dealDelta(state.deals), dsgn=d>0?1:d<0?-1:0;
-  const magSide=m.main?(m.main.p>m.current?1:-1):0;
-  const votes=[t1,t15,m5,dsgn,magSide]; const score=votes.reduce((s,x)=>s+x,0);
-  const conf=Math.min(92,Math.round(50+Math.abs(score)*8));
-  const decision=Math.abs(score)>=3?(score>0?"LONG BIAS":"SHORT BIAS"):"ЖДАТЬ";
-  const color=score>0?"#3de39c":score<0?"#ff637d":"#ffc247";
-  document.getElementById("decision").textContent=decision;
-  document.getElementById("decision").style.color=color;
-  document.getElementById("confidence").textContent="Совпадение факторов: "+conf+"%";
-  document.getElementById("confidenceBar").style.width=conf+"%";
-  document.getElementById("decisionReason").textContent=
-    decision==="ЖДАТЬ"?"Факторы не собраны в одну сторону. Ждём реакцию у магнита → BOS/CHOCH → ретест.":
-    "Есть направленный перевес, но вход подтверждается только после реакции у ликвидности и структуры.";
+  const d1=trendState(state.candles["1d"]||[]),h4=trendState(state.candles["4h"]||[]),h1=trendState(state.candles["1h"]||[]);
+  setTrendCard("trend1d","trend1dInfo",d1);setTrendCard("trend4h","trend4hInfo",h4);setTrendCard("trend1h","trend1hInfo",h1);
+  const aligned=d1.dir!==0&&d1.dir===h4.dir&&h4.dir===h1.dir,dir=aligned?d1.dir:0;
+  const oneHour=closed(state.candles["1h"]||[]),entry=oneHour.at(-1)?.close;
+  const zones=Number.isFinite(entry)?keyLevels(entry):[];
+  zones.forEach((z,i)=>{const col=z.type==="S"?"#3de39c":"#ff637d";addLine(z.p,col,`${z.type}${i+1}`,2);addLine(z.p-z.half,col,"",3);addLine(z.p+z.half,col,"",3)});
+  const near=Number.isFinite(entry)?nearestZone(zones,entry):null;
+  const atLevel=!!near&&Math.abs(entry-near.p)<=near.half*1.35;
+  const reaction=reactionInfo(state.candles["1h"]||[],dir,near);
+  const pattern=patternInfo(state.candles["1h"]||[],dir,near);
+  const vol=volumeInfo(state.candles["1h"]||[]);
+  const sma=smaInfo(state.candles["1h"]||[],dir);
+  const br=breakoutRetest(state.candles["1h"]||[],dir,zones);
+  const rt=riskTargets(entry,dir,zones,state.candles["1h"]||[]);
+  if(Number.isFinite(rt.sl))addLine(rt.sl,"#ff637d","STRUCTURAL SL",1);
+  if(Number.isFinite(rt.tp))addLine(rt.tp,"#3de39c","NEXT LEVEL TP",1);
+  addLine(entry,"#edf4ff","ENTRY",3);
 
-  setBadge("f1",t1);setBadge("f2",t15);setBadge("f3",m5);setBadge("f4",dsgn,dsgn>0?"BUY":dsgn<0?"SELL":"FLAT");setBadge("f5",magSide,magSide>0?"СВЕРХУ":magSide<0?"СНИЗУ":"—");
-  document.getElementById("mainMagnet").textContent=m.main?fmtPrice(m.main.p):"—";
-  document.getElementById("mainMagnetSide").textContent=m.main?(m.main.p>m.current?"ликвидность сверху":"ликвидность снизу"):"нет данных";
-  document.getElementById("delta").textContent=Number.isFinite(d)?(d>=0?"+":"")+d.toFixed(2):"—";
-  document.getElementById("pressure").textContent=dsgn>0?"покупатели агрессивнее":dsgn<0?"продавцы агрессивнее":"баланс";
-  const rr=riskScore(t1,t15,m5,dsgn,magSide);document.getElementById("reversalRisk").textContent=rr+"%";
+  const trendPass=aligned,levelPass=zones.length>=2;
+  const confirmation=trendPass&&levelPass&&atLevel&&reaction.ok&&pattern.ok&&vol.ok&&sma.ok&&br.ok;
+  const riskReady=Number.isFinite(rt.sl)&&Number.isFinite(rt.tp)&&Number.isFinite(rt.rr);
+  let verdict="WAIT-CHANGE";
+  if(confirmation&&riskReady&&rt.rr>=2)verdict="ENTER";
+  else if(confirmation&&riskReady&&rt.rr<2)verdict="SKIP";
+  applyVerdict(verdict);
 
-  const dir=label(score>1?1:score<-1?-1:0);
-  document.getElementById("h1").textContent=dir;
-  document.getElementById("h2").textContent=label(t1);
-  document.getElementById("h3").textContent=label(t1&&t15===t1?t1:0);
-  document.getElementById("h4").textContent="Наблюдение";
-  document.getElementById("scenarioA").textContent=magSide>0?"Цена → верхний магнит":"Цена → нижний магнит";
-  document.getElementById("scenarioAText").textContent="Условие: импульс сохраняется, Delta поддерживает движение, структура не ломается против сценария.";
-  document.getElementById("scenarioB").textContent=magSide>0?"Sweep сверху → реакция вниз":"Sweep снизу → реакция вверх";
-  document.getElementById("scenarioBText").textContent="Условие: снятие ликвидности, ослабление Delta/CVD, затем CHOCH/BOS и подтверждённый ретест.";
+  setCheck("cTrend",trendPass?"pass":"wait",trendPass?`${d1.label} / ${h4.label} / ${h1.label}`:`${d1.label} / ${h4.label} / ${h1.label} · нужна синхронизация`);
+  setCheck("cLevel",levelPass?"pass":"wait",levelPass?`${zones.length} ключевых зон 1D/4H`:"недостаточно подтверждённых зон");
+  setCheck("cWait",atLevel?"pass":"wait",near?`ближайшая ${near.type}: ${fmtPrice(near.p)}`:"ключевой уровень не найден");
+  setCheck("cReaction",reaction.ok?"pass":"wait",reaction.text);
+  setCheck("cPattern",pattern.ok?"pass":"wait",pattern.name);
+  setCheck("cVolume",vol.ok?"pass":"wait",vol.ratio?`объём ×${vol.ratio.toFixed(2)} к среднему 20`:"нет данных");
+  setCheck("cSma",sma.ok?"pass":"wait",sma.text);
+  setCheck("cBreak",br.ok?"pass":"wait",br.text);
+  setCheck("cConfirm",confirmation?"pass":"wait",confirmation?"все обязательные условия собраны":"подтверждение ещё не собрано");
+  setCheck("cSl",Number.isFinite(rt.sl)?"pass":"wait",Number.isFinite(rt.sl)?fmtPrice(rt.sl):"нужна структурная опора");
+  setCheck("cTp",Number.isFinite(rt.tp)?"pass":"wait",Number.isFinite(rt.tp)?fmtPrice(rt.tp):"следующий ключевой уровень не найден");
+  setCheck("cRR",riskReady?(rt.rr>=2?"pass":"fail"):"wait",riskReady?`1:${rt.rr.toFixed(2)}`:"ждём SL и TP");
+
+  const checks=[trendPass,levelPass,atLevel,reaction.ok,pattern.ok,vol.ok,sma.ok,br.ok,confirmation,Number.isFinite(rt.sl),Number.isFinite(rt.tp),riskReady&&rt.rr>=2];
+  const ready=Math.round(checks.filter(Boolean).length/checks.length*100);
+  document.getElementById("confidence").textContent="Готовность: "+ready+"%";
+  document.getElementById("confidenceBar").style.width=ready+"%";
+  document.getElementById("coreEntry").textContent=fmtPrice(entry);
+  document.getElementById("coreSL").textContent=fmtPrice(rt.sl);
+  document.getElementById("coreTP").textContent=fmtPrice(rt.tp);
+  document.getElementById("coreRR").textContent=Number.isFinite(rt.rr)?"1:"+rt.rr.toFixed(2):"—";
+  const directionText=dir>0?"LONG":dir<0?"SHORT":"WAIT";
+  document.getElementById("scenarioA").textContent=directionText;
+  document.getElementById("scenarioA").className="path "+(dir>0?"up":dir<0?"down":"");
+  document.getElementById("scenarioAText").textContent=dir?`HTF направление ${directionText}. Вход только у key S/R после реакции и подтверждения.`:"1D / 4H / 1H пока не дают одного направления.";
+  document.getElementById("scenarioB").textContent=verdict==="ENTER"?"Следить за invalidation":verdict==="SKIP"?"Ждать новый R:R ≥ 1:2":"Ждать следующий закрытый бар";
+  document.getElementById("scenarioBText").textContent=verdict==="ENTER"?`SL ${fmtPrice(rt.sl)} · TP ${fmtPrice(rt.tp)} · R:R 1:${rt.rr.toFixed(2)}`:verdict==="SKIP"?"Структура подтверждена, но ближайший ключевой TP не даёт минимум 1:2.":"Решение изменится только после выполнения следующего недостающего шага цепочки.";
+  document.getElementById("decisionReason").textContent=verdict==="ENTER"?"BASE CORE V1: условия подтверждены. Структурный SL и следующий ключевой TP дают R:R ≥ 1:2.":verdict==="SKIP"?"Сетап сформирован, но R:R ниже 1:2 — пропуск.":!trendPass?"1D / 4H / 1H не синхронизированы — ждём.":!atLevel?"Цена ещё не у ключевого уровня — ждём.":"Уровень есть, но подтверждение ещё не собрано.";
+  document.getElementById("coreStatus").textContent=verdict+" · "+directionText;
+  document.getElementById("coreStatus").style.color=verdict==="ENTER"?"#3de39c":verdict==="SKIP"?"#ff637d":"#ffc247";
+  document.getElementById("coreStatusNote").textContent=document.getElementById("decisionReason").textContent;
+  chart.timeScale().fitContent();
 }
-async function getJSON(url){const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw new Error(r.status);return r.json()}
+async function getJSON(url){const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw new Error(await r.text());return r.json()}
 async function load(){
-  const s=state.symbol, tfs=["1m","5m","15m","1h"];
-  const jobs=[
-    getJSON("/api/ticker?symbol="+s),
-    getJSON("/api/deals?symbol="+s+"&limit=100"),
-    ...tfs.map(tf=>getJSON("/api/klines?symbol="+s+"&timeframe="+tf+"&limit=350"))
-  ];
-  const res=await Promise.allSettled(jobs);
-  let ok=0;
-  if(res[0].status==="fulfilled"){
-    const ticker=res[0].value;state.ticker=ticker;ok++;
-    document.getElementById("price").textContent=fmtPrice(ticker.last_price);
-    const ch=ticker.change_24h||0;document.getElementById("change").textContent="24ч "+(ch>=0?"+":"")+ch.toFixed(2)+"%";
-    document.getElementById("change").style.color=ch>=0?"#3de39c":"#ff637d";
-  }
-  if(res[1].status==="fulfilled"){state.deals=res[1].value.deals||[];ok++}
-  tfs.forEach((tf,i)=>{const r=res[i+2];if(r.status==="fulfilled"){state.candles[tf]=r.value.candles||[];ok++}});
-  if(Object.values(state.candles).some(x=>x&&x.length))render();
+  const s=state.symbol,tfs=["5m","1h","4h","1d"];
+  const jobs=[getJSON("/api/ticker?symbol="+s),...tfs.map(tf=>getJSON("/api/klines?symbol="+s+"&timeframe="+tf+"&limit=350"))];
+  const res=await Promise.allSettled(jobs);let ok=0;
+  if(res[0].status==="fulfilled"){state.ticker=res[0].value;ok++;const t=state.ticker;document.getElementById("price").textContent=fmtPrice(t.last_price);const ch=t.change_24h||0;document.getElementById("change").textContent="24ч "+(ch>=0?"+":"")+ch.toFixed(2)+"%";document.getElementById("change").style.color=ch>=0?"#3de39c":"#ff637d"}
+  tfs.forEach((tf,i)=>{const r=res[i+1];if(r.status==="fulfilled"){state.candles[tf]=r.value.candles||[];ok++}});
   const live=document.querySelector(".live");
-  if(ok===jobs.length){live.style.color="#3de39c";live.innerHTML='<span class="dot"></span> LIVE ANALYTICS'}
-  else if(ok>0){live.style.color="#ffc247";live.innerHTML='<span class="dot" style="background:#ffc247;box-shadow:0 0 14px #ffc247"></span> PARTIAL DATA'}
-  else{
-    live.style.color="#ff637d";live.innerHTML='<span class="dot" style="background:#ff637d;box-shadow:0 0 14px #ff637d"></span> DATA OFFLINE';
-    document.getElementById("decision").textContent="DATA ERROR";
-    document.getElementById("decisionReason").textContent="Backend не отвечает. Повторная попытка идёт автоматически.";
-  }
+  if(ok===jobs.length){live.style.color="#3de39c";live.innerHTML='<span class="dot"></span> LIVE · BASE CORE V1';render()}
+  else if(ok>0){live.style.color="#ffc247";live.innerHTML='<span class="dot" style="background:#ffc247;box-shadow:0 0 14px #ffc247"></span> PARTIAL DATA';if(state.candles[state.tf]?.length)render()}
+  else{live.style.color="#ff637d";live.innerHTML='<span class="dot" style="background:#ff637d;box-shadow:0 0 14px #ff637d"></span> DATA OFFLINE';applyVerdict("WAIT-CHANGE");document.getElementById("decisionReason").textContent="API не отвечает. Решение не формируется без данных."}
 }
 function clock(){
-  const now=new Date(), utc=now.getTime()+now.getTimezoneOffset()*60000, kyiv=new Date(utc+3*3600000);
-  const h=kyiv.getHours(),m=kyiv.getMinutes(),s=kyiv.getSeconds(), hours=h+m/60+s/3600;
+  const now=new Date(),utc=now.getTime()+now.getTimezoneOffset()*60000,kyiv=new Date(utc+3*3600000);
+  const h=kyiv.getHours(),m=kyiv.getMinutes(),s=kyiv.getSeconds(),hours=h+m/60+s/3600;
   document.getElementById("clock").textContent=[h,m,s].map(x=>String(x).padStart(2,"0")).join(":");
   document.getElementById("timePointer").style.left=(hours/24*100)+"%";
 }
-document.getElementById("symbol").addEventListener("change",e=>{
-  state.symbol=e.target.value;state.candles={};state.deals=[];
-  const p=state.symbol.replace("_","/");document.getElementById("pairTitle").textContent=p;document.getElementById("chartTitle").textContent=p+" · Карта рынка";load()
-});
-document.querySelectorAll("[data-tf]").forEach(b=>b.addEventListener("click",()=>{
-  document.querySelectorAll("[data-tf]").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.tf=b.dataset.tf;render()
-}));
-try{initChart()}catch(e){
-  console.error("chart init",e);
-  const el=document.getElementById("chart");
-  el.innerHTML='<canvas id="fallbackChart" style="width:100%;height:100%;display:block"></canvas>';
-}
-clock();setInterval(clock,1000);load();setInterval(load,15000);
+document.getElementById("symbol").addEventListener("change",e=>{state.symbol=e.target.value;state.candles={};const p=state.symbol.replace("_","/");document.getElementById("pairTitle").textContent=p;document.getElementById("chartTitle").textContent=p+" · BASE CORE V1";load()});
+document.querySelectorAll("[data-tf]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-tf]").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.tf=b.dataset.tf;if(state.candles[state.tf]?.length)render()}));
+initChart();clock();setInterval(clock,1000);load();setInterval(load,15000);
 </script>
 </body></html>

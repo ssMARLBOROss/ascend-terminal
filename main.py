@@ -44,6 +44,8 @@ TIMEFRAMES = {
     "5m": ("Min5", 300),
     "15m": ("Min15", 900),
     "1h": ("Min60", 3600),
+    "4h": ("Hour4", 14400),
+    "1d": ("Day1", 86400),
 }
 
 # HTML is stored and served strictly as UTF-8.
@@ -7677,7 +7679,7 @@ async def telegram_start(
     await update.effective_message.reply_text(
         "👋 ssMarlboross Live\n\n"
         "Живой график MEXC, реальные цены, таймер свечи "
-        "и базовый анализ 1H → 15M → 5M → 1M.",
+        "и BASE CORE V1: 1D → 4H → 1H → уровень → подтверждение.",
         reply_markup=keyboard,
     )
 
