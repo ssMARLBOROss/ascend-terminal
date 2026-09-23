@@ -53,6 +53,23 @@
     #chart{height:520px;border-radius:12px;overflow:hidden;background:#080e17}
     .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:9px;color:var(--muted)}
     .legend span{display:flex;align-items:center;gap:4px}.legend i{width:15px;height:2px;display:inline-block}.lg-main{background:var(--yellow)}.lg-near{background:var(--cyan)}.lg-low{background:var(--purple)}.lg-decision{background:var(--pink)}
+    .route-card{padding:12px 14px;margin-bottom:12px;overflow-x:auto}
+    .route-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+    .route-head b{font-size:12px}.route-status{font-size:10px;color:var(--yellow)}
+    .route-steps{display:grid;grid-template-columns:repeat(7,minmax(105px,1fr));gap:7px;min-width:760px}
+    .route-step{position:relative;padding:9px 8px 9px 30px;border:1px solid var(--line);border-radius:10px;background:#09111c;color:#6f7f94;font-size:9px;font-weight:850;letter-spacing:.02em;white-space:nowrap}
+    .route-step:before{content:"";position:absolute;left:9px;top:50%;width:11px;height:11px;transform:translateY(-50%);border-radius:50%;border:2px solid #536277;background:#09111c}
+    .route-step.done{color:#76efbd;border-color:rgba(61,227,156,.35);background:rgba(61,227,156,.07)}
+    .route-step.done:before{border-color:var(--green);background:var(--green);box-shadow:0 0 12px rgba(61,227,156,.5)}
+    .route-step.active{color:#ffd889;border-color:rgba(255,194,71,.48);background:rgba(255,194,71,.08);box-shadow:inset 0 0 18px rgba(255,194,71,.04)}
+    .route-step.active:before{border-color:var(--yellow);box-shadow:0 0 12px rgba(255,194,71,.55)}
+    .chart-wrap{position:relative;border-radius:12px;overflow:hidden;background:#080e17}
+    .decision-band{display:none;position:absolute;left:0;right:0;z-index:3;pointer-events:none;background:rgba(255,84,199,.12);border-top:1px dashed rgba(255,84,199,.9);border-bottom:1px dashed rgba(255,84,199,.9)}
+    .zone-edge{position:absolute;right:6px;padding:3px 6px;border-radius:5px;background:var(--pink);color:#fff;font-size:9px;font-weight:850;white-space:nowrap}
+    .zone-edge.top{top:-11px}.zone-edge.bottom{bottom:-11px}
+    .event-chips{position:absolute;left:8px;bottom:8px;z-index:4;display:flex;flex-wrap:wrap;gap:5px;pointer-events:none}
+    .event-chip{padding:4px 7px;border:1px solid #35465e;border-radius:999px;background:rgba(8,14,23,.88);color:#687991;font-size:8px;font-weight:800}
+    .event-chip.on{color:#ff9cdf;border-color:rgba(255,84,199,.65);background:rgba(255,84,199,.12)}
     .right{display:grid;gap:10px;align-content:start}.decision{padding:16px;position:relative;overflow:hidden}.decision:before{content:"";position:absolute;inset:auto -80px -100px auto;width:220px;height:220px;border-radius:50%;background:rgba(82,216,255,.08);filter:blur(10px)}
     .eyebrow{font-size:9px;letter-spacing:.14em;color:var(--muted);font-weight:800}.decision .action{font-size:34px;font-weight:950;margin-top:7px}.decision .confidence{font-size:11px;color:var(--muted);margin-top:4px}
     .meter{height:7px;border-radius:999px;background:#08101a;border:1px solid var(--line);overflow:hidden;margin-top:11px}.meter>div{height:100%;width:50%;background:linear-gradient(90deg,var(--red),var(--yellow),var(--green));transition:.3s}
@@ -113,6 +130,19 @@
         <div class="card kpi"><div class="l">Риск разворота</div><div class="v" id="reversalRisk">—</div><div class="s">structure + momentum</div></div>
       </section>
 
+      <section class="card route-card">
+        <div class="route-head"><b>Торговый маршрут</b><span class="route-status" id="routeStatus">Собираю данные…</span></div>
+        <div class="route-steps">
+          <div class="route-step" id="route0">SIGNAL₀</div>
+          <div class="route-step" id="route1">МАГНИТ</div>
+          <div class="route-step" id="route2">TOUCH / SWEEP</div>
+          <div class="route-step" id="route3">SIGNAL₁</div>
+          <div class="route-step" id="route4">BOS / CHOCH</div>
+          <div class="route-step" id="route5">RETEST</div>
+          <div class="route-step" id="route6">ENTER</div>
+        </div>
+      </section>
+
       <section class="workspace">
         <div>
           <div class="card chart-card">
@@ -122,7 +152,11 @@
                 <button data-tf="1m">1m</button><button class="active" data-tf="5m">5m</button><button data-tf="15m">15m</button><button data-tf="1h">1H</button>
               </div>
             </div>
-            <div id="chart"></div>
+            <div class="chart-wrap">
+              <div id="chart"></div>
+              <div class="decision-band" id="decisionBand"><span class="zone-edge top" id="zoneTop">ВЕРХ ЗОНЫ</span><span class="zone-edge bottom" id="zoneBottom">НИЗ ЗОНЫ</span></div>
+              <div class="event-chips"><span class="event-chip" id="evTouch">КАСАНИЕ</span><span class="event-chip" id="evSweep">SWEEP</span><span class="event-chip" id="evReturn">ВОЗВРАТ В ЗОНУ</span><span class="event-chip" id="evBos">BOS/CHOCH</span></div>
+            </div>
             <div class="legend"><span><i class="lg-main"></i>Основной магнит</span><span><i class="lg-near"></i>Ближайший</span><span><i class="lg-low"></i>Нижний</span><span><i class="lg-decision"></i>Decision Zone</span></div>
             <div class="horizons">
               <div class="horizon"><small>Intraday</small><b id="h1">—</b></div>
@@ -221,7 +255,7 @@ function drawFallback(rows,m={},a=0){
   });
   const line=(p,col,name,dash=[6,4])=>{if(!Number.isFinite(p))return;const yy=Y(p);x.save();x.setLineDash(dash);x.strokeStyle=col;x.beginPath();x.moveTo(0,yy);x.lineTo(w,yy);x.stroke();x.setLineDash([]);x.fillStyle=col;x.font="10px system-ui";x.fillText(name,8,Math.max(12,yy-4));x.restore()};
   line(m.main?.p,"#ffc247","MAIN MAGNET");line(m.near?.p,"#52d8ff","NEAREST");line(m.lower?.p,"#9677ff","LOWER");
-  if(m.current&&a){line(m.current+a*.45,"#ff54c7","DECISION +",[3,4]);line(m.current-a*.45,"#ff54c7","DECISION -",[3,4])}
+  if(m.current&&a){line(m.current+a*.45,"#ff54c7","ВЕРХ ЗОНЫ",[3,4]);line(m.current-a*.45,"#ff54c7","НИЗ ЗОНЫ",[3,4])}
 }
 
 function trendOf(rows,n=40){
@@ -282,6 +316,33 @@ function addLine(price,color,title,style=2){
   const l=candleSeries.createPriceLine({price,color,lineWidth:1,lineStyle:style,axisLabelVisible:true,title});
   priceLines.push(l);
 }
+function setRouteStep(id,state){
+  const e=document.getElementById(id);if(e)e.className="route-step "+state;
+}
+function updateDecisionUX(m,a,rows){
+  if(!m||!m.current||!a||!rows||!rows.length)return;
+  const hi=m.current+a*.45,lo=m.current-a*.45,last=rows[rows.length-1];
+  const targets=[m.near?.p,m.main?.p,m.lower?.p].filter(Number.isFinite);
+  const touch=targets.some(p=>Math.abs(m.current-p)<=a*.15);
+  const sweptUp=targets.some(p=>last.high>=p&&last.close<p);
+  const sweptDown=targets.some(p=>last.low<=p&&last.close>p);
+  const sweep=sweptUp||sweptDown,inZone=m.current<=hi&&m.current>=lo;
+  const band=document.getElementById("decisionBand");
+  if(band&&candleSeries&&candleSeries.priceToCoordinate){
+    const y1=candleSeries.priceToCoordinate(hi),y2=candleSeries.priceToCoordinate(lo);
+    if(Number.isFinite(y1)&&Number.isFinite(y2)){band.style.display="block";band.style.top=Math.min(y1,y2)+"px";band.style.height=Math.max(2,Math.abs(y2-y1))+"px"}
+  }
+  document.getElementById("zoneTop").textContent="ВЕРХ ЗОНЫ · "+fmtPrice(hi);
+  document.getElementById("zoneBottom").textContent="НИЗ ЗОНЫ · "+fmtPrice(lo);
+  document.getElementById("evTouch").classList.toggle("on",touch);
+  document.getElementById("evSweep").classList.toggle("on",sweep);
+  document.getElementById("evReturn").classList.toggle("on",inZone);
+  setRouteStep("route0","done");
+  setRouteStep("route1",m.main||m.near?"done":"active");
+  setRouteStep("route2",touch||sweep?"done":"active");
+  ["route3","route4","route5","route6"].forEach(id=>setRouteStep(id,""));
+  document.getElementById("routeStatus").textContent=touch||sweep?"3/7 · ЖДЁМ SIGNAL₁":"2/7 · ЖДЁМ TOUCH / SWEEP";
+}
 function render(){
   const rows=state.candles[state.tf]||[];
   if(rows.length&&candleSeries)candleSeries.setData(rows.map(x=>({time:x.time,open:x.open,high:x.high,low:x.low,close:x.close})));
@@ -290,9 +351,10 @@ function render(){
   if(m.main)addLine(m.main.p,"#ffc247","MAIN MAGNET");
   if(m.near)addLine(m.near.p,"#52d8ff","NEAREST");
   if(m.lower)addLine(m.lower.p,"#9677ff","LOWER");
-  if(m.current&&a){addLine(m.current+a*.45,"#ff54c7","DECISION +",3);addLine(m.current-a*.45,"#ff54c7","DECISION -",3)}
+  if(m.current&&a){addLine(m.current+a*.45,"#ff54c7","ВЕРХ ЗОНЫ",3);addLine(m.current-a*.45,"#ff54c7","НИЗ ЗОНЫ",3)}
   if(!candleSeries&&rows.length)drawFallback(rows,m,a);
   if(rows.length&&chart)chart.timeScale().fitContent();
+  requestAnimationFrame(()=>updateDecisionUX(m,a,base));
 
   const t1=trendOf(state.candles["1h"]),t15=trendOf(state.candles["15m"]),m5=momentum(base);
   const d=dealDelta(state.deals), dsgn=d>0?1:d<0?-1:0;
