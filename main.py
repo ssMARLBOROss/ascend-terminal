@@ -1924,16 +1924,60 @@ INDEX_HTML = r"""<!doctype html>
     @media (max-width: 560px) {
       #chart { height: 420px; }
     }
+
+    /* ASCEND TERMINAL · FINAL V1 — presentation layer only */
+    body { background: radial-gradient(circle at 50% -10%, rgba(49,91,168,.18), transparent 38%), #070a10; }
+    .app { max-width: 1760px; padding-left:18px; padding-right:18px; }
+    .header { padding:14px 16px; border-radius:14px; }
+    .header h1 { font-size:22px; margin:4px 0; }
+    .header .subtitle { max-width:900px; font-size:12px; }
+    .controls { margin-top:10px; }
+    .prices { margin-top:9px; grid-template-columns:repeat(7,1fr)!important; }
+    .metric { padding:8px 10px; }
+    .metric strong { font-size:15px; }
+    .tf { grid-template-columns:repeat(4,minmax(64px,110px)); }
+    .tf-grid { margin-top:10px; }
+    .entry-permission { margin-top:10px; padding:12px 16px; text-align:left; display:grid; grid-template-columns:auto 1fr; column-gap:18px; align-items:center; }
+    .entry-permission small { grid-column:1/-1; }
+    .entry-permission strong { font-size:28px; margin-top:3px; }
+    .entry-permission p { margin:3px 0 0; }
+    .terminal-shell { grid-template-columns:minmax(0,1fr) minmax(330px,390px); gap:10px; margin-top:10px; }
+    .terminal-side { gap:10px; top:8px; }
+    .terminal-main .chart-card { min-height:650px; padding:14px; }
+    .terminal-main #chart { height:550px; }
+    .chart-head { margin-bottom:6px; }
+    .big-price { font-size:28px; }
+    .legend { opacity:.72; font-size:10px; }
+    .terminal-lower { margin-top:10px; }
+    .strategy-card { padding:14px; }
+    .strategy-checks { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+    .strategy-checks > * { min-height:34px; }
+    .brain-card,.scenario-card,.manager-card { padding:13px!important; }
+    .brain-action { font-size:28px!important; }
+    .scenario-grid { grid-template-columns:repeat(2,1fr)!important; }
+    .intelligence-card,.pro-decision,.cycle-card,.signal-lifecycle { display:none; }
+    @media (max-width:1050px) {
+      .prices { grid-template-columns:repeat(3,1fr)!important; }
+      .terminal-main #chart { height:520px; }
+      .strategy-checks { grid-template-columns:1fr; }
+    }
+    @media (max-width:680px) {
+      .app { padding-left:9px; padding-right:9px; }
+      .prices { grid-template-columns:repeat(2,1fr)!important; }
+      .entry-permission { grid-template-columns:1fr; }
+      .terminal-main #chart { height:430px; }
+    }
+
   </style>
 </head>
 
 <body>
 <main class="app">
   <section class="card header">
-    <div class="brand">SSMARLBOROSS LIVE · v9.0.1 UTF-8 FIX</div>
-    <h1>ssMarlboross Command Center</h1>
+    <div class="brand">ASCEND TERMINAL · BASE CORE V1</div>
+    <h1>ASCEND Trading Terminal</h1>
     <div class="subtitle">
-      Реальные цены MEXC, таймер свечи и динамическая сила сигнала, его усиление или ослабление, вклад условий и уведомления.
+      1D → 4H → 1H TREND · KEY S/R · PRICE REACTION · VOLUME · SMA20/50/200 · RETEST · CONFIRMATION · STRUCTURAL SL · R:R ≥ 1:2
     </div>
 
     <div class="controls">
@@ -2217,7 +2261,7 @@ INDEX_HTML = r"""<!doctype html>
       <div class="terminal-lower">
         <section class="card strategy-card">
     <div class="structure-head">
-      <strong>Чек-лист стратегии · 5M</strong>
+      <strong>BASE CORE V1 · ТОРГОВЫЙ ЧЕК-ЛИСТ</strong>
       <span class="structure-state warn" id="strategyGate">ЖДАТЬ</span>
     </div>
 
@@ -2297,7 +2341,7 @@ INDEX_HTML = r"""<!doctype html>
   </section>
       <section class="card scenario-card">
     <div class="structure-head">
-      <strong>Автоматический сценарий сделки</strong>
+      <strong>ENTRY · SL · TP · R:R</strong>
       <span class="structure-state warn" id="scenarioState">ЖДАТЬ</span>
     </div>
 
