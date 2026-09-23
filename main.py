@@ -4493,163 +4493,128 @@ function renderSystemBrain() {
   setText("brainExplanation", brain.explanation);
 }
 
+function smaLast(data, period) {
+  if (!data || data.length < period + 2) return null;
+  const closed = data.slice(0, -1);
+  const values = closed.slice(-period).map(c => c.close);
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function baseTrendFor(timeframe) {
+  const data = state.data[timeframe];
+  const metrics = state.metrics[timeframe];
+  if (!data || !metrics || data.length < 202) return "RANGE";
+  const close = data.at(-2).close;
+  const s20 = smaLast(data, 20);
+  const s50 = smaLast(data, 50);
+  const s200 = smaLast(data, 200);
+  if (close > s200 && s20 > s50 && metrics.structure !== "BEAR") return "UP";
+  if (close < s200 && s20 < s50 && metrics.structure !== "BULL") return "DOWN";
+  return "RANGE";
+}
+
+function baseCoreLevels() {
+  const source = [...(state.data["1d"] || []).slice(-80), ...(state.data["4h"] || []).slice(-120)];
+  const current = state.data["5m"]?.at(-2)?.close || 0;
+  if (!source.length || !current) return { support: null, resistance: null };
+  const lows = source.map(c => c.low).filter(v => v < current).sort((a,b) => b-a);
+  const highs = source.map(c => c.high).filter(v => v > current).sort((a,b) => a-b);
+  return { support: lows[0] || null, resistance: highs[0] || null };
+}
+
+function baseCandleReaction(direction) {
+  const data = state.data["5m"];
+  if (!data || data.length < 4) return false;
+  const c = data.at(-2), p = data.at(-3);
+  const range = Math.max(c.high - c.low, Number.EPSILON);
+  const body = Math.abs(c.close - c.open);
+  const upper = c.high - Math.max(c.open, c.close);
+  const lower = Math.min(c.open, c.close) - c.low;
+  const doji = body / range <= 0.18;
+  const pinLong = lower / range >= 0.5 && c.close >= c.open;
+  const pinShort = upper / range >= 0.5 && c.close <= c.open;
+  const engulfLong = c.close > c.open && p.close < p.open && c.close >= p.open && c.open <= p.close;
+  const engulfShort = c.close < c.open && p.close > p.open && c.open >= p.close && c.close <= p.open;
+  return direction === "LONG" ? (pinLong || engulfLong || (doji && c.close >= c.open)) : (pinShort || engulfShort || (doji && c.close <= c.open));
+}
+
 function strategyChecklist() {
   const metrics = state.metrics["5m"];
-  const oneHour = state.metrics["1h"];
-  const fifteen = state.metrics["15m"];
-  const bias = flowBias();
+  const data5 = state.data["5m"];
+  if (!metrics || !data5 || !state.metrics["1h"] || !state.metrics["4h"] || !state.metrics["1d"]) return null;
+
+  const t1d = baseTrendFor("1d");
+  const t4h = baseTrendFor("4h");
+  const t1h = baseTrendFor("1h");
+  let direction = "WAIT";
+  if (t1d === "UP" && t4h === "UP" && t1h !== "DOWN") direction = "LONG";
+  if (t1d === "DOWN" && t4h === "DOWN" && t1h !== "UP") direction = "SHORT";
+
+  const levels = baseCoreLevels();
+  const current = data5.at(-2).close;
+  const atrNow = metrics.arrays?.atrValues?.at?.(-2) || Math.abs(data5.at(-2).high - data5.at(-2).low);
+  const tolerance = Math.max(current * 0.0025, atrNow * 0.45);
+  const targetLevel = direction === "LONG" ? levels.support : levels.resistance;
+  const atLevel = direction !== "WAIT" && targetLevel != null && Math.abs(current - targetLevel) <= tolerance;
+  const reaction = direction !== "WAIT" && baseCandleReaction(direction);
   const volume = volumeSignal();
+  const s20 = smaLast(data5, 20), s50 = smaLast(data5, 50), s200 = smaLast(data5, 200);
+  const smaOk = direction === "LONG"
+    ? current > s200 && s20 >= s50
+    : direction === "SHORT" ? current < s200 && s20 <= s50 : false;
 
-  if (!metrics || !oneHour || !fifteen) {
-    return null;
-  }
+  const breakout = direction === "LONG" ? metrics.breakUpActive : direction === "SHORT" ? metrics.breakDownActive : false;
+  const retestLevel = direction === "LONG" ? metrics.high : metrics.low;
+  const retestReady = !breakout || Math.abs(current - retestLevel) <= tolerance;
+  const breakRetestOk = !breakout || retestReady;
+  const confirmation = direction !== "WAIT" && atLevel && reaction && volume.strong && smaOk && breakRetestOk;
 
-  const scores = combinedScores();
-  const direction = scores.long >= scores.short
-    ? "LONG"
-    : "SHORT";
-
-  const isLong = direction === "LONG";
+  const stop = direction === "LONG"
+    ? Math.min(data5.at(-2).low, targetLevel ?? data5.at(-2).low) - atrNow * 0.15
+    : direction === "SHORT"
+      ? Math.max(data5.at(-2).high, targetLevel ?? data5.at(-2).high) + atrNow * 0.15
+      : null;
+  const nextLevel = direction === "LONG" ? levels.resistance : levels.support;
+  const risk = stop == null ? 0 : Math.abs(current - stop);
+  const reward = nextLevel == null ? 0 : Math.abs(nextLevel - current);
+  const rr = risk > 0 ? reward / risk : 0;
+  const rrOk = rr >= 2;
 
   const checks = [
-    {
-      key: "higherTrend",
-      label: "Старший тренд",
-      ok: isLong
-        ? (
-          oneHour.closedClose > oneHour.ema200 &&
-          fifteen.closedClose > fifteen.ema200
-        )
-        : (
-          oneHour.closedClose < oneHour.ema200 &&
-          fifteen.closedClose < fifteen.ema200
-        ),
-    },
-    {
-      key: "structure",
-      label: isLong ? "Структура HH / HL" : "Структура LH / LL",
-      ok: isLong
-        ? metrics.structure === "BULL"
-        : metrics.structure === "BEAR",
-    },
-    {
-      key: "ema",
-      label: "EMA20 / EMA50",
-      ok: isLong
-        ? metrics.ema20 > metrics.ema50
-        : metrics.ema20 < metrics.ema50,
-    },
-    {
-      key: "ema200",
-      label: "Цена относительно EMA200",
-      ok: isLong
-        ? metrics.closedClose > metrics.ema200
-        : metrics.closedClose < metrics.ema200,
-    },
-    {
-      key: "vwap",
-      label: "VWAP",
-      ok: isLong
-        ? metrics.closedClose > metrics.vwap
-        : metrics.closedClose < metrics.vwap,
-    },
-    {
-      key: "supertrend",
-      label: "Supertrend",
-      ok: isLong
-        ? metrics.supertrend === 1
-        : metrics.supertrend === -1,
-    },
-    {
-      key: "bos",
-      label: isLong ? "BOS вверх" : "BOS вниз",
-      ok: isLong
-        ? metrics.breakUpActive
-        : metrics.breakDownActive,
-    },
-    {
-      key: "delta",
-      label: "Delta 5M / 15M",
-      ok: isLong
-        ? bias === "BUY"
-        : bias === "SELL",
-    },
-    {
-      key: "volume",
-      label: "Объём выше среднего",
-      ok: volume.strong,
-    },
-    {
-      key: "liquidity",
-      label: "Снятие ликвидности",
-      ok: isLong
-        ? metrics.sweep?.type === "LOW"
-        : metrics.sweep?.type === "HIGH",
-    },
-    {
-      key: "smartMoney",
-      label: "FVG или Order Block",
-      ok: Boolean(metrics.fvg || metrics.orderBlock),
-    },
+    { key:"higherTrend", label:`1D → 4H → 1H TREND (${t1d}/${t4h}/${t1h})`, ok: direction !== "WAIT" },
+    { key:"level", label:"KEY SUPPORT / RESISTANCE", ok: targetLevel != null },
+    { key:"atLevel", label:"WAIT PRICE AT LEVEL", ok: atLevel },
+    { key:"reaction", label:"PRICE REACTION", ok: reaction },
+    { key:"candle", label:"PIN BAR / ENGULFING / DOJI-context", ok: reaction },
+    { key:"volume", label:"VOLUME", ok: volume.strong },
+    { key:"ema", label:"SMA20 / SMA50", ok: smaOk },
+    { key:"ema200", label:"SMA200", ok: smaOk },
+    { key:"bos", label:"BREAK + CLOSE + RETEST (если пробой)", ok: breakRetestOk },
+    { key:"confirmation", label:"CONFIRMATION", ok: confirmation },
+    { key:"structure", label:"STRUCTURAL SL", ok: stop != null },
+    { key:"rr", label:"NEXT KEY LEVEL TP · R:R ≥ 1:2", ok: nextLevel != null && rrOk },
   ];
 
   const passed = checks.filter(item => item.ok).length;
-  const readiness = Math.round(
-    passed / checks.length * 100
-  );
-
-  const structureReady = (
-    checks.find(item => item.key === "higherTrend")?.ok &&
-    checks.find(item => item.key === "structure")?.ok
-  );
-
-  const triggerReady = (
-    checks.find(item => item.key === "bos")?.ok &&
-    checks.find(item => item.key === "delta")?.ok &&
-    checks.find(item => item.key === "volume")?.ok
-  );
-
-  const currentPrice = metrics.closedClose;
-  const retestLevel = isLong ? metrics.high : metrics.low;
-  const retestTolerance = Math.max(
-    currentPrice * 0.001,
-    Math.abs(metrics.high - metrics.low) * 0.08
-  );
-
-  const retestReady = Math.abs(
-    currentPrice - retestLevel
-  ) <= retestTolerance;
-
-  let status = "ЖДАТЬ";
-
-  if (
-    readiness >= 85 &&
-    structureReady &&
-    triggerReady &&
-    retestReady
-  ) {
-    status = isLong
-      ? "ИСКАТЬ LONG"
-      : "ИСКАТЬ SHORT";
-  } else if (
-    readiness >= 70 &&
-    structureReady
-  ) {
-    status = "ГОТОВИТЬСЯ";
-  } else if (readiness < 45) {
-    status = "НЕ ТРОГАТЬ";
-  }
+  const readiness = Math.round(passed / checks.length * 100);
+  const enter = direction !== "WAIT" && confirmation && rrOk && stop != null && nextLevel != null;
+  const status = enter ? (direction === "LONG" ? "ИСКАТЬ LONG" : "ИСКАТЬ SHORT")
+    : direction === "WAIT" ? "НЕ ТРОГАТЬ"
+    : readiness >= 55 ? "ГОТОВИТЬСЯ" : "ЖДАТЬ";
 
   return {
-    direction,
-    checks,
-    passed,
-    readiness,
-    structureReady,
-    triggerReady,
+    direction: direction === "WAIT" ? (t1h === "DOWN" ? "SHORT" : "LONG") : direction,
+    baseDirection: direction,
+    checks, passed, readiness,
+    structureReady: direction !== "WAIT" && atLevel,
+    triggerReady: confirmation,
     retestReady,
     retestLevel,
     status,
+    levels,
+    structuralStop: stop,
+    nextKeyLevel: nextLevel,
+    rr,
   };
 }
 
@@ -7273,7 +7238,7 @@ async function refreshAll() {
     tickerResult[0].status === "fulfilled";
 
   const klineResults = await Promise.allSettled(
-    ["1h", "15m", "5m", "1m"].map(fetchTimeframe)
+    ["1d", "4h", "1h", "15m", "5m", "1m"].map(fetchTimeframe)
   );
 
   state.dataHealth.klines = klineResults.every(
