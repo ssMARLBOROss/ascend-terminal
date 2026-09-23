@@ -53,18 +53,12 @@
     #chart{height:520px;border-radius:12px;overflow:hidden;background:#080e17}
     .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:9px;color:var(--muted)}
     .legend span{display:flex;align-items:center;gap:4px}.legend i{width:15px;height:2px;display:inline-block}.lg-main{background:var(--yellow)}.lg-near{background:var(--cyan)}.lg-low{background:var(--purple)}.lg-decision{background:var(--pink)}
-    .route-card{padding:12px 14px;margin-bottom:12px;overflow-x:auto}
-    .route-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-    .route-head b{font-size:12px}.route-status{font-size:10px;color:var(--yellow)}
-    .route-steps{display:grid;grid-template-columns:repeat(7,minmax(105px,1fr));gap:7px;min-width:760px}
-    .route-step{position:relative;padding:9px 8px 9px 30px;border:1px solid var(--line);border-radius:10px;background:#09111c;color:#6f7f94;font-size:9px;font-weight:850;letter-spacing:.02em;white-space:nowrap}
-    .route-step:before{content:"";position:absolute;left:9px;top:50%;width:11px;height:11px;transform:translateY(-50%);border-radius:50%;border:2px solid #536277;background:#09111c}
-    .route-step.done{color:#76efbd;border-color:rgba(61,227,156,.35);background:rgba(61,227,156,.07)}
-    .route-step.done:before{border-color:var(--green);background:var(--green);box-shadow:0 0 12px rgba(61,227,156,.5)}
-    .route-step.active{color:#ffd889;border-color:rgba(255,194,71,.48);background:rgba(255,194,71,.08);box-shadow:inset 0 0 18px rgba(255,194,71,.04)}
-    .route-step.active:before{border-color:var(--yellow);box-shadow:0 0 12px rgba(255,194,71,.55)}
+    .zone-status-card{padding:12px 14px;margin-bottom:12px;background:linear-gradient(135deg,rgba(255,84,199,.16),rgba(82,216,255,.08) 45%,rgba(11,18,28,.96));border-color:rgba(255,84,199,.28)}
+    .zone-status-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .zone-status-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:900;letter-spacing:.05em}.zone-pulse{width:9px;height:9px;border-radius:50%;background:var(--pink);box-shadow:0 0 18px rgba(255,84,199,.85)}
+    .zone-status-value{font-size:11px;color:#ffb4e8;font-weight:850;text-align:right}.zone-status-note{margin-top:8px;font-size:10px;color:#91a1b7;line-height:1.45}
     .chart-wrap{position:relative;border-radius:12px;overflow:hidden;background:#080e17}
-    .decision-band{display:none;position:absolute;left:0;right:0;z-index:3;pointer-events:none;background:rgba(255,84,199,.12);border-top:1px dashed rgba(255,84,199,.9);border-bottom:1px dashed rgba(255,84,199,.9)}
+    .decision-band{display:none;position:absolute;left:0;right:0;z-index:3;pointer-events:none;background:linear-gradient(90deg,rgba(255,84,199,.22),rgba(82,216,255,.10),rgba(255,84,199,.18));border-top:2px solid rgba(255,84,199,.95);border-bottom:2px solid rgba(255,84,199,.95);box-shadow:inset 0 0 30px rgba(255,84,199,.08),0 0 26px rgba(255,84,199,.16)}
     .zone-edge{position:absolute;right:6px;padding:3px 6px;border-radius:5px;background:var(--pink);color:#fff;font-size:9px;font-weight:850;white-space:nowrap}
     .zone-edge.top{top:-11px}.zone-edge.bottom{bottom:-11px}
     .event-chips{position:absolute;left:8px;bottom:8px;z-index:4;display:flex;flex-wrap:wrap;gap:5px;pointer-events:none}
@@ -130,17 +124,12 @@
         <div class="card kpi"><div class="l">Риск разворота</div><div class="v" id="reversalRisk">—</div><div class="s">structure + momentum</div></div>
       </section>
 
-      <section class="card route-card">
-        <div class="route-head"><b>Торговый маршрут</b><span class="route-status" id="routeStatus">Собираю данные…</span></div>
-        <div class="route-steps">
-          <div class="route-step" id="route0">SIGNAL₀</div>
-          <div class="route-step" id="route1">МАГНИТ</div>
-          <div class="route-step" id="route2">TOUCH / SWEEP</div>
-          <div class="route-step" id="route3">SIGNAL₁</div>
-          <div class="route-step" id="route4">BOS / CHOCH</div>
-          <div class="route-step" id="route5">RETEST</div>
-          <div class="route-step" id="route6">ENTER</div>
+      <section class="card zone-status-card">
+        <div class="zone-status-head">
+          <div class="zone-status-title"><span class="zone-pulse"></span>DECISION ZONE</div>
+          <div class="zone-status-value" id="zoneStatus">Собираю границы зоны…</div>
         </div>
+        <div class="zone-status-note">Главный экран сейчас — цветная зона решения: ждём касание/снятие магнита, реакцию, BOS/CHOCH и только потом ретест/вход.</div>
       </section>
 
       <section class="workspace">
@@ -337,11 +326,14 @@ function updateDecisionUX(m,a,rows){
   document.getElementById("evTouch").classList.toggle("on",touch);
   document.getElementById("evSweep").classList.toggle("on",sweep);
   document.getElementById("evReturn").classList.toggle("on",inZone);
+  const zoneStatus=document.getElementById("zoneStatus");
+  if(zoneStatus)zoneStatus.textContent=`${fmtPrice(lo)} — ${fmtPrice(hi)} · ${touch||sweep?"реакция нужна сейчас":"цена вне триггера"}`;
   setRouteStep("route0","done");
   setRouteStep("route1",m.main||m.near?"done":"active");
   setRouteStep("route2",touch||sweep?"done":"active");
   ["route3","route4","route5","route6"].forEach(id=>setRouteStep(id,""));
-  document.getElementById("routeStatus").textContent=touch||sweep?"3/7 · ЖДЁМ SIGNAL₁":"2/7 · ЖДЁМ TOUCH / SWEEP";
+  const routeStatus=document.getElementById("routeStatus");
+  if(routeStatus)routeStatus.textContent=touch||sweep?"3/7 · ЖДЁМ SIGNAL₁":"2/7 · ЖДЁМ TOUCH / SWEEP";
 }
 function render(){
   const rows=state.candles[state.tf]||[];
