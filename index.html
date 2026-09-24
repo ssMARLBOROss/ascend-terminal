@@ -101,6 +101,22 @@
     .lg-sma20{background:#52d8ff}.lg-sma50{background:#ffc247}.lg-sma200{background:#9677ff}.lg-sr{background:#3de39c}.lg-risk{background:#ff637d}
     .decision .action.enter{color:var(--green)}.decision .action.wait{color:var(--yellow)}.decision .action.skip{color:var(--red)}
 
+    .spike-card{padding:14px;border-color:rgba(255,99,125,.28);background:linear-gradient(135deg,rgba(255,99,125,.12),rgba(82,216,255,.05) 48%,rgba(11,18,28,.96))}
+    .spike-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+    .spike-head h3{margin:0;font-size:12px;letter-spacing:.05em}
+    .spike-state{font-size:9px;font-weight:950;padding:4px 7px;border-radius:999px;border:1px solid rgba(255,194,71,.35);color:#ffd889;background:rgba(255,194,71,.07)}
+    .spike-list{display:grid;gap:7px}
+    .spike-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:center;padding:9px;border:1px solid #19283b;border-radius:10px;background:#0a121d}
+    .spike-row.hot{border-color:rgba(255,99,125,.52);background:rgba(255,99,125,.08)}
+    .spike-row.strong{border-color:rgba(255,194,71,.48);background:rgba(255,194,71,.07)}
+    .spike-symbol{font-size:11px;font-weight:950}
+    .spike-meta{margin-top:3px;font-size:9px;color:var(--muted);line-height:1.35}
+    .spike-open{min-width:72px;border:1px solid rgba(82,216,255,.30);border-radius:9px;background:rgba(82,216,255,.08);color:#bcefff;padding:7px 8px;font-size:10px;font-weight:950;cursor:pointer}
+    .spike-open b{display:block;color:#ffd889;font-size:12px}
+    .spike-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
+    .spike-actions button{border:1px solid var(--line);border-radius:9px;background:#0b1320;color:#c7d4e6;padding:8px;font-size:10px;font-weight:900;cursor:pointer}
+    .spike-empty{padding:10px;border:1px dashed #26384f;border-radius:10px;background:rgba(255,255,255,.02);color:#8fa0b8;font-size:10px;line-height:1.45}
+
     @media(max-width:1100px){.workspace{grid-template-columns:1fr}.right{grid-template-columns:1fr 1fr}.decision{grid-row:span 1}.factor-card{grid-row:span 1}}
     @media(max-width:780px){
       .app{display:block}.sidebar{display:none}.topbar{height:60px;padding:0 12px}.content{padding:10px 10px 24px}.mobile-title{display:block;font-weight:950;letter-spacing:.13em;font-size:12px}.pair{display:none}
@@ -131,7 +147,8 @@
       <select class="select" id="symbol">
         <option>BTC_USDT</option><option>ETH_USDT</option><option>SOL_USDT</option><option>XRP_USDT</option>
         <option>BNB_USDT</option><option>DOGE_USDT</option><option>ADA_USDT</option><option>SUI_USDT</option>
-        <option>LINK_USDT</option><option>AVAX_USDT</option><option>LTC_USDT</option><option>TRB_USDT</option>
+        <option>LINK_USDT</option><option>AVAX_USDT</option><option>ARB_USDT</option><option>XLM_USDT</option>
+        <option>XMR_USDT</option><option>THENA_USDT</option><option>LTC_USDT</option><option>TRB_USDT</option>
       </select>
     </div>
 
@@ -203,6 +220,20 @@
             <div class="reason" id="decisionReason">Собираю закрытые свечи 1D / 4H / 1H.</div>
           </div>
 
+          <div class="card spike-card">
+            <div class="spike-head">
+              <h3>Резкие всплески монет</h3>
+              <span class="spike-state" id="spikeWatchState">СКАН</span>
+            </div>
+            <div class="spike-list" id="spikeWatchRows">
+              <div class="spike-empty">Сканер проверяет закрытые 5m-свечи по монетам.</div>
+            </div>
+            <div class="spike-actions">
+              <button id="refreshSpikeWatch">Обновить</button>
+              <button id="openTopSpike">Открыть топ</button>
+            </div>
+          </div>
+
           <div class="card factor-card">
             <div class="section-head"><h3>Цепочка BASE CORE V1</h3><small>PASS / WAIT / FAIL</small></div>
             <div class="check-list">
@@ -227,7 +258,7 @@
 </div>
 
 <script>
-const state={symbol:"BTC_USDT",tf:"1h",candles:{},ticker:null};
+const state={symbol:"BTC_USDT",tf:"1h",candles:{},ticker:null,spikeWatch:{rows:[],loading:false,error:null,lastScan:0}};
 let chart,candleSeries,volumeSeries,sma20Series,sma50Series,sma200Series,priceLines=[];
 
 function fmtPrice(v){
@@ -460,7 +491,61 @@ async function load(){
   if(ok===jobs.length){live.style.color="#3de39c";live.innerHTML='<span class="dot"></span> LIVE · BASE CORE V1';render()}
   else if(ok>0){live.style.color="#ffc247";live.innerHTML='<span class="dot" style="background:#ffc247;box-shadow:0 0 14px #ffc247"></span> PARTIAL DATA';if(state.candles[state.tf]?.length)render()}
   else{live.style.color="#ff637d";live.innerHTML='<span class="dot" style="background:#ff637d;box-shadow:0 0 14px #ff637d"></span> DATA OFFLINE';applyVerdict("WAIT-CHANGE");document.getElementById("decisionReason").textContent="API не отвечает. Решение не формируется без данных."}
+  fetchSpikeWatch();
 }
+function pct(v){return Number.isFinite(v)?(v>=0?"+":"")+v.toFixed(2)+"%":"—"}
+function compact(v){if(!Number.isFinite(v))return "—";const a=Math.abs(v);if(a>=1e9)return(v/1e9).toFixed(2)+"B";if(a>=1e6)return(v/1e6).toFixed(2)+"M";if(a>=1e3)return(v/1e3).toFixed(1)+"K";return v.toFixed(0)}
+function spikeClass(x){if(x.volumeRatio>=8||Math.abs(x.move5m)>=1.5)return"hot";if(x.volumeRatio>=3||Math.abs(x.move1h)>=3)return"strong";return""}
+function renderSpikeWatch(){
+  const rows=state.spikeWatch.rows||[],box=document.getElementById("spikeWatchRows"),badge=document.getElementById("spikeWatchState");
+  if(!box||!badge)return;
+  if(state.spikeWatch.loading&&!rows.length){badge.textContent="СКАН";box.innerHTML='<div class="spike-empty">Сканирую 5m объём и импульс…</div>';return}
+  if(state.spikeWatch.error){badge.textContent="ОШИБКА";box.innerHTML='<div class="spike-empty">Не удалось обновить всплески. Нажми «Обновить».</div>';return}
+  badge.textContent=rows.length?rows.length+" НАЙДЕНО":"ЧИСТО";
+  if(!rows.length){box.innerHTML='<div class="spike-empty">Сильных всплесков сейчас нет. Ждём объём выше 1.8× среднего или резкое движение.</div>';return}
+  box.innerHTML=rows.slice(0,7).map(x=>`
+    <div class="spike-row ${spikeClass(x)}">
+      <div>
+        <div class="spike-symbol">${x.symbol.replace("_","/")} · ${x.direction}</div>
+        <div class="spike-meta">5m ${pct(x.move5m)} · 1h ${pct(x.move1h)} · ${x.kind}</div>
+      </div>
+      <button class="spike-open" data-spike-symbol="${x.symbol}"><b>${x.volumeRatio.toFixed(2)}×</b>${compact(x.volume)}</button>
+    </div>`).join("");
+}
+async function fetchSpikeWatch(force=false){
+  const now=Date.now();
+  if(!force&&state.spikeWatch.loading)return;
+  if(!force&&now-state.spikeWatch.lastScan<30000)return;
+  state.spikeWatch.loading=true;state.spikeWatch.error=null;renderSpikeWatch();
+  const symbols=[...document.getElementById("symbol").options].map(o=>o.value||o.textContent).slice(0,18);
+  const rows=[];
+  await Promise.all(symbols.map(async symbol=>{
+    try{
+      const data=await getJSON("/api/klines?symbol="+symbol+"&timeframe=5m&limit=80");
+      const closedRows=closed(data.candles||[]);
+      if(closedRows.length<24)return;
+      const last=closedRows.at(-1),prev=closedRows.at(-2),base=avg(closedRows.slice(-21,-1).map(x=>x.volume||0));
+      if(!base||!prev?.close)return;
+      const volumeRatio=(last.volume||0)/base;
+      const move5m=(last.close-prev.close)/prev.close*100;
+      const hbase=closedRows.at(-13)?.close||closedRows[0].close;
+      const move1h=hbase?((last.close-hbase)/hbase*100):0;
+      if(volumeRatio<1.8&&Math.abs(move5m)<.65&&Math.abs(move1h)<1.2)return;
+      const direction=last.close>=last.open?"LONG":"SHORT";
+      const kind=(volumeRatio>=8||Math.abs(move5m)>=1.5)?"STRONG VOLUME":(volumeRatio>=3||Math.abs(move1h)>=3)?"HOT WATCH":"WATCH";
+      const score=volumeRatio*10+Math.abs(move5m)*12+Math.abs(move1h)*3;
+      rows.push({symbol,direction,volume:last.volume||0,volumeRatio,move5m,move1h,kind,score});
+    }catch{}
+  }));
+  rows.sort((a,b)=>b.score-a.score);
+  state.spikeWatch.rows=rows;state.spikeWatch.loading=false;state.spikeWatch.lastScan=Date.now();renderSpikeWatch();
+}
+function openSpikeSymbol(symbol){
+  const select=document.getElementById("symbol");if(!select||!symbol)return;
+  const opt=[...select.options].find(o=>(o.value||o.textContent)===symbol);if(!opt)return;
+  select.value=opt.value||symbol;select.dispatchEvent(new Event("change"));
+}
+
 function clock(){
   const now=new Date(),utc=now.getTime()+now.getTimezoneOffset()*60000,kyiv=new Date(utc+3*3600000);
   const h=kyiv.getHours(),m=kyiv.getMinutes(),s=kyiv.getSeconds(),hours=h+m/60+s/3600;
@@ -469,6 +554,10 @@ function clock(){
 }
 document.getElementById("symbol").addEventListener("change",e=>{state.symbol=e.target.value;state.candles={};const p=state.symbol.replace("_","/");document.getElementById("pairTitle").textContent=p;document.getElementById("chartTitle").textContent=p+" · BASE CORE V1";load()});
 document.querySelectorAll("[data-tf]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-tf]").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.tf=b.dataset.tf;if(state.candles[state.tf]?.length)render()}));
+document.getElementById("refreshSpikeWatch")?.addEventListener("click",()=>fetchSpikeWatch(true));
+document.getElementById("openTopSpike")?.addEventListener("click",()=>openSpikeSymbol(state.spikeWatch.rows[0]?.symbol));
+document.getElementById("spikeWatchRows")?.addEventListener("click",e=>{const b=e.target.closest("[data-spike-symbol]");if(b)openSpikeSymbol(b.dataset.spikeSymbol)});
+
 initChart();clock();setInterval(clock,1000);load();setInterval(load,15000);
 </script>
 </body></html>
