@@ -82,7 +82,55 @@ function clearLines(){lines.forEach(l=>{try{candles.removePriceLine(l)}catch(e){
 function levels(rows){const r=closed(rows).slice(-180),cur=r.at(-1)?.close||0,hi=[...r].sort((a,b)=>b.high-a.high).slice(0,20).map(x=>x.high),lo=[...r].sort((a,b)=>a.low-b.low).slice(0,20).map(x=>x.low);return{res:avg(hi.slice(0,8))||cur*1.008,sup1:avg(lo.slice(8,14))||cur*.994,sup2:avg(lo.slice(3,9))||cur*.988,sup3:avg(lo.slice(0,5))||cur*.982}}
 function trend(rows){const r=closed(rows);if(r.length<60)return "NEUTRAL";const a=r.at(-1).close,b=r.at(-25).close;return a>b?"UP":"DOWN"}
 function render(){const r=closed(state.rows);if(!r.length)return;const last=r.at(-1),prev=r.at(-2)||last,ss20=sma(r,20),ss50=sma(r,50),ss200=sma(r,200);candles.setData(r.map(x=>({time:x.time,open:x.open,high:x.high,low:x.low,close:x.close})));sma20.setData(r.map((x,i)=>ss20[i]?{time:x.time,value:ss20[i]}:null).filter(Boolean));sma50.setData(r.map((x,i)=>ss50[i]?{time:x.time,value:ss50[i]}:null).filter(Boolean));sma200.setData(r.map((x,i)=>ss200[i]?{time:x.time,value:ss200[i]}:null).filter(Boolean));vol.setData(r.map(x=>({time:x.time,value:x.volume||0,color:x.close>=x.open?"rgba(18,214,177,.35)":"rgba(255,54,85,.35)"})));clearLines();const lv=levels(state.tf["1h"]||state.rows),entry=last.close,spread=Math.max(entry*.001,Math.abs(last.high-last.low));const sl1=Math.max(lv.res,entry+spread*1.4),sl2=sl1+spread*1.7,tp1=Math.min(lv.sup1,entry-spread*1.6),tp2=Math.min(lv.sup2,tp1-spread*1.8),tp3=Math.min(lv.sup3,tp2-spread*1.8);[lv.res,sl1,sl2,tp1,tp2,tp3].forEach((p,i)=>setLine(p,i<3?"#ff3655":"#18e889",i<3?"SUPPLY/SL":"TP"));setLine(entry,"#ffffff","ENTRY");const base=avg(r.slice(-22,-2).map(x=>x.volume||0)),vr=base?(last.volume||0)/base:1,chg=(last.close-prev.close)/prev.close*100;document.getElementById("openP").textContent=fmt(last.open);document.getElementById("highP").textContent=fmt(last.high);document.getElementById("lowP").textContent=fmt(last.low);document.getElementById("closeP").textContent=fmt(last.close);document.getElementById("chgP").textContent=(chg>=0?"+":"")+chg.toFixed(2)+"%";document.getElementById("sellP").textContent=fmt(entry-spread*.2);document.getElementById("buyP").textContent=fmt(entry+spread*.2);document.getElementById("sma20").textContent=fmt(ss20.at(-1));document.getElementById("sma50").textContent=fmt(ss50.at(-1));document.getElementById("sma200").textContent=fmt(ss200.at(-1));document.getElementById("entryTag").textContent=fmt(entry);document.getElementById("slTag").textContent=fmt(sl1);document.getElementById("tp1Tag").textContent=fmt(tp1);document.getElementById("tp2Tag").textContent=fmt(tp2);document.getElementById("tp3Tag").textContent=fmt(tp3);document.getElementById("supplyText").textContent=fmt(lv.res-spread*.6)+" – "+fmt(lv.res+spread*.6);document.getElementById("slText").textContent=fmt(sl1)+" – "+fmt(sl2);document.getElementById("entryText").textContent=fmt(entry);document.getElementById("volumeRatio").textContent=vr.toFixed(2)+"×";document.getElementById("volSmall").textContent=vr.toFixed(2)+"×";document.getElementById("tp1Text").textContent=fmt(tp1-spread*.4)+" – "+fmt(tp1+spread*.4);document.getElementById("tp2Text").textContent=fmt(tp2-spread*.4)+" – "+fmt(tp2+spread*.4);document.getElementById("tp3Text").textContent=fmt(tp3-spread*.4)+" – "+fmt(tp3+spread*.4);["entrySide","entrySide2"].forEach(id=>document.getElementById(id).textContent=fmt(entry));document.getElementById("slSide").textContent=fmt(sl1)+" – "+fmt(sl2);document.getElementById("tp1Side").textContent=fmt(tp1-spread*.4)+" – "+fmt(tp1+spread*.4);document.getElementById("tp2Side").textContent=fmt(tp2-spread*.4)+" – "+fmt(tp2+spread*.4);document.getElementById("tp3Side").textContent=fmt(tp3-spread*.4)+" – "+fmt(tp3+spread*.4);let rr=Math.abs(tp3-entry)/Math.max(Math.abs(sl1-entry),1e-12);document.getElementById("rrSide").textContent="≥ 1:"+Math.max(2,rr).toFixed(1);document.getElementById("volNow").textContent=vr.toFixed(2)+"×";document.getElementById("volDev").textContent="+"+Math.max(0,(vr-1)*100).toFixed(0)+"%";document.getElementById("miniRow").innerHTML=["15m · SHORT","5m · SHORT","1h · NEUTRAL → SHORT","4h · НЕЙТРАЛЬНЫЙ","1D · НЕЙТРАЛЬНЫЙ"].map((x,i)=>'<div class="mini"><h4>'+x.replace("SHORT","<b>SHORT</b>")+'</h4><div class="mini-graph"><div class="mini-line"></div><div class="mini-arrow">'+(i<3?"↓":"↔")+'</div></div><ul><li>Структура ↓</li><li>Цена ниже SMA</li><li>Следим за реакцией</li></ul></div>').join("");document.getElementById("contextChecks").innerHTML=["1m: BOS/CHOCH · разворот","5m: структура ↓ · SHORT","15m: SHORT","Объём: "+vr.toFixed(2)+"× (аномалия)","Ликвидность: без sweep","Market Breadth: LONG 194 · SHORT 177 · NEUTRAL 181"].map(x=>'<div class="check"><i>✓</i>'+x+'</div>').join("");document.getElementById("baseChecks").innerHTML=["1D / 4H / 1H TREND","KEY S/R (зоны)","WAIT AT LEVEL","REACTION (Pin/Engulf/Doji)","VOLUME (аномалия)","SMA20/50/200","BREAK + CLOSE + RETEST","CONFIRMATION","STRUCTURAL SL (за зоной)","NEXT KEY LEVEL TP (зоны)","R:R ≥ 1:2","ENTER / WAIT / SKIP"].map(x=>'<div class="check"><i>✓</i>'+x+'</div>').join("");chart.timeScale().fitContent()}
-async function load(){const s=state.symbol,pretty=s.replace("_","/"),coin=s.split("_")[0];document.getElementById("pairTop").textContent=pretty;document.getElementById("chartTitle").textContent=pretty.replace("/"," / ")+" · 1 · MEXC";document.getElementById("coinBadge").textContent=coin[0];document.getElementById("sideSymbol").textContent=coin;document.getElementById("volCoin").textContent=coin;try{const [tick,m5,h1,h4,d1]=await Promise.all([json("/api/ticker?symbol="+s),json("/api/klines?symbol="+s+"&timeframe=5m&limit=260"),json("/api/klines?symbol="+s+"&timeframe=1h&limit=320"),json("/api/klines?symbol="+s+"&timeframe=4h&limit=260"),json("/api/klines?symbol="+s+"&timeframe=1d&limit=260")]);state.ticker=tick;state.rows=m5.candles||[];state.tf={"5m":m5.candles||[],"1h":h1.candles||[],"4h":h4.candles||[],"1d":d1.candles||[]};render()}catch(e){document.querySelector(".live").innerHTML='<span class="dot" style="background:#ff3655;box-shadow:0 0 16px #ff3655"></span> API OFFLINE'}}
+function demoRows(symbol){
+  const baseMap={THENA_USDT:.08496,XMR_USDT:342.5,BTC_USDT:84378,ETH_USDT:3650,SOL_USDT:205,XLM_USDT:.39,ARB_USDT:.48,SUI_USDT:3.2,TRB_USDT:48,AVAX_USDT:31,LINK_USDT:23};
+  const base=baseMap[symbol]||1,now=Math.floor(Date.now()/1000),rows=[];let p=base*.982;
+  for(let i=240;i>=0;i--){
+    const drift=i>90?.00045:i>45?.00008:-.00022,wave=Math.sin((240-i)/8)*base*.0018,open=p,close=Math.max(base*.72,p+base*drift+wave*.18+(Math.random()-.5)*base*.0018);
+    const high=Math.max(open,close)+base*(.0018+Math.random()*.0025),low=Math.min(open,close)-base*(.0015+Math.random()*.002);
+    const volume=1000+(240-i)*9+(i<28?9000*(1-i/35):0)+Math.random()*1200;
+    rows.push({time:now-i*300,open,high,low,close,volume});p=close;
+  }
+  rows[rows.length-2].volume*=12;rows[rows.length-2].close*=1.004;return rows;
+}
+function setLive(text,color="#18e889"){
+  document.querySelector(".live").style.color=color;
+  document.querySelector(".live").innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 16px '+color+'"></span> '+text;
+}
+async function load(){
+  const s=state.symbol,pretty=s.replace("_","/"),coin=s.split("_")[0];
+  document.getElementById("pairTop").textContent=pretty;
+  document.getElementById("chartTitle").textContent=pretty.replace("/"," / ")+" · 1 · MEXC";
+  document.getElementById("coinBadge").textContent=coin[0];
+  document.getElementById("sideSymbol").textContent=coin;
+  document.getElementById("volCoin").textContent=coin;
+  const reqs={
+    tick:json("/api/ticker?symbol="+s),
+    m5:json("/api/klines?symbol="+s+"&timeframe=5m&limit=260"),
+    h1:json("/api/klines?symbol="+s+"&timeframe=1h&limit=320"),
+    h4:json("/api/klines?symbol="+s+"&timeframe=4h&limit=260"),
+    d1:json("/api/klines?symbol="+s+"&timeframe=1d&limit=260")
+  };
+  const keys=Object.keys(reqs),res=await Promise.allSettled(Object.values(reqs));
+  const data={};keys.forEach((k,i)=>{if(res[i].status==="fulfilled")data[k]=res[i].value});
+  state.ticker=data.tick||state.ticker;
+  state.tf={
+    "5m":data.m5?.candles||[],
+    "1h":data.h1?.candles||[],
+    "4h":data.h4?.candles||[],
+    "1d":data.d1?.candles||[]
+  };
+  state.rows=state.tf["5m"].length?state.tf["5m"]:(state.tf["1h"].length?state.tf["1h"]:[]);
+  if(!state.rows.length){
+    const demo=demoRows(s);
+    state.rows=demo;state.tf={"5m":demo,"1h":demo.filter((_,i)=>i%12===0),"4h":demo.filter((_,i)=>i%48===0),"1d":demo.filter((_,i)=>i%96===0)};
+    setLive("API WAIT · VISUAL PROJECTION","#ffc64d");
+  }else{
+    const ok=res.filter(x=>x.status==="fulfilled").length;
+    setLive(ok===keys.length?"LIVE · BASE CORE V1":"PARTIAL DATA · BASE CORE V1",ok===keys.length?"#18e889":"#ffc64d");
+  }
+  render();
+}
 async function scanSpikes(){const symbols=[...document.getElementById("symbol").options].map(o=>o.value||o.textContent),out=[];await Promise.all(symbols.map(async s=>{try{const d=await json("/api/klines?symbol="+s+"&timeframe=5m&limit=80"),r=closed(d.candles||[]);if(r.length<24)return;const l=r.at(-1),p=r.at(-2),base=avg(r.slice(-22,-2).map(x=>x.volume||0)),vr=base?(l.volume||0)/base:0,m=(l.close-p.close)/p.close*100;if(vr>1.8||Math.abs(m)>0.65)out.push({s,vr,m,score:vr*10+Math.abs(m)*20})}catch(e){}}));out.sort((a,b)=>b.score-a.score);document.getElementById("spikes").innerHTML=(out.length?out.slice(0,6):[{s:"Ждём всплеск",vr:0,m:0}]).map(x=>'<div class="spike '+(x.vr>5?"hot":"")+'"><div><b>'+x.s.replace("_","/")+'</b><small>5m '+(x.m>=0?"+":"")+x.m.toFixed(2)+'% · объём '+x.vr.toFixed(2)+'×</small></div><button data-sym="'+x.s+'">ОТКР</button></div>').join("")}
 function clock(){const n=new Date(),u=n.getTime()+n.getTimezoneOffset()*60000,k=new Date(u+3*3600000),h=k.getHours(),m=k.getMinutes(),s=k.getSeconds();document.getElementById("clock").textContent=[h,m,s].map(x=>String(x).padStart(2,"0")).join(":");document.getElementById("timePointer").style.left=((h+m/60+s/3600)/24*100)+"%";document.getElementById("kyivDate").textContent=k.toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit"})+" · "+String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+" Киев"}
 document.getElementById("symbol").addEventListener("change",e=>{state.symbol=e.target.value;load()});document.getElementById("spikes").addEventListener("click",e=>{const b=e.target.closest("[data-sym]");if(b&&b.dataset.sym!=="Ждём всплеск"){document.getElementById("symbol").value=b.dataset.sym;state.symbol=b.dataset.sym;load()}});init();clock();setInterval(clock,1000);load();scanSpikes();setInterval(()=>{load();scanSpikes()},15000);
