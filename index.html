@@ -284,7 +284,7 @@ function renderProjectionText(){
 }
 function renderVolume(){
   const v=state.volumeProfile||{};$("volCoin").textContent=state.symbol.split("_")[0];$("volBase").textContent=humanVolume(v.standard_volume)+" · 1.00×";$("volNow").textContent=humanVolume(v.current_volume)+" · "+(Number(v.ratio)||0).toFixed(2)+"×";$("volDev").textContent=((Number(v.deviation_pct)||0)>=0?"+":"")+(Number(v.deviation_pct)||0).toFixed(0)+"%";$("volPct").textContent="P"+(Number(v.percentile)||0).toFixed(1);$("volClass").textContent=v.class||"NO DATA"}
-function renderBreadth(){const b=state.breadth||{};$("breadthAvailable").textContent=(b.available||0)+" / "+(b.target||555);$("breadthLong").textContent=b.long??"—";$("breadthShort").textContent=b.short??"—";$("breadthNeutral").textContent=b.neutral??"—";$("breadthBasis").textContent="Источник: "+(b.basis||"LIVE REVERSAL RADAR")+(b.source==="fallback"?" · ⚠ FALLBACK":"")}
+function renderBreadth(){const b=state.breadth||{};$("breadthAvailable").textContent=(b.available||0)+" / "+(b.target||state.universe.length||0);$("breadthLong").textContent=b.long??"—";$("breadthShort").textContent=b.short??"—";$("breadthNeutral").textContent=b.neutral??"—";$("breadthBasis").textContent="Источник: "+(b.basis||"LIVE REVERSAL RADAR")+(b.source==="fallback"?" · ⚠ FALLBACK":"")}
 function renderStructure(){
   const tfs=["1m","5m","10m","15m","1h","4h","1d"];
   $("structureGrid").innerHTML=tfs.map(tf=>{const d=trend(state.tf[tf]||[]);return'<div class="structure-cell"><small>'+tf+"</small><b class=\""+directionClass(d)+'">'+dirRu(d)+"</b></div>"}).join("");
@@ -427,13 +427,13 @@ function renderPaperStatus(){
 async function refreshPaperTrades(){
   if(!state.paperTrades.some(x=>x.status==="OPEN"))return;
   try{
-    const d=await api("/api/v2/symbols?limit=555"),map=new Map((d.symbols||[]).map(x=>[x.symbol,Number(x.last_price)]));
+    const d=await api("/api/v2/symbols"),map=new Map((d.symbols||[]).map(x=>[x.symbol,Number(x.last_price)]));
     state.paperTrades.filter(x=>x.status==="OPEN").forEach(t=>{const p=map.get(t.symbol);if(Number.isFinite(p))managePaperTrade(t,p)});
     renderPaperStatus()
   }catch(e){console.error("paper refresh",e)}
 }
 async function loadUniverse(){
-  try{const d=await api("/api/v2/symbols?limit=555");state.universe=d.symbols||[];const sel=$("symbol"),current=state.symbol;sel.innerHTML=state.universe.map(x=>'<option value="'+x.symbol+'">'+x.symbol.replace("_","/")+"</option>").join("");if(state.universe.some(x=>x.symbol===current))sel.value=current;else if(state.universe[0]){state.symbol=state.universe[0].symbol;sel.value=state.symbol}renderCoins()}catch(e){console.error("universe",e)}
+  try{const d=await api("/api/v2/symbols");state.universe=d.symbols||[];const sel=$("symbol"),current=state.symbol;sel.innerHTML=state.universe.map(x=>'<option value="'+x.symbol+'">'+x.symbol.replace("_","/")+"</option>").join("");if(state.universe.some(x=>x.symbol===current))sel.value=current;else if(state.universe[0]){state.symbol=state.universe[0].symbol;sel.value=state.symbol}renderCoins()}catch(e){console.error("universe",e)}
 }
 async function loadMarket(full){
   const requestSeq=++state.marketRequestSeq;
@@ -446,7 +446,7 @@ async function loadMarket(full){
       api("/api/v2/klines?symbol="+encodeURIComponent(s)+"&timeframe=5m&limit=320"),
       api("/api/v2/klines?symbol="+encodeURIComponent(s)+"&timeframe=15m&limit=260"),
       api("/api/v2/volume-profile?symbol="+encodeURIComponent(s)),
-      api("/api/v2/breadth?limit=555")
+      api("/api/v2/breadth")
     ];
     const now=Date.now(),needHtf=full||!state.tf["1h"]||now-state.htfAt>60000;
     if(needHtf){core.push(api("/api/v2/klines?symbol="+encodeURIComponent(s)+"&timeframe=1h&limit=320"));core.push(api("/api/v2/klines?symbol="+encodeURIComponent(s)+"&timeframe=4h&limit=260"));core.push(api("/api/v2/klines?symbol="+encodeURIComponent(s)+"&timeframe=1d&limit=260"))}
