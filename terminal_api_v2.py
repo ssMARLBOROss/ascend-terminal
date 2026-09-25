@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 MEXC_BASE_URL = "https://contract.mexc.com"
 MEXC_KLINE_URL = MEXC_BASE_URL + "/api/v1/contract/kline/{symbol}"
 MEXC_TICKER_URL = MEXC_BASE_URL + "/api/v1/contract/ticker"
+RADAR_STATUS_URL = "https://ascend-clean-production.up.railway.app/api/telegram-reversal-41/status"
 
 TIMEFRAMES = {
     "1m": ("Min1", 60),
@@ -29,6 +30,7 @@ _SYMBOL_RE = re.compile(r"^[A-Z0-9]{1,28}_USDT$")
 _TICKER_CACHE: dict[str, Any] = {"at": 0.0, "rows": []}
 _NEWS_CACHE: dict[str, Any] = {"at": 0.0, "rows": []}
 _PROFILE_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_BREADTH_CACHE: dict[str, Any] = {"at": 0.0, "data": None}
 
 
 def _safe_symbol(raw: str) -> str:
@@ -340,6 +342,40 @@ def install(app: Any) -> None:
 
     @app.get("/api/v2/breadth")
     async def breadth(limit: int = Query(default=555, ge=20, le=600)):
+        # Read the exact breadth produced by the main reversal-radar cycle.
+        # This endpoint is observation-only; no terminal calculation can alter
+        # the radar or its entries.
+        now = time.monotonic()
+        cached = _BREADTH_CACHE.get("data")
+        if cached and now - float(_BREADTH_CACHE.get("at") or 0.0) < 8.0:
+            return JSONResponse(cached, headers={"Cache-Control": "no-store"})
+        try:
+            async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
+                response = await client.get(RADAR_STATUS_URL, headers={"User-Agent": "ASCEND-Terminal/2.1"})
+                response.raise_for_status()
+                status = response.json()
+            raw = status.get("breadth") or {}
+            data = {
+                "available": int(raw.get("TOTAL") or status.get("crypto_available_last_cycle") or 0),
+                "target": int(raw.get("TARGET") or status.get("breadth_target") or limit),
+                "long": int(raw.get("LONG") or 0),
+                "short": int(raw.get("SHORT") or 0),
+                "neutral": int(raw.get("NEUTRAL") or 0),
+                "basis": "LIVE REVERSAL RADAR · 5m structure · same production cycle",
+                "source": "ascend-clean radar",
+                "cycle": int(status.get("cycles") or 0),
+                "last_cycle_ms": status.get("last_cycle_ms"),
+                "running": bool(status.get("running")),
+            }
+            if data["available"] > 0:
+                _BREADTH_CACHE["at"] = now
+                _BREADTH_CACHE["data"] = data
+                return JSONResponse(data, headers={"Cache-Control": "no-store"})
+        except Exception:
+            pass
+
+        # Fail soft if the production radar is temporarily unreachable. The
+        # terminal shows this as fallback so it is never confused with radar data.
         rows = (await _ticker_rows())[: int(limit)]
         long_n = short_n = neutral_n = 0
         for row in rows:
@@ -350,17 +386,17 @@ def install(app: Any) -> None:
                 short_n += 1
             else:
                 neutral_n += 1
-        return JSONResponse(
-            {
-                "available": len(rows),
-                "target": int(limit),
-                "long": long_n,
-                "short": short_n,
-                "neutral": neutral_n,
-                "basis": "24h change: LONG > +0.20%, SHORT < -0.20%",
-            },
-            headers={"Cache-Control": "no-store"},
-        )
+        data = {
+            "available": len(rows),
+            "target": int(limit),
+            "long": long_n,
+            "short": short_n,
+            "neutral": neutral_n,
+            "basis": "FALLBACK ONLY · 24h price change",
+            "source": "fallback",
+            "running": False,
+        }
+        return JSONResponse(data, headers={"Cache-Control": "no-store"})
 
     @app.get("/api/v2/spikes")
     async def spikes(
