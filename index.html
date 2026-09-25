@@ -380,8 +380,8 @@ function renderShadowNotebook(){
   }).join("")
 }
 function openManualPaper(side){
-  if(activePaper()){alert("Для "+state.symbol.replace("_","/")+" уже есть открытая PAPER сделка.");return}
-  const entry=paperPriceFor(side);if(!Number.isFinite(entry)||entry<=0){alert("Нет актуальной цены для PAPER входа.");return}
+  if(activePaper()){alert("Для "+state.symbol.replace("_","/")+" уже есть открытая теневая сделка.");return}
+  const entry=paperPriceFor(side);if(!Number.isFinite(entry)||entry<=0){alert("Нет актуальной цены для теневого входа.");return}
   const equity=Math.max(0,Number(state.paperEquity)||100),margin=equity*.05,notional=margin*20,sgn=side==="LONG"?1:-1;
   const p=state.projection&&state.projection.dir===side?state.projection:null,ctx=shadowContext(side),now=Date.now();
   const trade={
@@ -415,7 +415,7 @@ function managePaperTrade(t,price){
 function closeManualPaper(){
   const t=activePaper();if(!t)return;
   const price=Number(state.ticker?.last_price)||paperPriceFor(t.side);if(!price)return;
-  paperFill(t,t.remaining,price,"MANUAL CLOSE");t.status="CLOSED";t.close_reason="MANUAL";t.closed_at=Date.now();savePaper();renderPaperStatus();renderChart()
+  paperFill(t,t.remaining,price,"MANUAL CLOSE");t.status="CLOSED";t.close_reason="MANUAL";t.closed_at=Date.now();savePaper();renderPaperStatus();renderShadowNotebook();renderChart()
 }
 function renderPaperStatus(){
   const t=activePaper(),strip=$("paperStrip");if(!strip)return;
