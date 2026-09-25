@@ -16,6 +16,7 @@ MEXC_BASE_URL = "https://contract.mexc.com"
 MEXC_KLINE_URL = MEXC_BASE_URL + "/api/v1/contract/kline/{symbol}"
 MEXC_TICKER_URL = MEXC_BASE_URL + "/api/v1/contract/ticker"
 RADAR_STATUS_URL = "https://ascend-clean-production.up.railway.app/api/telegram-reversal-41/status"
+RADAR_CANDIDATES_URL = "https://ascend-clean-production.up.railway.app/api/radar-candidates-v2/latest"
 
 TIMEFRAMES = {
     "1m": ("Min1", 60),
@@ -31,6 +32,7 @@ _TICKER_CACHE: dict[str, Any] = {"at": 0.0, "rows": []}
 _NEWS_CACHE: dict[str, Any] = {"at": 0.0, "rows": []}
 _PROFILE_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _BREADTH_CACHE: dict[str, Any] = {"at": 0.0, "data": None}
+_CANDIDATE_CACHE: dict[str, Any] = {"at": 0.0, "data": None}
 
 
 def _safe_symbol(raw: str) -> str:
@@ -397,6 +399,39 @@ def install(app: Any) -> None:
             "running": False,
         }
         return JSONResponse(data, headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/v2/radar-candidates")
+    async def radar_candidates(limit: int = Query(default=15, ge=1, le=15)):
+        now = time.monotonic()
+        cached = _CANDIDATE_CACHE.get("data")
+        if cached and now - float(_CANDIDATE_CACHE.get("at") or 0.0) < 8.0:
+            data = dict(cached)
+            data["rows"] = list((data.get("rows") or [])[: int(limit)])
+            return JSONResponse(data, headers={"Cache-Control": "no-store"})
+        try:
+            async with httpx.AsyncClient(timeout=6.0, follow_redirects=True) as client:
+                response = await client.get(
+                    RADAR_CANDIDATES_URL,
+                    params={"limit": int(limit)},
+                    headers={"User-Agent": "ASCEND-Terminal/2.2"},
+                )
+                response.raise_for_status()
+                data = response.json()
+            if isinstance(data, dict):
+                _CANDIDATE_CACHE["at"] = now
+                _CANDIDATE_CACHE["data"] = data
+                return JSONResponse(data, headers={"Cache-Control": "no-store"})
+        except Exception:
+            pass
+        fallback = cached if isinstance(cached, dict) else {
+            "status": {
+                "mode": "PRIMARY_CANDIDATE_RADAR_NO_ENTRY_SEARCH",
+                "candidate_count": 0,
+                "last_error": "candidate_radar_temporarily_unreachable",
+            },
+            "rows": [],
+        }
+        return JSONResponse(fallback, headers={"Cache-Control": "no-store"})
 
     @app.get("/api/v2/spikes")
     async def spikes(
