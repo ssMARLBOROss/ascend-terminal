@@ -6,6 +6,7 @@ import re
 import statistics
 import time
 import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
@@ -276,11 +277,17 @@ async def _news() -> list[dict[str, str]]:
                         continue
                     low = title.lower()
                     impact = "HIGH" if any(w in low for w in high_words) else "MEDIUM" if any(w in low for w in medium_words) else "INFO"
+                    try:
+                        published_dt = parsedate_to_datetime(published) if published else None
+                        published_ts = int(published_dt.timestamp()) if published_dt else 0
+                    except Exception:
+                        published_ts = 0
                     rows.append({
                         "source": source,
                         "title": title,
                         "link": link,
                         "published": published,
+                        "published_ts": published_ts,
                         "impact": impact,
                     })
             except Exception:
