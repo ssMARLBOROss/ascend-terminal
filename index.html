@@ -135,7 +135,7 @@
             <div class="kv-row"><span>Стандартный объём:</span><b id="volBase">—</b></div><div class="kv-row"><span>Текущий:</span><b class="big" id="volNow">—</b></div><div class="kv-row"><span>Отклонение от нормы:</span><b class="big" id="volDev">—</b></div><div class="kv-row"><span>Percentile монеты:</span><b id="volPct">—</b></div><div class="kv-row"><span>Класс:</span><b class="class" id="volClass">—</b></div>
           </div></div>
           <div class="card panel"><h3>RADAR · ОБЯЗАТЕЛЬНЫЕ GATES</h3><div class="checks" id="contextChecks"></div></div>
-          <div class="card panel"><h3>РЕЗКИЕ ВСПЛЕСКИ · РАДАР 555</h3><div class="spike-list" id="spikes"><div class="spike"><div><b>Сканирую…</b><small>пакетами без блокировки UI</small></div></div></div><div class="scan-meta" id="scanMeta">0 / 555</div></div>
+          <div class="card panel"><h3>TOP 5–15 · RADAR CANDIDATES</h3><div class="spike-list" id="spikes"><div class="spike"><div><b>Радар формирует кандидатов…</b><small>liquidity → volume → displacement → BOS 5m → HTF → time → Delta</small></div></div></div><div class="scan-meta" id="scanMeta">ожидаем цикл радара</div></div>
           <div class="card panel"><h3>ЧЕК-ЛИСТ BASE CORE</h3><div class="checks" id="baseChecks"></div></div>
         </aside>
       </section>
@@ -153,7 +153,7 @@
 <script>
 const state={
   symbol:"BTC_USDT",timeframe:"5m",tf:{},ticker:null,volumeProfile:null,breadth:null,
-  universe:[],spikeCache:new Map(),spikeOffset:0,spikeScanned:new Set(),spikeBusy:false,
+  universe:[],candidateBusy:false,candidates:[],
   chartReady:false,needsFit:true,follow:true,projection:null,htfAt:0,lastRadarKey:"",
   coinPage:0,coinPageSize:60,coinFilter:"",journal:[],refreshBusy:false
 };
@@ -329,13 +329,24 @@ async function loadMarket(full){
   }catch(e){console.error(e);setLive("PARTIAL DATA","#ffc64d")}finally{state.refreshBusy=false}
 }
 function setLive(text,color){const e=$("live");e.style.color=color;e.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 16px '+color+'"></span> '+text}
-async function scanSpikes(){
-  if(state.spikeBusy||!state.universe.length)return;state.spikeBusy=true;
-  try{const d=await api("/api/v2/spikes?offset="+state.spikeOffset+"&batch=24&universe=555");state.spikeOffset=d.next_offset||0;(d.rows||[]).forEach(x=>{state.spikeCache.set(x.symbol,x);state.spikeScanned.add(x.symbol)});renderSpikes();$("scanMeta").textContent=state.spikeScanned.size+" / "+(d.universe||555)+" монет просмотрено в текущем цикле";if(state.spikeOffset===0)state.spikeScanned.clear()}catch(e){console.error("spikes",e)}finally{state.spikeBusy=false}
+async function loadCandidates(){
+  if(state.candidateBusy)return;state.candidateBusy=true;
+  try{
+    const d=await api("/api/v2/radar-candidates?limit=15");
+    state.candidates=d.rows||[];
+    renderCandidates(d.status||{});
+  }catch(e){
+    console.error("candidates",e);
+    $("scanMeta").textContent="кандидаты временно недоступны";
+  }finally{state.candidateBusy=false}
 }
-function renderSpikes(){
-  const rows=[...state.spikeCache.values()].sort((a,b)=>(Number(b.percentile)-Number(a.percentile))||(Number(b.ratio)-Number(a.ratio))).slice(0,8);
-  $("spikes").innerHTML=rows.length?rows.map(x=>'<div class="spike '+(Number(x.percentile)>=97?"hot":"")+'"><div><b>'+x.symbol.replace("_","/")+'</b><small>'+x.class+' · P'+Number(x.percentile).toFixed(0)+' · '+Number(x.ratio).toFixed(2)+'×</small></div><button data-sym="'+x.symbol+'">ОТКР</button></div>').join(""):'<div class="spike"><div><b>Сканирую рынок…</b><small>по 24 монеты за цикл</small></div></div>'
+function renderCandidates(status){
+  const rows=state.candidates||[];
+  $("spikes").innerHTML=rows.length?rows.map(x=>{
+    const v=x.volume||{},dp=x.displacement||{},htf=x.htf||{},delta=x.delta||{},hot=String(x.status)==="PRIORITY";
+    return '<div class="spike '+(hot?"hot":"")+'"><div><b>#'+(x.rank||"—")+' '+String(x.symbol||"").replace("_","/")+' · '+(x.direction||"—")+' · '+Number(x.score||0).toFixed(0)+'/100</b><small>'+String(x.status||"CANDIDATE")+' · VOL '+Number(v.ratio||0).toFixed(2)+'× P'+Number(v.percentile||0).toFixed(0)+' · DISP '+Number(dp.range_atr||0).toFixed(2)+' ATR · BOS 5m ✓ · HTF '+Number(htf.score||0).toFixed(0)+'/20 · Δ '+(delta.delta_signal||"N/A")+'</small></div><button data-sym="'+x.symbol+'">ОТКР</button></div>'
+  }).join(""):'<div class="spike"><div><b>Нет сильных кандидатов</b><small>Радар не заполняет список слабыми вариантами только ради количества.</small></div></div>';
+  $("scanMeta").textContent=(status.liquid_size||0)+" liquid / "+(status.universe_size||0)+" USDT PERP · pre "+(status.prefilter_count||0)+" → deep "+(status.deep_count||0)+" → TOP "+(status.candidate_count||rows.length);
 }
 async function loadNews(){
   try{const d=await api("/api/v2/news"),rows=d.rows||[];if(!rows.length){$("newsTrack").textContent="Существенные новости временно не получены.";return}const one=rows.map(x=>'<a class="news-item '+String(x.impact).toLowerCase()+'" href="'+(x.link||"#")+'" target="_blank" rel="noopener"><b>'+x.impact+'</b>'+x.title+"</a>").join("");$("newsTrack").innerHTML=one+one}catch(e){$("newsTrack").textContent="Новостной поток временно недоступен."}
@@ -364,8 +375,8 @@ $("coinGrid").addEventListener("click",e=>{const c=e.target.closest("[data-coin]
 $("coinSearch").addEventListener("input",e=>{state.coinFilter=e.target.value;state.coinPage=0;renderCoins()});
 $("coinPrev").addEventListener("click",()=>{state.coinPage=Math.max(0,state.coinPage-1);renderCoins()});$("coinNext").addEventListener("click",()=>{state.coinPage++;renderCoins()});
 loadJournal();initChart();const activeView=applyView();clock();setInterval(clock,1000);
-(async()=>{await loadUniverse();await loadMarket(true);if(activeView==="signals"||activeView==="market")scanSpikes();loadNews()})();
-setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();if(v==="signals"||v==="market")scanSpikes()},20000);setInterval(loadNews,300000);
+(async()=>{await loadUniverse();await loadMarket(true);if(activeView==="signals"||activeView==="market")loadCandidates();loadNews()})();
+setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();if(v==="signals"||v==="market")loadCandidates()},20000);setInterval(loadNews,300000);
 </script>
 </body>
 </html>
