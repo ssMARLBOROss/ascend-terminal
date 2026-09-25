@@ -7957,3 +7957,8 @@ async def klines(
         },
         headers={"Cache-Control": "no-store"},
     )
+
+# ASCEND Terminal v2 observational API: dynamic 555-symbol universe, per-coin volume profiles,
+# breadth, rotating spike scans and news. It does not place real orders.
+import terminal_api_v2
+terminal_api_v2.install(app)
