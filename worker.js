@@ -108,9 +108,14 @@ export default{
       const t=decodeURIComponent(u.pathname.slice(7));
       if(Date.now()>SHARE_LINK_EXPIRES_AT) return burned("Срок действия этой одноразовой ссылки истёк.");
       if(!t||!eq(await sha(t),SHARE_TOKEN_HASH)) return burned();
-      const c=await gate(env).fetch("https://gate/claim",{method:"POST"}); if(!c.ok) return burned();
-      const d=await c.json();
-      return new Response(null,{status:302,headers:{location:"/?view=market&guest=1","set-cookie":"ascend_guest="+encodeURIComponent(d.session)+"; Path=/; HttpOnly; Secure; SameSite=Strict","cache-control":"no-store","referrer-policy":"no-referrer"}});
+      if(req.method==="GET"||req.method==="HEAD"){
+        const body='<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>ASCEND · GUEST</title><style>html,body{margin:0;min-height:100%;background:#020711;color:#eef5ff;font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif}main{min-height:100vh;display:grid;place-items:center;padding:24px}.b{max-width:520px;border:1px solid #1b2e45;border-radius:14px;background:#07101c;padding:24px;text-align:center}.t{font-weight:900;letter-spacing:.14em;color:#59e7ff}.m{margin:12px 0 18px;color:#9aabc0;line-height:1.5}button{border:1px solid #48d6ff;border-radius:9px;background:#0b2a3c;color:#fff;padding:12px 18px;font:800 14px system-ui;cursor:pointer}</style></head><body><main><div class="b"><div class="t">ASCEND · READ ONLY</div><div class="m">Одноразовый гостевой просмотр. Ссылка сгорит только после нажатия кнопки ниже.</div><form method="post"><button type="submit">Открыть просмотр</button></form></div></main></body></html>';
+        return new Response(req.method==="HEAD"?null:body,{status:200,headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-robots-tag":"noindex, nofollow, noarchive","referrer-policy":"no-referrer"}});
+      }
+      if(req.method!=="POST") return new Response(null,{status:405,headers:{allow:"GET, HEAD, POST","cache-control":"no-store"}});
+      const claim=await gate(env).fetch("https://gate/claim",{method:"POST"}); if(!claim.ok) return burned();
+      const d=await claim.json();
+      return new Response(null,{status:303,headers:{location:"/?view=market&guest=1","set-cookie":"ascend_guest="+encodeURIComponent(d.session)+"; Path=/; HttpOnly; Secure; SameSite=Strict","cache-control":"no-store","referrer-policy":"no-referrer"}});
     }
 
     const own=await owner(req), gst=own?false:await guest(req,env);
