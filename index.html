@@ -157,7 +157,7 @@ const state={
   symbol:"BTC_USDT",timeframe:"5m",tf:{},ticker:null,volumeProfile:null,breadth:null,
   universe:[],candidateBusy:false,candidates:[],
   chartReady:false,needsFit:true,follow:true,projection:null,htfAt:0,lastRadarKey:"",
-  coinPage:0,coinPageSize:36,coinFilter:"",journal:[],refreshBusy:false,marketRequestSeq:0,newsRows:[]
+  coinPage:0,coinPageSize:36,coinFilter:"",journal:[],refreshBusy:false,marketRequestSeq:0,newsRows:[],paperTrades:[],paperEquity:100
 };
 let chart,candles,vol,sma20,sma50,sma200,lines=[],overlayRaf=0;
 const $=id=>document.getElementById(id);
@@ -299,7 +299,75 @@ function renderBaseChecks(){
   $("baseChecks").innerHTML=rows.map(x=>'<div class="check '+(x[1]?"ok":"wait")+'"><i>'+(x[1]?"✓":"…")+"</i>"+x[0]+"</div>").join("")
 }
 function updatePrices(){
-  const t=state.ticker||{};$("sellP").textContent=fmt(Number(t.bid)||Number(t.last_price));$("buyP").textContent=fmt(Number(t.ask)||Number(t.last_price))
+  const t=state.ticker||{};$("sellP").textContent=fmt(Number(t.bid)||Number(t.last_price));$("buyP").textContent=fmt(Number(t.ask)||Number(t.last_price));renderPaperStatus()
+}
+const PAPER_FEE=0.0008;
+function savePaper(){
+  localStorage.setItem("ascend_terminal_manual_paper_v1",JSON.stringify({equity:state.paperEquity,trades:state.paperTrades}));
+}
+function loadPaper(){
+  try{
+    const x=JSON.parse(localStorage.getItem("ascend_terminal_manual_paper_v1")||"{}");
+    state.paperEquity=Number(x.equity)||100;
+    state.paperTrades=Array.isArray(x.trades)?x.trades:[];
+  }catch(_){state.paperEquity=100;state.paperTrades=[]}
+  renderPaperStatus();
+}
+function activePaper(symbol=state.symbol){return state.paperTrades.find(x=>x.status==="OPEN"&&x.symbol===symbol)}
+function paperPriceFor(side){
+  const t=state.ticker||{};
+  return side==="LONG"?(Number(t.ask)||Number(t.last_price)):(Number(t.bid)||Number(t.last_price));
+}
+function openManualPaper(side){
+  if(activePaper()){alert("Для "+state.symbol.replace("_","/")+" уже есть открытая PAPER сделка.");return}
+  const entry=paperPriceFor(side);if(!Number.isFinite(entry)||entry<=0){alert("Нет актуальной цены для PAPER входа.");return}
+  const equity=Math.max(0,Number(state.paperEquity)||100),margin=equity*.05,notional=margin*20,sgn=side==="LONG"?1:-1;
+  const trade={
+    id:"M"+Date.now(),symbol:state.symbol,side,status:"OPEN",opened_at:Date.now(),entry,
+    margin,leverage:20,notional,remaining:1,tp1_hit:false,tp2_hit:false,tp3_hit:false,
+    sl:entry*(1-sgn*.005),tp1:entry*(1+sgn*.005),tp2:entry*(1+sgn*.010),tp3:entry*(1+sgn*.015),
+    realized:0,entry_fee:notional*PAPER_FEE,equity_before:equity,last_price:entry
+  };
+  state.paperEquity=Math.max(0,state.paperEquity-trade.entry_fee);
+  state.paperTrades.unshift(trade);savePaper();
+  pushJournal("PAPER OPEN · "+side,side,"Entry "+fmt(entry)+" · 5% ×20");
+  renderPaperStatus();renderChart();
+}
+function paperFill(t,fraction,price,label){
+  fraction=Math.min(Number(fraction)||0,Number(t.remaining)||0);if(fraction<=0)return;
+  const sign=t.side==="LONG"?1:-1,gross=t.notional*fraction*((price-t.entry)/t.entry)*sign,fee=t.notional*fraction*PAPER_FEE,net=gross-fee;
+  t.realized=(Number(t.realized)||0)+net;t.remaining=Math.max(0,t.remaining-fraction);t.last_price=price;state.paperEquity+=net;
+  pushJournal("PAPER "+label,t.side,(net>=0?"+":"")+net.toFixed(3)+" USDT · "+fmt(price));
+}
+function managePaperTrade(t,price){
+  if(!t||t.status!=="OPEN"||!Number.isFinite(price)||price<=0)return;
+  t.last_price=price;const long=t.side==="LONG",hitUp=p=>long?price>=p:price<=p,hitDown=p=>long?price<=p:price>=p;
+  if(!t.tp1_hit&&hitDown(t.sl)){paperFill(t,t.remaining,price,"SL");t.status="CLOSED";t.close_reason="SL";t.closed_at=Date.now();savePaper();return}
+  if(!t.tp1_hit&&hitUp(t.tp1)){paperFill(t,.50,t.tp1,"TP1");t.tp1_hit=true;t.sl=t.entry}
+  if(t.tp1_hit&&!t.tp2_hit&&hitUp(t.tp2)){paperFill(t,.30,t.tp2,"TP2");t.tp2_hit=true}
+  if(t.tp2_hit&&!t.tp3_hit&&hitUp(t.tp3)){paperFill(t,.20,t.tp3,"TP3");t.tp3_hit=true;t.status="CLOSED";t.close_reason="TP3";t.closed_at=Date.now();t.remaining=0}
+  if(t.status==="OPEN"&&t.tp1_hit&&hitDown(t.entry)){paperFill(t,t.remaining,t.entry,"BE");t.status="CLOSED";t.close_reason="BE";t.closed_at=Date.now()}
+  savePaper()
+}
+function closeManualPaper(){
+  const t=activePaper();if(!t)return;
+  const price=Number(state.ticker?.last_price)||paperPriceFor(t.side);if(!price)return;
+  paperFill(t,t.remaining,price,"MANUAL CLOSE");t.status="CLOSED";t.close_reason="MANUAL";t.closed_at=Date.now();savePaper();renderPaperStatus();renderChart()
+}
+function renderPaperStatus(){
+  const t=activePaper(),strip=$("paperStrip");if(!strip)return;
+  if(!t){strip.classList.remove("open");$("paperTradeText").textContent="PAPER сделок нет";$("paperPnl").textContent="";return}
+  const price=Number(state.ticker?.last_price)||t.last_price||t.entry,sign=t.side==="LONG"?1:-1,unreal=t.notional*(Number(t.remaining)||0)*((price-t.entry)/t.entry)*sign;
+  strip.classList.add("open");$("paperTradeText").innerHTML="<b>"+t.symbol.replace("_","/")+" · "+t.side+"</b> · Entry "+fmt(t.entry)+" · SL "+fmt(t.sl)+" · TP1 "+fmt(t.tp1)+" · TP2 "+fmt(t.tp2)+" · TP3 "+fmt(t.tp3)+" · Equity "+state.paperEquity.toFixed(2);
+  const p=$("paperPnl");p.textContent="uPnL "+(unreal>=0?"+":"")+unreal.toFixed(3);p.className="pnl "+(unreal>=0?"plus":"minus")
+}
+async function refreshPaperTrades(){
+  if(!state.paperTrades.some(x=>x.status==="OPEN"))return;
+  try{
+    const d=await api("/api/v2/symbols?limit=555"),map=new Map((d.symbols||[]).map(x=>[x.symbol,Number(x.last_price)]));
+    state.paperTrades.filter(x=>x.status==="OPEN").forEach(t=>{const p=map.get(t.symbol);if(Number.isFinite(p))managePaperTrade(t,p)});
+    renderPaperStatus()
+  }catch(e){console.error("paper refresh",e)}
 }
 async function loadUniverse(){
   try{const d=await api("/api/v2/symbols?limit=555");state.universe=d.symbols||[];const sel=$("symbol"),current=state.symbol;sel.innerHTML=state.universe.map(x=>'<option value="'+x.symbol+'">'+x.symbol.replace("_","/")+"</option>").join("");if(state.universe.some(x=>x.symbol===current))sel.value=current;else if(state.universe[0]){state.symbol=state.universe[0].symbol;sel.value=state.symbol}renderCoins()}catch(e){console.error("universe",e)}
@@ -329,7 +397,7 @@ async function loadMarket(full){
     if(res[4].status==="fulfilled")state.volumeProfile=res[4].value;
     if(res[5].status==="fulfilled")state.breadth=res[5].value;
     if(needHtf){if(res[6]?.status==="fulfilled")state.tf["1h"]=res[6].value.candles||[];if(res[7]?.status==="fulfilled")state.tf["4h"]=res[7].value.candles||[];if(res[8]?.status==="fulfilled")state.tf["1d"]=res[8].value.candles||[];state.htfAt=now}
-    $("pairTop").textContent=s.replace("_","/");$("coinBadge").textContent=s[0];$("sideSymbol").textContent=s.split("_")[0];updatePrices();renderVolume();renderBreadth();renderStructure();renderChart();renderBaseChecks();applyNewsMarkers();setLive("LIVE · "+((res.filter(x=>x.status==="fulfilled").length)+"/"+res.length),"#18e889")
+    $("pairTop").textContent=s.replace("_","/");$("coinBadge").textContent=s[0];$("sideSymbol").textContent=s.split("_")[0];updatePrices();const pt=activePaper(s);if(pt)managePaperTrade(pt,Number(state.ticker?.last_price));renderVolume();renderBreadth();renderStructure();renderChart();renderBaseChecks();applyNewsMarkers();setLive("LIVE · "+((res.filter(x=>x.status==="fulfilled").length)+"/"+res.length),"#18e889")
   }catch(e){if(requestSeq===state.marketRequestSeq){console.error(e);setLive("PARTIAL DATA","#ffc64d")}}finally{if(requestSeq===state.marketRequestSeq)state.refreshBusy=false}
 }
 function setLive(text,color){const e=$("live");e.style.color=color;e.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 16px '+color+'"></span> '+text}
@@ -399,6 +467,10 @@ function setTimeframe(tf){if(!state.tf[tf]?.length)return;state.timeframe=tf;sta
 function currentView(){const v=new URLSearchParams(location.search).get("view")||"market";return ["market","analytics","signals","journal","coins"].includes(v)?v:"market"}
 function applyView(){const v=currentView();document.body.dataset.view=v;document.querySelectorAll("[data-view-link]").forEach(a=>a.classList.toggle("active",a.dataset.viewLink===v));if(v==="market"&&state.chartReady){requestAnimationFrame(()=>{chart.applyOptions({width:$("chart").clientWidth,height:$("chart").clientHeight});scheduleOverlay()})}return v}
 $("symbol").addEventListener("change",e=>chooseSymbol(e.target.value));
+$("buyBtn").addEventListener("click",()=>openManualPaper("LONG"));
+$("sellBtn").addEventListener("click",()=>openManualPaper("SHORT"));
+["buyBtn","sellBtn"].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openManualPaper(id==="buyBtn"?"LONG":"SHORT")}}));
+$("paperCloseBtn").addEventListener("click",closeManualPaper);
 $("tfBar").addEventListener("click",e=>{const b=e.target.closest("[data-tf]");if(b)setTimeframe(b.dataset.tf)});
 $("miniRow").addEventListener("click",e=>{const b=e.target.closest("[data-mini-tf]");if(b)setTimeframe(b.dataset.miniTf)});
 $("centerBtn").addEventListener("click",()=>{state.needsFit=true;renderChart()});
@@ -411,9 +483,9 @@ $("quickSearch").addEventListener("input",e=>renderQuickResults(e.target.value))
 $("quickSearch").addEventListener("keydown",e=>{if(e.key==="Enter"){const first=$("quickResults").querySelector("[data-quick-sym]");if(first){e.preventDefault();chooseSymbol(first.dataset.quickSym);$("quickResults").classList.remove("open")}}});
 $("quickResults").addEventListener("click",e=>{const r=e.target.closest("[data-quick-sym]");if(r){chooseSymbol(r.dataset.quickSym);$("quickResults").classList.remove("open")}});
 $("coinPrev").addEventListener("click",()=>{state.coinPage=Math.max(0,state.coinPage-1);renderCoins()});$("coinNext").addEventListener("click",()=>{state.coinPage++;renderCoins()});
-loadJournal();initChart();const activeView=applyView();clock();setInterval(clock,1000);
+loadJournal();loadPaper();initChart();const activeView=applyView();clock();setInterval(clock,1000);
 (async()=>{await loadUniverse();await loadMarket(true);if(activeView==="signals"||activeView==="market")loadCandidates();loadNews()})();
-setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();if(v==="signals"||v==="market")loadCandidates()},20000);setInterval(loadNews,300000);
+setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();if(v==="signals"||v==="market")loadCandidates();refreshPaperTrades()},20000);setInterval(loadNews,300000);
 </script>
 </body>
 </html>
