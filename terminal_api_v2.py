@@ -13,9 +13,10 @@ import httpx
 from fastapi import HTTPException, Query
 from fastapi.responses import JSONResponse
 
-MEXC_BASE_URL = "https://contract.mexc.com"
+MEXC_BASE_URL = "https://api.mexc.com"
 MEXC_KLINE_URL = MEXC_BASE_URL + "/api/v1/contract/kline/{symbol}"
 MEXC_TICKER_URL = MEXC_BASE_URL + "/api/v1/contract/ticker"
+MEXC_CONTRACT_DETAIL_URL = MEXC_BASE_URL + "/api/v1/contract/detail"
 RADAR_STATUS_URL = "https://ascend-clean-production.up.railway.app/api/telegram-reversal-41/status"
 RADAR_CANDIDATES_URL = "https://ascend-clean-production.up.railway.app/api/radar-candidates-v2/latest"
 
@@ -30,6 +31,7 @@ TIMEFRAMES = {
 
 _SYMBOL_RE = re.compile(r"^[A-Z0-9]{1,28}_USDT$")
 _TICKER_CACHE: dict[str, Any] = {"at": 0.0, "rows": []}
+_CONTRACT_CACHE: dict[str, Any] = {"at": 0.0, "symbols": set()}
 _NEWS_CACHE: dict[str, Any] = {"at": 0.0, "rows": []}
 _PROFILE_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _BREADTH_CACHE: dict[str, Any] = {"at": 0.0, "data": None}
@@ -49,6 +51,50 @@ def _f(value: Any) -> float:
         return n if math.isfinite(n) else 0.0
     except Exception:
         return 0.0
+
+
+async def _active_contract_symbols(force: bool = False) -> set[str]:
+    """Return every currently enabled MEXC USDT perpetual contract.
+
+    MEXC /contract/detail defines state=0 as enabled. The set is cached because
+    that endpoint has a much lower rate limit than the ticker feed.
+    """
+    now = time.monotonic()
+    cached = _CONTRACT_CACHE.get("symbols") or set()
+    if not force and cached and now - float(_CONTRACT_CACHE.get("at") or 0.0) < 300.0:
+        return set(cached)
+    try:
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            response = await client.get(MEXC_CONTRACT_DETAIL_URL)
+            response.raise_for_status()
+            payload = response.json()
+        if not isinstance(payload, dict) or not payload.get("success"):
+            raise ValueError((payload or {}).get("message") if isinstance(payload, dict) else "invalid payload")
+        data = payload.get("data") or []
+        if isinstance(data, dict):
+            data = [data]
+        symbols: set[str] = set()
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            symbol = str(item.get("symbol") or "").upper()
+            quote = str(item.get("quoteCoin") or "").upper()
+            try:
+                state = int(item.get("state"))
+            except (TypeError, ValueError):
+                state = -1
+            if state != 0 or quote != "USDT" or not _SYMBOL_RE.fullmatch(symbol):
+                continue
+            symbols.add(symbol)
+        if not symbols:
+            raise ValueError("MEXC returned no enabled USDT futures")
+        _CONTRACT_CACHE["at"] = now
+        _CONTRACT_CACHE["symbols"] = set(symbols)
+        return symbols
+    except (httpx.HTTPError, ValueError) as exc:
+        if cached:
+            return set(cached)
+        raise HTTPException(status_code=502, detail=f"Ошибка списка активных MEXC futures: {exc}") from exc
 
 
 async def _ticker_rows(force: bool = False) -> list[dict[str, Any]]:
@@ -71,13 +117,14 @@ async def _ticker_rows(force: bool = False) -> list[dict[str, Any]]:
     data = payload.get("data") or []
     if isinstance(data, dict):
         data = [data]
+    active = await _active_contract_symbols(force=force)
 
     rows: list[dict[str, Any]] = []
     for item in data:
         if not isinstance(item, dict):
             continue
         symbol = str(item.get("symbol") or "").upper()
-        if not _SYMBOL_RE.fullmatch(symbol):
+        if not _SYMBOL_RE.fullmatch(symbol) or symbol not in active:
             continue
         rows.append({
             "symbol": symbol,
@@ -312,14 +359,14 @@ def install(app: Any) -> None:
         return {
             "ok": True,
             "service": "ASCEND Terminal API v2",
-            "universe_target": 555,
+            "universe_target": "ALL_ACTIVE_MEXC_USDT_FUTURES",
             "volume_profile": "per-symbol 1m median-20 + percentile",
         }
 
     @app.get("/api/v2/symbols")
-    async def symbols(limit: int = Query(default=555, ge=1, le=600)):
+    async def symbols(limit: int = Query(default=0, ge=0, le=5000)):
         rows = await _ticker_rows()
-        selected = rows[: int(limit)]
+        selected = rows if int(limit) <= 0 else rows[: int(limit)]
         return JSONResponse(
             {"count": len(selected), "symbols": selected},
             headers={"Cache-Control": "no-store"},
@@ -350,7 +397,7 @@ def install(app: Any) -> None:
         return JSONResponse(await _profile(safe), headers={"Cache-Control": "no-store"})
 
     @app.get("/api/v2/breadth")
-    async def breadth(limit: int = Query(default=555, ge=20, le=600)):
+    async def breadth(limit: int = Query(default=0, ge=0, le=5000)):
         # Read the exact breadth produced by the main reversal-radar cycle.
         # This endpoint is observation-only; no terminal calculation can alter
         # the radar or its entries.
@@ -385,7 +432,8 @@ def install(app: Any) -> None:
 
         # Fail soft if the production radar is temporarily unreachable. The
         # terminal shows this as fallback so it is never confused with radar data.
-        rows = (await _ticker_rows())[: int(limit)]
+        all_rows = await _ticker_rows()
+        rows = all_rows if int(limit) <= 0 else all_rows[: int(limit)]
         long_n = short_n = neutral_n = 0
         for row in rows:
             ch = _f(row.get("change_24h"))
@@ -397,7 +445,7 @@ def install(app: Any) -> None:
                 neutral_n += 1
         data = {
             "available": len(rows),
-            "target": int(limit),
+            "target": len(rows),
             "long": long_n,
             "short": short_n,
             "neutral": neutral_n,
@@ -444,9 +492,10 @@ def install(app: Any) -> None:
     async def spikes(
         offset: int = Query(default=0, ge=0),
         batch: int = Query(default=24, ge=4, le=36),
-        universe: int = Query(default=555, ge=20, le=600),
+        universe: int = Query(default=0, ge=0, le=5000),
     ):
-        tickers = (await _ticker_rows())[: int(universe)]
+        all_tickers = await _ticker_rows()
+        tickers = all_tickers if int(universe) <= 0 else all_tickers[: int(universe)]
         symbols = [str(x["symbol"]) for x in tickers]
         if not symbols:
             return {"rows": [], "next_offset": 0, "universe": 0}
