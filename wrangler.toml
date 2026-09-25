@@ -2,3 +2,12 @@ name = "ascend-terminal"
 main = "worker.js"
 compatibility_date = "2026-09-22"
 workers_dev = true
+
+[durable_objects]
+bindings = [
+  { name = "SHARE_GATE", class_name = "ShareGate" }
+]
+
+[[migrations]]
+tag = "v1-share-gate"
+new_sqlite_classes = ["ShareGate"]
