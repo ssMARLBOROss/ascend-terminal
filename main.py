@@ -7962,3 +7962,6 @@ async def klines(
 # breadth, rotating spike scans and news. It does not place real orders.
 import terminal_api_v2
 terminal_api_v2.install(app)
+
+import platform_proxy
+platform_proxy.install(app)
