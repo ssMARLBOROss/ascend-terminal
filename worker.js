@@ -63,7 +63,7 @@ async function frontend(isGuest){
 }
 async function api(req,u,isGuest){
   if(isGuest && (!["GET","HEAD"].includes(req.method)||!GUEST_API.has(u.pathname))) return Response.json({ok:false,error:"guest_read_only"},{status:403,headers:{"cache-control":"no-store"}});
-  const r=await fetch(new URL(u.pathname+u.search,UPSTREAM),{method:req.method,headers:{accept:"application/json","user-agent":isGuest?"ASCEND-Guest/1.0":"ASCEND-Terminal/1.0"},redirect:"follow"});
+  const proxyHeaders={accept:"application/json","user-agent":isGuest?"ASCEND-Guest/1.0":"ASCEND-Terminal/1.0"}; const auth=req.headers.get("authorization"); if(auth) proxyHeaders.authorization=auth; if(req.headers.get("content-type")) proxyHeaders["content-type"]=req.headers.get("content-type");\n  const init={method:req.method,headers:proxyHeaders,redirect:"follow"}; if(!["GET","HEAD"].includes(req.method)) init.body=req.body;\n  const r=await fetch(new URL(u.pathname+u.search,UPSTREAM),init);
   const h=new Headers(r.headers); h.set("cache-control","no-store"); h.set("x-ascend-upstream-status",String(r.status)); h.set("access-control-allow-origin",u.origin); h.delete("set-cookie");
   return new Response(r.body,{status:r.status,statusText:r.statusText,headers:h});
 }
