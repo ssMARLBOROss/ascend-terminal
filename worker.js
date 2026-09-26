@@ -63,7 +63,9 @@ async function frontend(isGuest){
 }
 async function api(req,u,isGuest){
   if(isGuest && (!["GET","HEAD"].includes(req.method)||!GUEST_API.has(u.pathname))) return Response.json({ok:false,error:"guest_read_only"},{status:403,headers:{"cache-control":"no-store"}});
-  const proxyHeaders={accept:"application/json","user-agent":isGuest?"ASCEND-Guest/1.0":"ASCEND-Terminal/1.0"}; const auth=req.headers.get("authorization"); if(auth) proxyHeaders.authorization=auth; if(req.headers.get("content-type")) proxyHeaders["content-type"]=req.headers.get("content-type");\n  const init={method:req.method,headers:proxyHeaders,redirect:"follow"}; if(!["GET","HEAD"].includes(req.method)) init.body=req.body;\n  const r=await fetch(new URL(u.pathname+u.search,UPSTREAM),init);
+  const proxyHeaders={accept:"application/json","user-agent":isGuest?"ASCEND-Guest/1.0":"ASCEND-Terminal/1.0"}; const auth=req.headers.get("authorization"); if(auth) proxyHeaders.authorization=auth; if(req.headers.get("content-type")) proxyHeaders["content-type"]=req.headers.get("content-type");
+  const init={method:req.method,headers:proxyHeaders,redirect:"follow"}; if(!["GET","HEAD"].includes(req.method)) init.body=req.body;
+  const r=await fetch(new URL(u.pathname+u.search,UPSTREAM),init);
   const h=new Headers(r.headers); h.set("cache-control","no-store"); h.set("x-ascend-upstream-status",String(r.status)); h.set("access-control-allow-origin",u.origin); h.delete("set-cookie");
   return new Response(r.body,{status:r.status,statusText:r.statusText,headers:h});
 }
@@ -114,7 +116,9 @@ export default{
       if(!t||!eq(await sha(t),OWNER_TOKEN_HASH)) return locked(403,"ASCEND · OWNER LINK INVALID");
       return new Response(null,{status:302,headers:{location:"/?view=market","set-cookie":"ascend_owner="+encodeURIComponent(t)+"; Path=/; Max-Age=2592000; HttpOnly; Secure; SameSite=Strict","cache-control":"no-store","referrer-policy":"no-referrer"}});
     }
-    if(u.pathname.startsWith("/guest/")) return locked(403,"ASCEND · OWNER ONLY");\n\n    const own=await owner(req), gst=false;
+    if(u.pathname.startsWith("/guest/")) return locked(403,"ASCEND · OWNER ONLY");
+
+    const own=await owner(req), gst=false;
     if(!own) return locked();
     if(gst&&u.pathname==="/"&&u.searchParams.get("view")!=="market") return Response.redirect(u.origin+"/?view=market&guest=1",302);
     if(u.pathname.startsWith("/api/")){
