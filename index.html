@@ -576,7 +576,9 @@ function buildAdminBasic(){
   sessionStorage.setItem("ascend_admin_basic",adminBasic);
   return adminBasic;
 }
+const ADMIN_API_ORIGIN="https://ascend-terminal-api-production.up.railway.app";
 async function adminFetch(url,opt={}){
+  if(url.startsWith("/api/v2/admin/"))url=ADMIN_API_ORIGIN+url;
   if(!adminBasic)buildAdminBasic();
   if(!adminBasic)throw new Error("AUTH_REQUIRED");
   const h=new Headers(opt.headers||{});h.set("Authorization",adminBasic);if(opt.body&&!h.has("Content-Type"))h.set("Content-Type","application/json");
