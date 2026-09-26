@@ -370,7 +370,7 @@ function shadowLastPrice(t){
   const row=(state.universe||[]).find(x=>x.symbol===t.symbol);
   return Number(row?.last_price)||Number(t.last_price)||Number(t.entry)||0
 }
-function closeShadowById(id){
+async function closeShadowById(id){
   const t=state.paperTrades.find(x=>x.id===id&&x.status==="OPEN");if(!t)return;
   const price=shadowLastPrice(t);if(!price)return;
   if(t.server_id){try{await adminFetch("/api/v2/admin/trades/"+t.server_id+"/close",{method:"POST",body:JSON.stringify({price})})}catch(e){alert("Не удалось закрыть серверный сигнал: "+e.message);return}}
@@ -431,6 +431,7 @@ function managePaperTrade(t,price){
 async function closeManualPaper(){
   const t=activePaper();if(!t)return;
   const price=Number(state.ticker?.last_price)||paperPriceFor(t.side);if(!price)return;
+  if(t.server_id){try{await adminFetch("/api/v2/admin/trades/"+t.server_id+"/close",{method:"POST",body:JSON.stringify({price})})}catch(e){alert("Не удалось закрыть серверный сигнал: "+e.message);return}}
   paperFill(t,t.remaining,price,"MANUAL CLOSE");t.status="CLOSED";t.close_reason="MANUAL";t.closed_at=Date.now();savePaper();renderPaperStatus();renderShadowNotebook();renderChart()
 }
 function renderPaperStatus(){
