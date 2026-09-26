@@ -59,7 +59,8 @@
     <div class="brand">ASCEND <span>TERMINAL</span></div>
     <div class="version">MARKET INTELLIGENCE · V2</div>
     <nav class="nav" id="nav">
-      <a href="/?view=market" data-view-link="market">◉ Рынок</a>\n      <a href="/?view=users" data-view-link="users">Пользователи</a>
+      <a href="/?view=market" data-view-link="market">◉ Рынок</a>
+      <a href="/?view=users" data-view-link="users">Пользователи</a>
       <a href="/?view=analytics" data-view-link="analytics">Аналитика</a>
       <a href="/?view=signals" data-view-link="signals">Сигналы</a>
       <a href="/?view=journal" data-view-link="journal">Журнал</a>
@@ -79,7 +80,8 @@
     </div>
     <div class="content">
       <div class="newsbar"><span class="news-title">НОВОСТИ · РЫНОК</span><div class="news-window"><div class="news-track" id="newsTrack">Загрузка новостей…</div></div></div>
-      <h2 class="view-title" data-title="users">УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ</h2>\n      <h2 class="view-title" data-title="analytics">АНАЛИТИКА РЫНКА</h2>
+      <h2 class="view-title" data-title="users">УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ</h2>
+      <h2 class="view-title" data-title="analytics">АНАЛИТИКА РЫНКА</h2>
       <h2 class="view-title" data-title="signals">СИГНАЛЫ · RADAR + BASE CORE</h2>
       <h2 class="view-title" data-title="journal">ЖУРНАЛ ТЕРМИНАЛА</h2>
       <h2 class="view-title" data-title="coins">МОНЕТЫ РАДАРА</h2>
@@ -159,7 +161,8 @@
   <div class="admin-summary"><div><small>Всего</small><b id="uAll">—</b></div><div><small>Mini App</small><b id="uMini">—</b></div><div><small>Активные 24ч</small><b id="uActive">—</b></div><div><small>Запросы</small><b id="uPending">—</b></div><div><small>Заблокированы</small><b id="uBlocked">—</b></div></div>
   <input class="user-search" id="userSearch" placeholder="Поиск: имя, username, Telegram ID">
   <div class="admin-table"><div class="admin-row head"><span>Пользователь</span><span>Username</span><span>Mini App</span><span>Активность</span><span>Заявка</span><span>Действия</span></div><div id="userRows"><div class="muted" style="padding:14px">Войдите как владелец.</div></div></div>
-</div>\n      </section>
+</div>
+      </section>
     </div>
   </main>
 </div>
@@ -600,7 +603,8 @@ async function loadAdminUsers(){
 }
 $("adminLogin")?.addEventListener("click",()=>{buildAdminBasic();loadAdminUsers()});$("adminRefresh")?.addEventListener("click",loadAdminUsers);$("userSearch")?.addEventListener("input",renderAdminUsers);
 $("userRows")?.addEventListener("click",async e=>{const g=e.target.closest("[data-grant]"),r=e.target.closest("[data-revoke]"),b=e.target.closest("[data-block]");const id=g?.dataset.grant||r?.dataset.revoke||b?.dataset.block;if(!id)return;const u=adminUsers.find(x=>String(x.user_id)===String(id));try{await adminFetch("/api/v2/admin/users/"+id+"/access",{method:"POST",body:JSON.stringify({grant:!!g,blocked:b?u?.status!=="blocked":false})});await loadAdminUsers()}catch(err){alert("Не удалось изменить доступ: "+err.message)}});
-\nloadJournal();loadPaper();initChart();const activeView=applyView();clock();setInterval(clock,1000);
+
+loadJournal();loadPaper();initChart();const activeView=applyView();clock();setInterval(clock,1000);
 (async()=>{await loadUniverse();await loadMarket(true);if(activeView==="signals"||activeView==="market")loadCandidates();loadNews()})();
 setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();if(v==="signals"||v==="market")loadCandidates();refreshPaperTrades()},20000);setInterval(loadNews,300000);
 </script>
