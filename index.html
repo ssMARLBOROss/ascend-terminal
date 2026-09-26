@@ -168,6 +168,10 @@
 </div>
 
 <script>
+if(new URLSearchParams(location.search).get("guest")==="1"){
+  document.body.innerHTML='<main style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#020711;color:#eef5ff;font-family:system-ui"><div style="max-width:560px;text-align:center;border:1px solid #23384f;border-radius:14px;padding:24px;background:#07101c"><b style="color:#ff667b">ASCEND · OWNER ONLY</b><p>Гостевой доступ к Terminal отключён владельцем.</p></div></main>';
+  throw new Error("ASCEND_OWNER_ONLY");
+}
 const state={
   symbol:"BTC_USDT",timeframe:"5m",tf:{},ticker:null,volumeProfile:null,breadth:null,
   universe:[],candidateBusy:false,candidates:[],
