@@ -26,16 +26,16 @@
     .kv{display:grid;gap:8px}.kv-row{display:grid;grid-template-columns:1fr auto;gap:12px;font-size:12px}.kv-row span{color:#ccd8e8}.kv-row b{color:white}.kv-row .red{color:var(--red)}.kv-row .green{color:var(--green)}.volume .big{font-size:15px;color:#ffb65a;font-weight:950}.class{color:var(--orange)!important}.checks{display:grid;gap:6px}.check{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:#d9e5f3}.check i{flex:0 0 18px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:#20324a;color:#9eb4c8;font-style:normal;font-weight:950;font-size:10px}.check.ok i{background:var(--green);color:#04130d}.check.bad i{background:var(--red);color:white}.check.wait i{background:var(--yellow);color:#1c1300}
     .spike-list{display:grid;gap:6px}.spike{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;border:1px solid #263a56;border-radius:7px;padding:7px;background:#07111e}.spike.hot{border-color:rgba(255,54,85,.6);background:rgba(255,54,85,.09)}.spike b{font-size:12px}.spike small{display:block;color:#91a1b8;font-size:10px;margin-top:2px}.spike button{border:1px solid rgba(72,214,255,.35);border-radius:7px;background:rgba(72,214,255,.08);color:#bcefff;font-weight:950;padding:6px 7px;font-size:10px;cursor:pointer}.scan-meta{font-size:9px;color:#7d93aa;margin-top:7px}
     .view-title{display:none;margin:2px 0 10px;font-size:19px;font-weight:950;letter-spacing:.02em}
-    body[data-view="analytics"] .view-title[data-title="analytics"],body[data-view="signals"] .view-title[data-title="signals"],body[data-view="journal"] .view-title[data-title="journal"],body[data-view="coins"] .view-title[data-title="coins"]{display:block}
+    body[data-view="users"] .view-title[data-title="users"],body[data-view="analytics"] .view-title[data-title="analytics"],body[data-view="signals"] .view-title[data-title="signals"],body[data-view="journal"] .view-title[data-title="journal"],body[data-view="coins"] .view-title[data-title="coins"]{display:block}
     body[data-view="market"] .lower,body[data-view="signals"] .lower{display:none}
     body[data-view="signals"] .session{display:none}
     body[data-view="signals"] .grid{grid-template-columns:1fr}
     body[data-view="signals"] .grid>div:first-child{display:none}
     body[data-view="signals"] .side{grid-template-columns:repeat(2,minmax(0,1fr))}
-    body[data-view="analytics"] #market,body[data-view="journal"] #market,body[data-view="coins"] #market{display:none}
-    body[data-view="analytics"] .session,body[data-view="journal"] .session,body[data-view="coins"] .session{display:none}
-    body[data-view="analytics"] .lower>*,body[data-view="journal"] .lower>*,body[data-view="coins"] .lower>*{display:none}
-    body[data-view="analytics"] #analytics,body[data-view="analytics"] #breadthPanel{display:block}
+    body[data-view="users"] #market,body[data-view="analytics"] #market,body[data-view="journal"] #market,body[data-view="coins"] #market{display:none}
+    body[data-view="users"] .session,body[data-view="analytics"] .session,body[data-view="journal"] .session,body[data-view="coins"] .session{display:none}
+    body[data-view="users"] .lower>*,body[data-view="analytics"] .lower>*,body[data-view="journal"] .lower>*,body[data-view="coins"] .lower>*{display:none}
+    body[data-view="users"] #usersPanel{display:block}body[data-view="analytics"] #analytics,body[data-view="analytics"] #breadthPanel{display:block}
     body[data-view="journal"] #journal,body[data-view="journal"] #shadowNotebook{display:block}
     body[data-view="coins"] #coins{display:block}
     body[data-view="journal"] .lower,body[data-view="coins"] .lower{grid-template-columns:1fr}
@@ -46,6 +46,11 @@
     .chart-shell.compact-overlay .label#labelEntry,.chart-shell.compact-overlay .label#labelSl,.chart-shell.compact-overlay .label#labelTp1{max-width:128px!important;font-size:9px;padding:5px 6px}
     @media(max-width:820px){.pair-groups{grid-template-columns:repeat(2,minmax(0,1fr))}.trade-news{min-width:160px}.quick-search-wrap{min-width:130px}}
     @media(max-width:820px){.shadow-grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:520px){.shadow-grid{grid-template-columns:repeat(2,1fr)}.shadow-summary{grid-template-columns:repeat(2,1fr)}.chart-shell{height:470px}.chart-top{gap:8px}.smas{display:none}.buy-sell{flex-wrap:wrap}.trade-news{order:3;flex-basis:100%;min-height:34px}.pair-groups{grid-template-columns:1fr}.tf-btn,.chart-btn{padding:0 8px}.breadth{grid-template-columns:repeat(2,1fr)}}
+  
+    .admin-auth{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.admin-auth input{min-width:160px}
+    .admin-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:10px 0}.admin-summary>div{border:1px solid var(--line);background:#091321;border-radius:8px;padding:10px}.admin-summary small{display:block;color:var(--muted);font-size:10px}.admin-summary b{font-size:20px}
+    .admin-table{overflow:auto}.admin-row{display:grid;grid-template-columns:1.3fr 1fr .8fr .8fr .8fr .9fr;gap:8px;align-items:center;padding:9px;border-top:1px solid #132941;font-size:11px}.admin-row.head{color:#8ea2b7;font-weight:800}.admin-actions{display:flex;gap:5px;flex-wrap:wrap}.admin-actions button{min-height:30px;padding:5px 8px;font-size:10px}.okbtn{border-color:#1d805f!important}.dangerbtn{border-color:#8a263b!important}.user-search{width:min(360px,100%);margin-bottom:8px}
+    @media(max-width:900px){.admin-summary{grid-template-columns:repeat(2,1fr)}.admin-row{grid-template-columns:1.3fr .8fr .8fr 1fr}.admin-row>:nth-child(2),.admin-row>:nth-child(5){display:none}}
   </style>
 </head>
 <body>
@@ -54,7 +59,7 @@
     <div class="brand">ASCEND <span>TERMINAL</span></div>
     <div class="version">MARKET INTELLIGENCE · V2</div>
     <nav class="nav" id="nav">
-      <a href="/?view=market" data-view-link="market">◉ Рынок</a>
+      <a href="/?view=market" data-view-link="market">◉ Рынок</a>\n      <a href="/?view=users" data-view-link="users">Пользователи</a>
       <a href="/?view=analytics" data-view-link="analytics">Аналитика</a>
       <a href="/?view=signals" data-view-link="signals">Сигналы</a>
       <a href="/?view=journal" data-view-link="journal">Журнал</a>
@@ -70,11 +75,11 @@
       <div class="quick-search-wrap"><input class="select" id="quickSearch" placeholder="Быстрый поиск монеты / пары"><div class="quick-results" id="quickResults"></div></div><select class="select" id="symbol"><option>BTC_USDT</option></select>
     </div>
     <div class="mobile-nav">
-      <a href="/?view=market" data-view-link="market">Рынок</a><a href="/?view=analytics" data-view-link="analytics">Аналитика</a><a href="/?view=signals" data-view-link="signals">Сигналы</a><a href="/?view=journal" data-view-link="journal">Журнал</a><a href="/?view=coins" data-view-link="coins">Монеты</a>
+      <a href="/?view=market" data-view-link="market">Рынок</a><a href="/?view=users" data-view-link="users">Пользователи</a><a href="/?view=analytics" data-view-link="analytics">Аналитика</a><a href="/?view=signals" data-view-link="signals">Сигналы</a><a href="/?view=journal" data-view-link="journal">Журнал</a><a href="/?view=coins" data-view-link="coins">Монеты</a>
     </div>
     <div class="content">
       <div class="newsbar"><span class="news-title">НОВОСТИ · РЫНОК</span><div class="news-window"><div class="news-track" id="newsTrack">Загрузка новостей…</div></div></div>
-      <h2 class="view-title" data-title="analytics">АНАЛИТИКА РЫНКА</h2>
+      <h2 class="view-title" data-title="users">УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ</h2>\n      <h2 class="view-title" data-title="analytics">АНАЛИТИКА РЫНКА</h2>
       <h2 class="view-title" data-title="signals">СИГНАЛЫ · RADAR + BASE CORE</h2>
       <h2 class="view-title" data-title="journal">ЖУРНАЛ ТЕРМИНАЛА</h2>
       <h2 class="view-title" data-title="coins">МОНЕТЫ РАДАРА</h2>
@@ -148,7 +153,13 @@
         <div class="card panel wide section-anchor" id="shadowNotebook"><h3>БЛОКНОТ ТЕНЕВЫХ СДЕЛОК</h3><div class="shadow-summary"><div><small>Открыто</small><b id="shadowOpen">0</b></div><div><small>Закрыто</small><b id="shadowClosed">0</b></div><div><small>Shadow Equity</small><b id="shadowEquity">100.00</b></div><div><small>Всего сделок</small><b id="shadowTotal">0</b></div></div><div class="shadow-list" id="shadowTradeList"><div class="muted">Теневых сделок ещё нет.</div></div><div class="shadow-note">Сделки открываются вручную кнопками «КУПИТЬ · ТЕНЬ» / «ПРОДАТЬ · ТЕНЬ». Это симуляция внутри терминала: реальный ордер на биржу не отправляется. История хранится локально в этом браузере.</div></div>
         <div class="card panel section-anchor" id="journal"><h3>ЛЕНТА СОБЫТИЙ ТЕРМИНАЛА</h3><div class="journal-table" id="journalTable"><div class="muted">Пока нет событий текущей сессии.</div></div></div>
         <div class="card panel wide section-anchor" id="coins"><h3>МОНЕТЫ РАДАРА</h3><div class="coin-tools"><input id="coinSearch" placeholder="Поиск монеты"><button id="coinPrev">←</button><button id="coinNext">→</button><span class="scan-meta" id="coinPageText">—</span></div><div class="pair-groups" id="pairGroups"></div><div class="coin-grid" id="coinGrid" style="display:none"></div></div>
-      </section>
+<div class="card panel wide section-anchor" id="usersPanel">
+  <h3>ПОЛЬЗОВАТЕЛИ · GROUP / BOT / MINI APP</h3>
+  <div class="admin-auth"><input id="adminUser" placeholder="Admin login"><input id="adminPass" type="password" placeholder="Admin password"><button id="adminLogin">Войти</button><button id="adminRefresh">Обновить</button><span class="scan-meta" id="adminState">Нужна авторизация владельца</span></div>
+  <div class="admin-summary"><div><small>Всего</small><b id="uAll">—</b></div><div><small>Mini App</small><b id="uMini">—</b></div><div><small>Активные 24ч</small><b id="uActive">—</b></div><div><small>Запросы</small><b id="uPending">—</b></div><div><small>Заблокированы</small><b id="uBlocked">—</b></div></div>
+  <input class="user-search" id="userSearch" placeholder="Поиск: имя, username, Telegram ID">
+  <div class="admin-table"><div class="admin-row head"><span>Пользователь</span><span>Username</span><span>Mini App</span><span>Активность</span><span>Заявка</span><span>Действия</span></div><div id="userRows"><div class="muted" style="padding:14px">Войдите как владелец.</div></div></div>
+</div>\n      </section>
     </div>
   </main>
 </div>
@@ -362,6 +373,7 @@ function shadowLastPrice(t){
 function closeShadowById(id){
   const t=state.paperTrades.find(x=>x.id===id&&x.status==="OPEN");if(!t)return;
   const price=shadowLastPrice(t);if(!price)return;
+  if(t.server_id){try{await adminFetch("/api/v2/admin/trades/"+t.server_id+"/close",{method:"POST",body:JSON.stringify({price})})}catch(e){alert("Не удалось закрыть серверный сигнал: "+e.message);return}}
   paperFill(t,t.remaining,price,"MANUAL CLOSE");t.status="CLOSED";t.close_reason="MANUAL";t.closed_at=Date.now();savePaper();renderPaperStatus();renderShadowNotebook();renderChart()
 }
 function renderShadowNotebook(){
@@ -379,7 +391,7 @@ function renderShadowNotebook(){
     return '<div class="shadow-trade '+(t.status==="OPEN"?"open":"")+'"><div class="shadow-trade-head"><b>'+t.symbol.replace("_","/")+'</b><span class="shadow-badge '+String(t.side).toLowerCase()+'">'+t.side+'</span><span class="shadow-badge '+String(t.status).toLowerCase()+'">'+(t.status==="OPEN"?"ОТКРЫТА":"ЗАКРЫТА")+'</span><span class="grow"></span><b class="'+((t.status==="OPEN"?unreal:result)>=0?"long":"short")+'">'+(t.status==="OPEN"?"uPnL ":"P&L ")+((t.status==="OPEN"?unreal:result)>=0?"+":"")+(t.status==="OPEN"?unreal:result).toFixed(3)+' USDT</b></div><div class="shadow-grid"><div class="shadow-kv"><small>Дата</small><b>'+kp.date+'</b></div><div class="shadow-kv"><small>Вход</small><b>'+fmt(t.entry)+'</b></div><div class="shadow-kv"><small>Открыта</small><b>'+kp.time+'</b></div><div class="shadow-kv"><small>Жизнь</small><b>'+life+'</b></div><div class="shadow-kv"><small>SL</small><b>'+fmt(t.sl)+'</b></div><div class="shadow-kv"><small>TP1 / TP2 / TP3</small><b>'+fmt(t.tp1)+' / '+fmt(t.tp2)+' / '+fmt(t.tp3)+'</b></div></div><div class="shadow-context"><b>Что было в момент входа:</b><br>'+ctx+'</div>'+(t.status==="OPEN"?'<div class="shadow-actions"><button data-shadow-close="'+t.id+'">Закрыть вручную</button></div>':'<div class="shadow-note">Закрытие: '+String(t.close_reason||"—")+' · '+(t.closed_at?kyivParts(t.closed_at).date+" "+kyivParts(t.closed_at).time:"—")+'</div>')+'</div>'
   }).join("")
 }
-function openManualPaper(side){
+async function openManualPaper(side){
   if(activePaper()){alert("Для "+state.symbol.replace("_","/")+" уже есть открытая теневая сделка.");return}
   const entry=paperPriceFor(side);if(!Number.isFinite(entry)||entry<=0){alert("Нет актуальной цены для теневого входа.");return}
   const equity=Math.max(0,Number(state.paperEquity)||100),margin=equity*.05,notional=margin*20,sgn=side==="LONG"?1:-1;
@@ -391,6 +403,10 @@ function openManualPaper(side){
     level_source:p?"CURRENT_PROJECTION":"FALLBACK_0.5_1.0_1.5_PCT",context:ctx,
     realized:0,entry_fee:notional*PAPER_FEE,equity_before:equity,last_price:entry
   };
+  try{
+    const published=await adminFetch("/api/v2/admin/trades",{method:"POST",body:JSON.stringify({symbol:state.symbol,direction:side,entry:trade.entry,sl:trade.sl,tp1:trade.tp1,tp2:trade.tp2,tp3:trade.tp3,timeframe:state.timeframe,reason:String(ctx||""),source:"ASCEND Terminal"})});
+    trade.server_id=published.trade?.id||"";
+  }catch(e){alert("Сделка не открыта: не удалось опубликовать сигнал в сервер ASCEND ("+e.message+").");return}
   state.paperEquity=Math.max(0,state.paperEquity-trade.entry_fee);
   state.paperTrades.unshift(trade);savePaper();
   pushJournal("SHADOW OPEN · "+side,side,"Entry "+fmt(entry)+" · 5% ×20");
@@ -412,7 +428,7 @@ function managePaperTrade(t,price){
   if(t.status==="OPEN"&&t.tp1_hit&&hitDown(t.entry)){paperFill(t,t.remaining,t.entry,"BE");t.status="CLOSED";t.close_reason="BE";t.closed_at=Date.now()}
   savePaper();renderShadowNotebook()
 }
-function closeManualPaper(){
+async function closeManualPaper(){
   const t=activePaper();if(!t)return;
   const price=Number(state.ticker?.last_price)||paperPriceFor(t.side);if(!price)return;
   paperFill(t,t.remaining,price,"MANUAL CLOSE");t.status="CLOSED";t.close_reason="MANUAL";t.closed_at=Date.now();savePaper();renderPaperStatus();renderShadowNotebook();renderChart()
@@ -527,8 +543,8 @@ function loadJournal(){try{state.journal=JSON.parse(localStorage.getItem("ascend
 function clock(){renderShadowNotebook();const n=new Date(),u=n.getTime()+n.getTimezoneOffset()*60000,k=new Date(u+3*3600000),h=k.getHours(),m=k.getMinutes(),s=k.getSeconds();$("clock").textContent=[h,m,s].map(x=>String(x).padStart(2,"0")).join(":");$("timePointer").style.left=((h+m/60+s/3600)/24*100)+"%";$("kyivDate").textContent=k.toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit"})+" · "+String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+" Киев"}
 function chooseSymbol(sym){if(!sym||sym===state.symbol&&state.tf["5m"]?.length)return;state.symbol=sym;$("symbol").value=sym;$("quickSearch").value=sym.replace("_","/");state.needsFit=true;state.htfAt=0;state.tf={};state.projection=null;if(state.chartReady){candles.setData([]);sma20.setData([]);sma50.setData([]);sma200.setData([]);vol.setData([]);candles.setMarkers([])}$("pairTop").textContent=sym.replace("_","/");$("chartTitle").textContent=sym.replace("_"," / ")+" · загрузка…";if(currentView()!=="market"){history.pushState(null,"","/?view=market");applyView()}loadMarket(true)}
 function setTimeframe(tf){if(!state.tf[tf]?.length)return;state.timeframe=tf;state.needsFit=true;document.querySelectorAll("[data-tf]").forEach(b=>b.classList.toggle("active",b.dataset.tf===tf));renderStructure();renderChart()}
-function currentView(){const v=new URLSearchParams(location.search).get("view")||"market";return ["market","analytics","signals","journal","coins"].includes(v)?v:"market"}
-function applyView(){const v=currentView();document.body.dataset.view=v;document.querySelectorAll("[data-view-link]").forEach(a=>a.classList.toggle("active",a.dataset.viewLink===v));if(v==="market"&&state.chartReady){requestAnimationFrame(()=>{chart.applyOptions({width:$("chart").clientWidth,height:$("chart").clientHeight});scheduleOverlay()})}return v}
+function currentView(){const v=new URLSearchParams(location.search).get("view")||"market";return ["market","users","analytics","signals","journal","coins"].includes(v)?v:"market"}
+function applyView(){const v=currentView();document.body.dataset.view=v;document.querySelectorAll("[data-view-link]").forEach(a=>a.classList.toggle("active",a.dataset.viewLink===v));if(v==="market"&&state.chartReady){requestAnimationFrame(()=>{chart.applyOptions({width:$("chart").clientWidth,height:$("chart").clientHeight});scheduleOverlay()})}if(v==="users")setTimeout(loadAdminUsers,0);return v}
 $("symbol").addEventListener("change",e=>chooseSymbol(e.target.value));
 $("buyBtn").addEventListener("click",()=>openManualPaper("LONG"));
 $("sellBtn").addEventListener("click",()=>openManualPaper("SHORT"));
@@ -547,7 +563,43 @@ $("quickSearch").addEventListener("input",e=>renderQuickResults(e.target.value))
 $("quickSearch").addEventListener("keydown",e=>{if(e.key==="Enter"){const first=$("quickResults").querySelector("[data-quick-sym]");if(first){e.preventDefault();chooseSymbol(first.dataset.quickSym);$("quickResults").classList.remove("open")}}});
 $("quickResults").addEventListener("click",e=>{const r=e.target.closest("[data-quick-sym]");if(r){chooseSymbol(r.dataset.quickSym);$("quickResults").classList.remove("open")}});
 $("coinPrev").addEventListener("click",()=>{state.coinPage=Math.max(0,state.coinPage-1);renderCoins()});$("coinNext").addEventListener("click",()=>{state.coinPage++;renderCoins()});
-loadJournal();loadPaper();initChart();const activeView=applyView();clock();setInterval(clock,1000);
+
+let adminBasic=sessionStorage.getItem("ascend_admin_basic")||"";
+function buildAdminBasic(){
+  const u=$("adminUser")?.value||"",p=$("adminPass")?.value||"";
+  if(!u||!p)return "";
+  adminBasic="Basic "+btoa(unescape(encodeURIComponent(u+":"+p)));
+  sessionStorage.setItem("ascend_admin_basic",adminBasic);
+  return adminBasic;
+}
+async function adminFetch(url,opt={}){
+  if(!adminBasic)buildAdminBasic();
+  if(!adminBasic)throw new Error("AUTH_REQUIRED");
+  const h=new Headers(opt.headers||{});h.set("Authorization",adminBasic);if(opt.body&&!h.has("Content-Type"))h.set("Content-Type","application/json");
+  const r=await fetch(url,{...opt,headers:h,cache:"no-store"});
+  if(r.status===401){sessionStorage.removeItem("ascend_admin_basic");adminBasic="";throw new Error("AUTH_FAILED")}
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  return r.json();
+}
+let adminUsers=[];
+function renderAdminUsers(){
+  const q=($("userSearch")?.value||"").toLowerCase().trim();
+  const rows=adminUsers.filter(x=>!q||String(x.user_id).includes(q)||String(x.username||"").toLowerCase().includes(q)||String(x.first_name||"").toLowerCase().includes(q));
+  $("userRows").innerHTML=rows.length?rows.map(x=>{
+    const access=Number(x.miniapp_access)===1&&x.status!=="blocked";
+    const last=x.last_seen?new Date(Number(x.last_seen)*1000).toLocaleString("ru-RU"):"—";
+    return '<div class="admin-row"><span><b>'+String(x.first_name||"—")+'</b><br><small>ID '+x.user_id+'</small></span><span>@'+String(x.username||"—")+'</span><span class="'+(access?"long":"neutral")+'">'+(access?"ДА":"НЕТ")+'</span><span>'+last+'</span><span>'+String(x.request_status||"—")+'</span><span class="admin-actions"><button class="okbtn" data-grant="'+x.user_id+'">Доступ</button><button data-revoke="'+x.user_id+'">Отозвать</button><button class="dangerbtn" data-block="'+x.user_id+'">'+(x.status==="blocked"?"Разблок.":"Блок")+'</button></span></div>'
+  }).join(""):'<div class="muted" style="padding:14px">Пользователи не найдены.</div>';
+}
+async function loadAdminUsers(){
+  if(currentView()!=="users")return;
+  $("adminState").textContent="Загрузка…";
+  try{const d=await adminFetch("/api/v2/admin/users");adminUsers=d.rows||[];const s=d.summary||{};$("uAll").textContent=s.all??0;$("uMini").textContent=s.miniapp??0;$("uActive").textContent=s.active24h??0;$("uPending").textContent=s.pending??0;$("uBlocked").textContent=s.blocked??0;$("adminState").textContent="Подключено";renderAdminUsers()}
+  catch(e){$("adminState").textContent=e.message==="AUTH_FAILED"?"Неверный логин/пароль":"Введите логин/пароль владельца"}
+}
+$("adminLogin")?.addEventListener("click",()=>{buildAdminBasic();loadAdminUsers()});$("adminRefresh")?.addEventListener("click",loadAdminUsers);$("userSearch")?.addEventListener("input",renderAdminUsers);
+$("userRows")?.addEventListener("click",async e=>{const g=e.target.closest("[data-grant]"),r=e.target.closest("[data-revoke]"),b=e.target.closest("[data-block]");const id=g?.dataset.grant||r?.dataset.revoke||b?.dataset.block;if(!id)return;const u=adminUsers.find(x=>String(x.user_id)===String(id));try{await adminFetch("/api/v2/admin/users/"+id+"/access",{method:"POST",body:JSON.stringify({grant:!!g,blocked:b?u?.status!=="blocked":false})});await loadAdminUsers()}catch(err){alert("Не удалось изменить доступ: "+err.message)}});
+\nloadJournal();loadPaper();initChart();const activeView=applyView();clock();setInterval(clock,1000);
 (async()=>{await loadUniverse();await loadMarket(true);if(activeView==="signals"||activeView==="market")loadCandidates();loadNews()})();
 setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();if(v==="signals"||v==="market")loadCandidates();refreshPaperTrades()},20000);setInterval(loadNews,300000);
 </script>
