@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -12,6 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
 from telegram.ext import Application, CommandHandler, ContextTypes
+
+import history_store
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -7735,11 +7738,29 @@ async def stop_bot() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    history_ready = False
+    for attempt in range(5):
+        try:
+            history_ready = await history_store.init()
+            if history_ready:
+                break
+        except Exception:
+            logger.exception("History storage start failed (attempt %s/5)", attempt + 1)
+        if attempt < 4:
+            await asyncio.sleep(3)
+
     try:
         await start_bot()
     except Exception:
         logger.exception("Telegram bot start failed")
+
     yield
+
+    if history_ready:
+        try:
+            await history_store.shutdown()
+        except Exception:
+            logger.exception("History storage stop failed")
     try:
         await stop_bot()
     except Exception:
