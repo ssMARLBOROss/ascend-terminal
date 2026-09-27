@@ -983,7 +983,7 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
   .ascend-radar-move{font-size:10px;font-weight:950}.ascend-up{color:#66d7b1}.ascend-down{color:#e98599}
   .ascend-state{font-size:7px;padding:2px 5px;border-radius:4px;border:1px solid #294056;color:#a9bfd2}
   .ascend-state.hot{border-color:#744150;color:#e9a0ad}.ascend-state.watch{border-color:#665a34;color:#d9c17a}
-  .ascend-contextbar{display:grid;grid-template-columns:1.2fr 1.15fr 1fr 1.25fr auto;gap:1px;border-bottom:1px solid #172943;background:#050e18}
+  .ascend-contextbar{display:grid;grid-template-columns:1.15fr 1.05fr 1fr 1.05fr 1.2fr auto;gap:1px;border-bottom:1px solid #172943;background:#050e18}
   .ascend-contextcell{padding:7px 9px;min-width:0;border-right:1px solid #16283b}
   .ascend-contextcell small{display:block;color:#6f8499;font-size:7px;text-transform:uppercase;letter-spacing:.08em}
   .ascend-contextcell b{display:block;margin-top:3px;color:#d9e5f0;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -998,7 +998,7 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
   .ascend-zone-event{position:absolute;right:8px;top:50%;transform:translateY(-50%);padding:3px 6px;border-radius:4px;background:#071421;border:1px solid #29445c;color:#c9d8e5;font-size:8px;font-weight:900}
   .session.session-v3.ascend-session-collapsed{display:none}
   .side .ascend-old-scanner-hidden{display:none!important}
-  @media(max-width:1320px){.grid.ascend-radar-layout{grid-template-columns:225px minmax(0,1fr) 310px}.ascend-contextbar{grid-template-columns:1fr 1fr 1fr 1fr auto}}
+  @media(max-width:1320px){.grid.ascend-radar-layout{grid-template-columns:225px minmax(0,1fr) 310px}.ascend-contextbar{grid-template-columns:1fr 1fr 1fr 1fr 1fr auto}}
   @media(max-width:1080px){
     .grid.ascend-radar-layout{grid-template-columns:1fr}
     .ascend-radar-rail{position:relative;top:auto;max-height:310px}
@@ -1015,7 +1015,7 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
 <script>
 (function(){
   'use strict';
-  const ui={filter:'common',search:'',bybit:new Set(),bybitReady:false,collapsed:{g1:false,g2:false,g3:false},lastZone:null};
+  const ui={filter:'common',search:'',bybit:new Set(),bybitReady:false,collapsed:{g1:false,g2:false,g3:false},lastZone:null,historyCache:new Map()};
 
   function num(v){const n=Number(v);return Number.isFinite(n)?n:0}
   function coinBase(sym){return String(sym||'').replace('_USDT','').replace('USDT','')}
@@ -1167,6 +1167,31 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
     return {text:'NEWS —',warn:false,title:String(x.title||'')};
   }
 
+  function currentHistoryTransition(){
+    const d=new Date(Date.now()+3*3600000),h=d.getUTCHours()+d.getUTCMinutes()/60;
+    return h<11?'ASIA_LONDON':'LONDON_NY';
+  }
+
+  async function updateHistoryContext(){
+    const el=document.getElementById('ascendCtxHistory');if(!el)return;
+    const tr=currentHistoryTransition(),key=state.symbol+'|'+tr,now=Date.now();
+    const cached=ui.historyCache.get(key);
+    if(cached&&now-cached.at<60000){
+      el.textContent=cached.text;el.title=cached.title;return;
+    }
+    el.textContent='собираем…';
+    try{
+      const d=await api('/api/v2/history/transitions?symbol='+encodeURIComponent(state.symbol)+'&transition='+tr+'&exchange=mexc&limit=5000');
+      const n=Number(d.count||0),o=d.outcome_60m||{},up=Number(o.up||0),down=Number(o.down||0);
+      const text=n?('n='+n+' · 60м ↑'+up+' ↓'+down):'пока нет выборки';
+      const title=(tr==='ASIA_LONDON'?'ASIA → LONDON':'LONDON → NY')+' · MEXC · реальные сохранённые переходы. Проценты не показываем без достаточной выборки.';
+      ui.historyCache.set(key,{at:now,text:text,title:title});
+      el.textContent=text;el.title=title;
+    }catch(e){
+      el.textContent='история —';el.title='Исторический слой временно недоступен';
+    }
+  }
+
   function updateContext(){
     updateZones();
     const s=currentSessionContext(),z=ui.lastZone,n=newsContext(),bos=typeof bosDirection==='function'?bosDirection(state.tf['5m']||[]):'NEUTRAL';
@@ -1175,6 +1200,7 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
     if(pow){pow.textContent=s.power;pow.className=s.tone||'';pow.title=s.reason}
     if(zone&&z){zone.textContent=z.side+' · '+z.event+' · '+bos;zone.className=z.tone||'';zone.title='UPPER '+fmt(z.upper.lo)+'–'+fmt(z.upper.hi)+' / LOWER '+fmt(z.lower.lo)+'–'+fmt(z.lower.hi)}
     if(news){news.textContent=n.text;news.className=n.warn?'warn':'';news.title=n.title}
+    updateHistoryContext();
   }
 
   function injectUI(){
@@ -1187,7 +1213,7 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
     const chartCard=market.querySelector('.chart-card');
     if(chartCard){
       const bar=document.createElement('div');bar.className='ascend-contextbar';bar.id='ascendContextBar';
-      bar.innerHTML='<div class="ascend-contextcell"><small>Сессия / переход</small><b id="ascendCtxSession">—</b></div><div class="ascend-contextcell"><small>Кто сильнее</small><b id="ascendCtxPower">—</b></div><div class="ascend-contextcell"><small>Ближайшая зона</small><b id="ascendCtxZone">—</b></div><div class="ascend-contextcell"><small>Новостной риск</small><b id="ascendCtxNews">NEWS —</b></div><button class="ascend-session-toggle" id="ascendSessionToggle" type="button">СЕССИИ</button>';
+      bar.innerHTML='<div class="ascend-contextcell"><small>Сессия / переход</small><b id="ascendCtxSession">—</b></div><div class="ascend-contextcell"><small>Кто сильнее</small><b id="ascendCtxPower">—</b></div><div class="ascend-contextcell"><small>Ближайшая зона</small><b id="ascendCtxZone">—</b></div><div class="ascend-contextcell"><small>История перехода</small><b id="ascendCtxHistory">собираем…</b></div><div class="ascend-contextcell"><small>Новостной риск</small><b id="ascendCtxNews">NEWS —</b></div><button class="ascend-session-toggle" id="ascendSessionToggle" type="button">СЕССИИ</button>';
       chartCard.insertBefore(bar,chartCard.firstChild);
     }
     const shell=document.getElementById('chartShell');
