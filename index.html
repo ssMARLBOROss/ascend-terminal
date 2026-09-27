@@ -99,6 +99,34 @@
     @media(max-width:980px){.coin-rank-head{display:none}.coin-rank-row{grid-template-columns:42px 1.3fr 1fr 1fr 72px}.coin-rank-row .coin-change,.coin-rank-row .coin-price{display:none}.coin-summary{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:620px){.coin-rank-row{grid-template-columns:36px 1.4fr 1fr 62px}.coin-rank-row .coin-volume{display:none}.coin-tools{align-items:stretch}.coin-sort{width:100%}}
 
+  
+    /* Trade map: entry point + entry zone + lifetime + result */
+    .trade-history-overlay{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}
+    .trade-life-area{position:absolute;border:1px solid rgba(145,170,198,.18);border-radius:5px;background:rgba(92,122,158,.035)}
+    .trade-life-area.active{border-color:rgba(117,139,218,.30);background:rgba(108,111,190,.055)}
+    .trade-life-area.win{border-color:rgba(50,195,137,.26);background:rgba(24,168,115,.045)}
+    .trade-life-area.loss{border-color:rgba(220,76,99,.25);background:rgba(205,62,86,.045)}
+    .trade-life-area.be{border-color:rgba(137,157,178,.24);background:rgba(117,139,160,.04)}
+    .trade-entry-zone{position:absolute;border-radius:4px;border:1px solid;min-width:34px}
+    .trade-entry-zone.long{border-color:rgba(57,214,159,.68);background:rgba(39,184,132,.115)}
+    .trade-entry-zone.short{border-color:rgba(230,76,113,.68);background:rgba(210,55,91,.11)}
+    .trade-entry-line{position:absolute;top:0;bottom:0;width:1px}
+    .trade-entry-line.long{background:rgba(55,211,158,.36)}
+    .trade-entry-line.short{background:rgba(231,75,111,.36)}
+    .trade-entry-point{position:absolute;width:9px;height:9px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid rgba(235,244,252,.85)}
+    .trade-entry-point.long{background:#31c993;box-shadow:0 0 9px rgba(49,201,147,.5)}
+    .trade-entry-point.short{background:#d94f72;box-shadow:0 0 9px rgba(217,79,114,.5)}
+    .trade-life-ribbon{position:absolute;height:18px;border-radius:5px;padding:3px 7px;font-size:8px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:12px;backdrop-filter:blur(2px)}
+    .trade-life-ribbon.active{color:#c8d4ff;border:1px solid rgba(131,145,219,.42);background:rgba(53,60,118,.62)}
+    .trade-life-ribbon.win{color:#a8e8cc;border:1px solid rgba(62,188,137,.38);background:rgba(21,75,58,.62)}
+    .trade-life-ribbon.loss{color:#f0a4b3;border:1px solid rgba(213,74,101,.4);background:rgba(89,29,43,.62)}
+    .trade-life-ribbon.be{color:#c2ced9;border:1px solid rgba(137,157,178,.36);background:rgba(47,60,73,.64)}
+    .trade-entry-label{position:absolute;transform:translateY(-50%);padding:4px 6px;border-radius:5px;background:rgba(5,15,25,.88);font-size:8px;font-weight:900;white-space:nowrap}
+    .trade-entry-label.long{color:#8ee5c2;border:1px solid rgba(57,214,159,.38)}
+    .trade-entry-label.short{color:#efa0b4;border:1px solid rgba(230,76,113,.38)}
+    .trade-close-line{position:absolute;top:0;bottom:0;width:1px;background:rgba(145,170,198,.20)}
+    @media(max-width:820px){.trade-entry-label{display:none}.trade-life-ribbon{height:16px;font-size:7px;padding:2px 5px}}
+
   </style>
 </head>
 <body>
@@ -171,6 +199,7 @@
             <div class="chart-shell" id="chartShell">
               <div class="chart" id="chart"></div>
               <div class="session-chart-overlay" id="sessionChartOverlay"></div>
+              <div class="trade-history-overlay" id="tradeHistoryOverlay"></div>
               <div class="projection-overlay" id="projectionOverlay">
                 <svg class="projection-svg" id="projectionSvg"><defs><marker id="arrRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ff536c"/></marker><marker id="arrGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#20f494"/></marker></defs><g id="projectionArrows"></g></svg>
                 <div class="zone red" id="zoneSupply"><span class="price-tag" id="supplyTag">S/R</span></div>
@@ -471,8 +500,86 @@ function timeX(t){const x=chart.timeScale().timeToCoordinate(Number(t));return N
 function setBox(id,left,top,width,height){const e=$(id);if([left,top,width,height].some(v=>!Number.isFinite(v))){e.classList.add("overlay-hidden");return}e.classList.remove("overlay-hidden");e.style.left=Math.max(0,left)+"px";e.style.top=Math.max(0,top)+"px";e.style.width=Math.max(2,width)+"px";e.style.height=Math.max(2,height)+"px"}
 function setLabel(id,x,y,maxW){const e=$(id);if(!Number.isFinite(x)||!Number.isFinite(y)){e.classList.add("overlay-hidden");return}e.classList.remove("overlay-hidden");const w=Math.min(maxW||220,$("chartShell").clientWidth-12);e.style.maxWidth=w+"px";e.style.left=Math.max(4,Math.min($("chartShell").clientWidth-w-4,x))+"px";e.style.top=Math.max(18,Math.min($("chartShell").clientHeight-18,y))+"px"}
 function setDot(id,x,y){const e=$(id);if(!Number.isFinite(x)||!Number.isFinite(y)){e.classList.add("overlay-hidden");return}e.classList.remove("overlay-hidden");e.style.left=x+"px";e.style.top=y+"px"}
+
+function tradeVisualState(t){
+  if(t.status==="OPEN")return "active";
+  if(String(t.close_reason||"").toUpperCase()==="BE")return "be";
+  const r=Number(t.realized)||0;
+  if(r>0)return "win";
+  if(r<0)return "loss";
+  return "be";
+}
+function tradeVisualLabel(t){
+  const stateName=tradeVisualState(t);
+  if(stateName==="active")return "ACTIVE";
+  if(stateName==="win")return "WIN";
+  if(stateName==="loss")return "LOSS";
+  return "BE";
+}
+function renderTradeHistoryOverlay(){
+  const layer=$("tradeHistoryOverlay");if(!layer||!state.chartReady)return;
+  const rows=closed(currentRows());if(!rows.length){layer.innerHTML="";return}
+  const shell=$("chartShell"),w=shell.clientWidth,h=shell.clientHeight;
+  const trades=(state.paperTrades||[]).filter(t=>t.symbol===state.symbol).slice(0,40);
+  if(!trades.length){layer.innerHTML="";return}
+  let html="";
+  trades.slice().reverse().forEach(t=>{
+    const openSec=Number(t.opened_at||0)/1000;
+    const endMs=t.status==="OPEN"?Date.now():Number(t.closed_at||Date.now());
+    const endSec=endMs/1000;
+    const openBar=nearestClose(rows,openSec),endBar=nearestClose(rows,endSec);
+    if(!openBar||!endBar)return;
+    const x1=timeX(Number(openBar.time)),x2raw=timeX(Number(endBar.time));
+    if(!Number.isFinite(x1)||!Number.isFinite(x2raw))return;
+    let x2=x2raw;
+    if(t.status==="OPEN"){
+      const lastX=timeX(Number(rows.at(-1).time));
+      if(Number.isFinite(lastX))x2=Math.max(x2,lastX);
+    }
+    const left=Math.min(x1,x2),right=Math.max(x1,x2),lifeW=Math.max(18,right-left);
+    if(right<-30||left>w+30)return;
+
+    const entry=Number(t.entry),sl=Number(t.sl),tp1=Number(t.tp1);
+    const yEntry=priceY(entry),ySl=priceY(sl),yTp1=priceY(tp1);
+    if(!Number.isFinite(yEntry))return;
+
+    const risk=Math.abs(entry-sl)||entry*.005;
+    const zoneHalf=Math.max(entry*.00045,Math.min(entry*.0025,risk*.16));
+    const yzA=priceY(entry-zoneHalf),yzB=priceY(entry+zoneHalf);
+    let zoneTop=Number.isFinite(yzA)&&Number.isFinite(yzB)?Math.min(yzA,yzB):yEntry-5;
+    let zoneH=Number.isFinite(yzA)&&Number.isFinite(yzB)?Math.max(7,Math.abs(yzA-yzB)):10;
+    zoneTop=clamp(zoneTop,1,h-zoneH-1);
+
+    let areaTop=yEntry-42,areaBottom=yEntry+42;
+    if(Number.isFinite(ySl)&&Number.isFinite(yTp1)){
+      areaTop=Math.min(ySl,yTp1,yEntry);areaBottom=Math.max(ySl,yTp1,yEntry);
+      if(areaBottom-areaTop>120){areaTop=yEntry-60;areaBottom=yEntry+60}
+      if(areaBottom-areaTop<34){areaTop=yEntry-17;areaBottom=yEntry+17}
+    }
+    areaTop=clamp(areaTop,2,h-36);areaBottom=clamp(areaBottom,areaTop+20,h-2);
+
+    const visual=tradeVisualState(t),side=String(t.side||"LONG").toLowerCase();
+    const life=formatLife(endMs-Number(t.opened_at||endMs));
+    const entryZoneW=Math.max(38,Math.min(62,lifeW*.28));
+    const ribbonTop=clamp(yEntry-31,4,h-22);
+    const labelX=clamp(x1+8,4,w-150),labelY=clamp(yEntry+18,18,h-18);
+    const result=Number(t.realized)||0;
+    const status=tradeVisualLabel(t);
+    const pnlText=t.status==="OPEN"?"":(" · "+(result>=0?"+":"")+result.toFixed(3)+" USDT");
+
+    html+='<div class="trade-life-area '+visual+'" style="left:'+left+'px;top:'+areaTop+'px;width:'+lifeW+'px;height:'+(areaBottom-areaTop)+'px"></div>';
+    html+='<div class="trade-entry-line '+side+'" style="left:'+x1+'px"></div>';
+    if(t.status!=="OPEN")html+='<div class="trade-close-line" style="left:'+x2+'px"></div>';
+    html+='<div class="trade-entry-zone '+side+'" style="left:'+Math.max(0,x1-5)+'px;top:'+zoneTop+'px;width:'+entryZoneW+'px;height:'+zoneH+'px"></div>';
+    html+='<div class="trade-entry-point '+side+'" style="left:'+x1+'px;top:'+clamp(yEntry,4,h-4)+'px"></div>';
+    html+='<div class="trade-entry-label '+side+'" style="left:'+labelX+'px;top:'+labelY+'px">ENTRY '+String(t.side||"")+' · '+fmt(entry)+'</div>';
+    html+='<div class="trade-life-ribbon '+visual+'" style="left:'+clamp(left+7,3,w-80)+'px;top:'+ribbonTop+'px;width:'+Math.max(72,Math.min(lifeW-10,210))+'px">'+String(t.side||"")+' · '+status+' · '+life+pnlText+'</div>';
+  });
+  layer.innerHTML=html;
+}
 function syncOverlay(){
   renderSessionChartOverlay();
+  renderTradeHistoryOverlay();
   const p=state.projection;if(!p||!state.chartReady)return;
   const shell=$("chartShell"),w=shell.clientWidth,h=shell.clientHeight,x=timeX(p.anchorTime);
   const range=chart.timeScale().getVisibleLogicalRange();
@@ -637,7 +744,7 @@ function managePaperTrade(t,price){
   if(t.tp1_hit&&!t.tp2_hit&&hitUp(t.tp2)){paperFill(t,.30,t.tp2,"TP2");t.tp2_hit=true}
   if(t.tp2_hit&&!t.tp3_hit&&hitUp(t.tp3)){paperFill(t,.20,t.tp3,"TP3");t.tp3_hit=true;t.status="CLOSED";t.close_reason="TP3";t.closed_at=Date.now();t.remaining=0}
   if(t.status==="OPEN"&&t.tp1_hit&&hitDown(t.entry)){paperFill(t,t.remaining,t.entry,"BE");t.status="CLOSED";t.close_reason="BE";t.closed_at=Date.now()}
-  savePaper();renderShadowNotebook()
+  savePaper();renderShadowNotebook();scheduleOverlay()
 }
 async function closeManualPaper(){
   const t=activePaper();if(!t)return;
@@ -777,7 +884,7 @@ function pushJournal(status,dir,volx){
 }
 function renderJournal(){const rows=state.journal||[];$("journalTable").innerHTML=rows.length?rows.map(x=>'<div class="journal-row"><span>'+x.time+'</span><b>'+x.symbol+'</b><span class="'+directionClass(x.dir)+'">'+x.dir+' · '+x.status+'</span><span>'+x.volx+"</span></div>").join(""):'<div class="muted">Пока нет событий текущей сессии.</div>'}
 function loadJournal(){try{state.journal=JSON.parse(localStorage.getItem("ascend_terminal_journal_v2")||"[]")||[]}catch(_){state.journal=[]}renderJournal()}
-function clock(){renderShadowNotebook();const n=new Date(),u=n.getTime()+n.getTimezoneOffset()*60000,k=new Date(u+3*3600000),h=k.getHours(),m=k.getMinutes(),s=k.getSeconds();$("clock").textContent=[h,m,s].map(x=>String(x).padStart(2,"0")).join(":");if($("timePointer"))$("timePointer").style.left=((h+m/60+s/3600)/24*100)+"%";$("kyivDate").textContent=k.toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit"})+" · "+String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+" Киев"}
+function clock(){renderShadowNotebook();if(state.paperTrades.some(t=>t.symbol===state.symbol))scheduleOverlay();const n=new Date(),u=n.getTime()+n.getTimezoneOffset()*60000,k=new Date(u+3*3600000),h=k.getHours(),m=k.getMinutes(),s=k.getSeconds();$("clock").textContent=[h,m,s].map(x=>String(x).padStart(2,"0")).join(":");if($("timePointer"))$("timePointer").style.left=((h+m/60+s/3600)/24*100)+"%";$("kyivDate").textContent=k.toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit"})+" · "+String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+" Киев"}
 function chooseSymbol(sym){$("majorPairMenu")?.classList.remove("open");document.querySelectorAll("[data-major]").forEach(b=>b.classList.remove("active"));if(!sym||sym===state.symbol&&state.tf["5m"]?.length)return;state.symbol=sym;$("symbol").value=sym;$("quickSearch").value=sym.replace("_","/");state.needsFit=true;state.htfAt=0;state.tf={};state.projection=null;if(state.chartReady){candles.setData([]);sma20.setData([]);sma50.setData([]);sma200.setData([]);vol.setData([]);candles.setMarkers([])}$("pairTop").textContent=sym.replace("_","/");$("chartTitle").textContent=sym.replace("_"," / ")+" · загрузка…";if(currentView()!=="market"){history.pushState(null,"","/?view=market");applyView()}loadMarket(true)}
 function setTimeframe(tf){if(!state.tf[tf]?.length)return;state.timeframe=tf;state.needsFit=true;document.querySelectorAll("[data-tf]").forEach(b=>b.classList.toggle("active",b.dataset.tf===tf));renderStructure();renderChart()}
 function currentView(){const v=new URLSearchParams(location.search).get("view")||"market";return ["market","users","analytics","signals","journal","coins"].includes(v)?v:"market"}
