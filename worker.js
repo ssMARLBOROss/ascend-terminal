@@ -109,7 +109,7 @@ export default{
   async fetch(req,env){
     const u=new URL(req.url);
     if(u.pathname==="/health") return Response.json({ok:true,service:"ascend-terminal-edge"},{headers:{"cache-control":"no-store"}});
-    if(!env||!env.SHARE_GATE) return legacy(req);
+    if(!env||!env.SHARE_GATE) return locked(503,"ASCEND · OWNER GATE UNAVAILABLE");
 
     if(u.pathname.startsWith("/owner/")){
       const t=decodeURIComponent(u.pathname.slice(7));
