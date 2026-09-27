@@ -957,5 +957,282 @@ loadJournal();loadPaper();initChart();const activeView=applyView();clock();setIn
 (async()=>{await loadUniverse();await loadMarket(true);if(activeView==="signals"||activeView==="market")loadCandidates();loadNews()})();
 setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();if(v==="signals"||v==="market")loadCandidates();refreshPaperTrades()},20000);setInterval(loadNews,300000);
 </script>
+
+<!-- ASCEND_RADAR_UI_V4_START -->
+<style>
+  /* ASCEND RADAR UI V4 · intentionally restrained */
+  .grid.ascend-radar-layout{grid-template-columns:250px minmax(0,1fr) 340px;align-items:start}
+  .ascend-radar-rail{border:1px solid #1b2e45;border-radius:8px;background:#06101b;overflow:hidden;min-width:0;position:sticky;top:66px;max-height:calc(100vh - 78px)}
+  .ascend-radar-head{padding:10px;border-bottom:1px solid #172a40}
+  .ascend-radar-title{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:950;letter-spacing:.08em}
+  .ascend-radar-sub{margin-top:4px;color:#71869c;font-size:8px;line-height:1.35}
+  .ascend-radar-tabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:8px}
+  .ascend-radar-tabs button,.ascend-radar-group-head,.ascend-session-toggle{border:1px solid #203a55;border-radius:6px;background:#071522;color:#a9bacb;min-height:29px;padding:5px 7px;font-size:8px;font-weight:900;cursor:pointer}
+  .ascend-radar-tabs button.active{border-color:#3f6f91;background:#0a2032;color:#eef6ff}
+  .ascend-radar-search{width:100%;margin-top:7px;border:1px solid #20344e;border-radius:6px;background:#040d17;color:#e9f2fb;padding:7px 8px;font-size:9px;outline:none}
+  .ascend-radar-body{overflow:auto;max-height:calc(100vh - 195px);padding:7px}
+  .ascend-radar-group{margin-bottom:8px}
+  .ascend-radar-group-head{width:100%;display:flex;justify-content:space-between;align-items:center;text-align:left;background:#081522}
+  .ascend-radar-group-head b{font-size:10px;color:#dbe8f3}
+  .ascend-radar-group-head span{color:#73889e;font-size:8px}
+  .ascend-radar-group-list{display:grid;gap:4px;margin-top:4px}
+  .ascend-radar-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center;width:100%;border:1px solid #172b40;border-radius:6px;background:#050f19;color:#dce7f1;padding:7px 8px;text-align:left;cursor:pointer}
+  .ascend-radar-row:hover,.ascend-radar-row.active{border-color:#38647f;background:#091a28}
+  .ascend-radar-main{min-width:0}.ascend-radar-main b{display:flex;align-items:center;gap:6px;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ascend-radar-main small{display:block;margin-top:3px;color:#71869b;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ascend-radar-move{font-size:10px;font-weight:950}.ascend-up{color:#66d7b1}.ascend-down{color:#e98599}
+  .ascend-state{font-size:7px;padding:2px 5px;border-radius:4px;border:1px solid #294056;color:#a9bfd2}
+  .ascend-state.hot{border-color:#744150;color:#e9a0ad}.ascend-state.watch{border-color:#665a34;color:#d9c17a}
+  .ascend-contextbar{display:grid;grid-template-columns:1.2fr 1.15fr 1fr 1.25fr auto;gap:1px;border-bottom:1px solid #172943;background:#050e18}
+  .ascend-contextcell{padding:7px 9px;min-width:0;border-right:1px solid #16283b}
+  .ascend-contextcell small{display:block;color:#6f8499;font-size:7px;text-transform:uppercase;letter-spacing:.08em}
+  .ascend-contextcell b{display:block;margin-top:3px;color:#d9e5f0;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ascend-contextcell .warn{color:#e7be70}.ascend-contextcell .buy{color:#70d5b2}.ascend-contextcell .sell{color:#e68ca0}
+  .ascend-session-toggle{align-self:center;margin:0 7px;min-width:68px}
+  .ascend-zone-layer{position:absolute;inset:0;pointer-events:none;z-index:7;overflow:hidden}
+  .ascend-zone-band{position:absolute;left:0;right:0;border-top:1px solid rgba(255,255,255,.15);border-bottom:1px solid rgba(255,255,255,.08)}
+  .ascend-zone-band.upper{background:rgba(199,74,93,.08);border-color:rgba(199,74,93,.30)}
+  .ascend-zone-band.lower{background:rgba(47,162,125,.07);border-color:rgba(47,162,125,.28)}
+  .ascend-zone-caption{position:absolute;left:8px;top:50%;transform:translateY(-50%);padding:3px 6px;border-radius:4px;background:rgba(3,10,17,.82);font-size:8px;font-weight:900;letter-spacing:.04em}
+  .ascend-zone-band.upper .ascend-zone-caption{color:#d994a0}.ascend-zone-band.lower .ascend-zone-caption{color:#78cdb0}
+  .ascend-zone-event{position:absolute;right:8px;top:50%;transform:translateY(-50%);padding:3px 6px;border-radius:4px;background:#071421;border:1px solid #29445c;color:#c9d8e5;font-size:8px;font-weight:900}
+  .session.session-v3.ascend-session-collapsed{display:none}
+  .side .ascend-old-scanner-hidden{display:none!important}
+  @media(max-width:1320px){.grid.ascend-radar-layout{grid-template-columns:225px minmax(0,1fr) 310px}.ascend-contextbar{grid-template-columns:1fr 1fr 1fr 1fr auto}}
+  @media(max-width:1080px){
+    .grid.ascend-radar-layout{grid-template-columns:1fr}
+    .ascend-radar-rail{position:relative;top:auto;max-height:310px}
+    .ascend-radar-body{max-height:205px}
+    .ascend-contextbar{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .ascend-session-toggle{margin:6px}
+  }
+  @media(max-width:620px){
+    .ascend-contextbar{grid-template-columns:1fr 1fr}
+    .ascend-contextcell{padding:6px 7px}
+    .ascend-radar-tabs{grid-template-columns:1fr 1fr}
+  }
+</style>
+<script>
+(function(){
+  'use strict';
+  const ui={filter:'common',search:'',bybit:new Set(),bybitReady:false,collapsed:{g1:false,g2:false,g3:false},lastZone:null};
+
+  function num(v){const n=Number(v);return Number.isFinite(n)?n:0}
+  function coinBase(sym){return String(sym||'').replace('_USDT','').replace('USDT','')}
+  function bybitName(sym){return String(sym||'').replace('_','')}
+  function pct(v){const n=num(v);return (n>=0?'+':'')+n.toFixed(Math.abs(n)>=10?1:2)+'%'}
+  function candidateMap(){return new Map((state.candidates||[]).map(x=>[String(x.symbol||''),x]))}
+
+  function getMove(row,cand){
+    const d=(cand&&cand.displacement)||{};
+    const vals=[d.move_pct,d.change_pct,d.percent,d.pct,cand&&cand.move_pct,row&&row.change_24h];
+    for(const v of vals){const n=Number(v);if(Number.isFinite(n)&&Math.abs(n)>0.0001)return n}
+    return 0;
+  }
+  function getVol(cand){
+    const v=cand&&cand.volume||{};
+    const n=Number(v.ratio);
+    return Number.isFinite(n)&&n>0?n:0;
+  }
+  function getState(cand){
+    if(!cand)return 'WATCH';
+    const s=String(cand.status||'WATCH').toUpperCase();
+    if(s==='PRIORITY')return 'PRIORITY';
+    const d=String(cand.direction||'').toUpperCase();
+    if(d==='LONG'||d==='SHORT')return d;
+    return s.slice(0,12)||'WATCH';
+  }
+
+  async function loadBybit(){
+    try{
+      const r=await fetch('https://api.bybit.com/v5/market/instruments-info?category=linear&limit=1000',{cache:'no-store'});
+      if(!r.ok)throw new Error('Bybit '+r.status);
+      const d=await r.json(),list=d&&d.result&&Array.isArray(d.result.list)?d.result.list:[];
+      ui.bybit=new Set(list.filter(x=>String(x.status||'').toLowerCase()==='trading'&&String(x.quoteCoin||'').toUpperCase()==='USDT').map(x=>String(x.symbol||'').toUpperCase()));
+      ui.bybitReady=ui.bybit.size>0;
+    }catch(e){ui.bybitReady=false;console.warn('ASCEND Bybit universe unavailable',e)}
+    renderRadar();
+  }
+
+  function buildRadarRows(){
+    const cmap=candidateMap();
+    let rows=(state.universe||[]).map(r=>{
+      const cand=cmap.get(r.symbol),move=getMove(r,cand),common=ui.bybitReady?ui.bybit.has(bybitName(r.symbol)):null;
+      return {symbol:r.symbol,move:move,abs:Math.abs(move),cand:cand,common:common,vol:getVol(cand),status:getState(cand),turn:num(r.amount_24h)};
+    }).filter(x=>x.abs>=0.5);
+    if(ui.filter==='common'&&ui.bybitReady)rows=rows.filter(x=>x.common);
+    const q=ui.search.trim().toUpperCase().replace('/','_').replace('-','_');
+    if(q)rows=rows.filter(x=>x.symbol.includes(q)||coinBase(x.symbol).includes(q.replace('_USDT','')));
+    rows.sort((a,b)=>b.abs-a.abs||b.vol-a.vol||b.turn-a.turn);
+    return rows;
+  }
+
+  function groupRows(rows,min,max){return rows.filter(x=>x.abs>=min&&(max==null||x.abs<max)).slice(0,18)}
+  function rowHtml(x){
+    const dir=x.move>=0?'ascend-up':'ascend-down';
+    const arrow=x.move>=0?'↑':'↓';
+    const ex=x.common===true?'M+B':x.common===false?'MEXC':'MEXC · B?';
+    const cls=x.status==='PRIORITY'||x.status==='LONG'||x.status==='SHORT'?'hot':'watch';
+    const meta=(x.vol?('VOL '+x.vol.toFixed(1)+'× · '):'')+ex;
+    return '<button class="ascend-radar-row '+(state.symbol===x.symbol?'active':'')+'" data-ascend-symbol="'+x.symbol+'" type="button" title="Открыть график. Ордер не создаётся."><span class="ascend-radar-main"><b>'+coinBase(x.symbol)+' <span class="ascend-state '+cls+'">'+x.status+'</span></b><small>'+meta+'</small></span><span class="ascend-radar-move '+dir+'">'+pct(x.move)+' '+arrow+'</span></button>';
+  }
+  function groupHtml(key,title,rows){
+    const closedGroup=!!ui.collapsed[key];
+    return '<div class="ascend-radar-group"><button class="ascend-radar-group-head" data-ascend-group="'+key+'" type="button"><b>'+title+'</b><span>'+rows.length+' монет '+(closedGroup?'▸':'▾')+'</span></button><div class="ascend-radar-group-list" style="'+(closedGroup?'display:none':'')+'">'+(rows.length?rows.map(rowHtml).join(''):'<div class="scan-meta" style="padding:7px">Нет монет в группе</div>')+'</div></div>';
+  }
+
+  function renderRadar(){
+    const rail=document.getElementById('ascendRadarRail');if(!rail)return;
+    const rows=buildRadarRows();
+    const g3=groupRows(rows,12,null),g2=groupRows(rows,3,12),g1=groupRows(rows,.5,3);
+    const body=document.getElementById('ascendRadarBody');
+    if(body)body.innerHTML=groupHtml('g3','12%+',g3)+groupHtml('g2','3–12%',g2)+groupHtml('g1','0.5–3%',g1);
+    const common=document.getElementById('ascendCommonBtn'),all=document.getElementById('ascendAllBtn');
+    if(common){common.classList.toggle('active',ui.filter==='common');common.textContent=ui.bybitReady?'MEXC + BYBIT':'MEXC + BYBIT …'}
+    if(all)all.classList.toggle('active',ui.filter==='all');
+    const s=document.getElementById('ascendRadarSync');if(s)s.textContent=ui.bybitReady?('Bybit sync · '+ui.bybit.size+' USDT perp'):'Bybit sync ожидается · пока MEXC';
+  }
+
+  function zoneData(){
+    const rows=closed(state.tf['5m']||[]).slice(-72);if(rows.length<20)return null;
+    const hi=Math.max.apply(null,rows.map(x=>num(x.high))),lo=Math.min.apply(null,rows.map(x=>num(x.low)));
+    const recent=rows.slice(-30),ranges=recent.map(x=>Math.max(0,num(x.high)-num(x.low))).filter(x=>x>0);
+    const med=median(ranges)||Math.max((hi-lo)/60,1e-9),w=Math.max(med*.75,(hi-lo)*.012);
+    const upper={lo:hi-w,hi:hi},lower={lo:lo,hi:lo+w};
+    const last=rows[rows.length-1],prev=rows[rows.length-2],price=num(last.close);
+    let event='MID',side='',tone='';
+    if(num(last.high)>upper.hi&&price<upper.hi){event='SWEEP';side='UPPER';tone='sell'}
+    else if(num(last.low)<lower.lo&&price>lower.lo){event='SWEEP';side='LOWER';tone='buy'}
+    else if(price>upper.hi&&num(prev.close)>upper.hi){event='BREAK';side='UPPER';tone='buy'}
+    else if(price<lower.lo&&num(prev.close)<lower.lo){event='BREAK';side='LOWER';tone='sell'}
+    else if(price>=upper.lo&&price<=upper.hi){event='TOUCH';side='UPPER';tone='sell'}
+    else if(price>=lower.lo&&price<=lower.hi){event='TOUCH';side='LOWER';tone='buy'}
+    else{
+      const du=Math.abs(upper.lo-price)/Math.max(price,1e-12)*100,dl=Math.abs(price-lower.hi)/Math.max(price,1e-12)*100;
+      side=du<dl?'UPPER':'LOWER';event='WATCH';tone=side==='UPPER'?'sell':'buy';
+    }
+    return {upper:upper,lower:lower,event:event,side:side,tone:tone,price:price};
+  }
+
+  function placeBand(id,range,label,event){
+    const el=document.getElementById(id);if(!el||!candles||!range)return;
+    const y1=candles.priceToCoordinate(range.hi),y2=candles.priceToCoordinate(range.lo);
+    if(!Number.isFinite(y1)||!Number.isFinite(y2)){el.style.display='none';return}
+    el.style.display='block';el.style.top=Math.min(y1,y2)+'px';el.style.height=Math.max(5,Math.abs(y2-y1))+'px';
+    const cap=el.querySelector('.ascend-zone-caption');if(cap)cap.textContent=label+' '+fmt(range.lo)+'–'+fmt(range.hi);
+    const ev=el.querySelector('.ascend-zone-event');if(ev){ev.textContent=event||'';ev.style.display=event?'block':'none'}
+  }
+
+  function updateZones(){
+    const z=zoneData();ui.lastZone=z;if(!z)return;
+    placeBand('ascendUpperZone',z.upper,'UPPER',z.side==='UPPER'?z.event:'');
+    placeBand('ascendLowerZone',z.lower,'LOWER',z.side==='LOWER'?z.event:'');
+  }
+
+  function strengthPair(prevKey,newKey){
+    if(typeof sessionMetrics!=='function')return {status:'BALANCED',reason:'ожидаем данные',tone:''};
+    const ts=Date.now()/1000,pm=sessionMetrics(prevKey,ts),nm=sessionMetrics(newKey,ts);
+    if(!pm||!nm)return {status:'SHIFTING',reason:'неполный набор данных',tone:''};
+    const diff=num(nm.strength)-num(pm.strength);
+    let status='SHIFTING',tone='';
+    if(Math.abs(diff)<4)status='BALANCED';
+    else if(diff>=8){status='NEW STRONGER';tone='buy'}
+    else if(diff<=-8){status='PREV STRONGER';tone='sell'}
+    const prevHigh=pm.rows&&pm.rows.length?Math.max.apply(null,pm.rows.map(x=>num(x.high))):0;
+    const prevLow=pm.rows&&pm.rows.length?Math.min.apply(null,pm.rows.map(x=>num(x.low))):0;
+    const p=num(state.ticker&&state.ticker.last_price);
+    let level='';
+    if(prevHigh&&p>prevHigh)level=' · High прошлой сессии взят';
+    else if(prevLow&&p<prevLow)level=' · Low прошлой сессии взят';
+    const reason='объём '+num(pm.volx).toFixed(1)+'× → '+num(nm.volx).toFixed(1)+'×'+level;
+    return {status:status,reason:reason,tone:tone};
+  }
+
+  function currentSessionContext(){
+    const d=new Date(Date.now()+3*3600000),h=d.getUTCHours()+d.getUTCMinutes()/60;
+    if(h>=8&&h<12){const p=strengthPair('asia','london');return {label:'ASIA → LONDON',power:p.status,reason:p.reason,tone:p.tone}}
+    if(h>=14&&h<17){const p=strengthPair('london','ny');return {label:'LONDON → NY',power:p.status,reason:p.reason,tone:p.tone}}
+    if(h>=3&&h<8)return {label:'ASIA',power:(document.getElementById('sAsiaFlow')||{}).textContent||'—',reason:'до London overlap',tone:''};
+    if(h>=12&&h<14)return {label:'LONDON',power:(document.getElementById('sLondonFlow')||{}).textContent||'—',reason:'до NY overlap',tone:''};
+    if(h>=17&&h<23)return {label:'NEW YORK',power:(document.getElementById('sNyFlow')||{}).textContent||'—',reason:'NY active',tone:''};
+    return {label:'LOW LIQUIDITY / TRANSITION',power:'BALANCED',reason:'контроль объёма',tone:''};
+  }
+
+  function newsContext(){
+    const rows=(state.newsRows||[]).filter(x=>String(x.impact||'').toUpperCase()==='HIGH').sort((a,b)=>num(b.published_ts)-num(a.published_ts));
+    if(!rows.length)return {text:'NEWS —',warn:false,title:'Значимых предупреждений нет'};
+    const x=rows[0],mins=Math.round((Date.now()/1000-num(x.published_ts))/60);
+    if(mins>=0&&mins<=120)return {text:'⚠ NEWS · '+mins+'м назад',warn:true,title:String(x.title||'Высокое влияние')};
+    if(mins<0&&mins>=-120)return {text:'⚠ NEWS · через '+Math.abs(mins)+'м',warn:true,title:String(x.title||'Высокое влияние')};
+    return {text:'NEWS —',warn:false,title:String(x.title||'')};
+  }
+
+  function updateContext(){
+    updateZones();
+    const s=currentSessionContext(),z=ui.lastZone,n=newsContext(),bos=typeof bosDirection==='function'?bosDirection(state.tf['5m']||[]):'NEUTRAL';
+    const ses=document.getElementById('ascendCtxSession'),pow=document.getElementById('ascendCtxPower'),zone=document.getElementById('ascendCtxZone'),news=document.getElementById('ascendCtxNews');
+    if(ses){ses.textContent=s.label;ses.title=s.reason}
+    if(pow){pow.textContent=s.power;pow.className=s.tone||'';pow.title=s.reason}
+    if(zone&&z){zone.textContent=z.side+' · '+z.event+' · '+bos;zone.className=z.tone||'';zone.title='UPPER '+fmt(z.upper.lo)+'–'+fmt(z.upper.hi)+' / LOWER '+fmt(z.lower.lo)+'–'+fmt(z.lower.hi)}
+    if(news){news.textContent=n.text;news.className=n.warn?'warn':'';news.title=n.title}
+  }
+
+  function injectUI(){
+    const market=document.getElementById('market');if(!market||document.getElementById('ascendRadarRail'))return;
+    market.classList.add('ascend-radar-layout');
+    const rail=document.createElement('aside');rail.className='ascend-radar-rail';rail.id='ascendRadarRail';
+    rail.innerHTML='<div class="ascend-radar-head"><div class="ascend-radar-title"><span>РАДАРЫ</span><span id="ascendRadarCount">LIVE</span></div><div class="ascend-radar-sub" id="ascendRadarSync">MEXC + Bybit sync…</div><div class="ascend-radar-tabs"><button id="ascendCommonBtn" class="active" type="button">MEXC + BYBIT</button><button id="ascendAllBtn" type="button">ВСЕ MEXC</button></div><input class="ascend-radar-search" id="ascendRadarSearch" placeholder="Поиск монеты"></div><div class="ascend-radar-body" id="ascendRadarBody"></div>';
+    market.insertBefore(rail,market.firstChild);
+
+    const chartCard=market.querySelector('.chart-card');
+    if(chartCard){
+      const bar=document.createElement('div');bar.className='ascend-contextbar';bar.id='ascendContextBar';
+      bar.innerHTML='<div class="ascend-contextcell"><small>Сессия / переход</small><b id="ascendCtxSession">—</b></div><div class="ascend-contextcell"><small>Кто сильнее</small><b id="ascendCtxPower">—</b></div><div class="ascend-contextcell"><small>Ближайшая зона</small><b id="ascendCtxZone">—</b></div><div class="ascend-contextcell"><small>Новостной риск</small><b id="ascendCtxNews">NEWS —</b></div><button class="ascend-session-toggle" id="ascendSessionToggle" type="button">СЕССИИ</button>';
+      chartCard.insertBefore(bar,chartCard.firstChild);
+    }
+    const shell=document.getElementById('chartShell');
+    if(shell){
+      const layer=document.createElement('div');layer.className='ascend-zone-layer';layer.id='ascendZoneLayer';
+      layer.innerHTML='<div class="ascend-zone-band upper" id="ascendUpperZone"><span class="ascend-zone-caption">UPPER</span><span class="ascend-zone-event"></span></div><div class="ascend-zone-band lower" id="ascendLowerZone"><span class="ascend-zone-caption">LOWER</span><span class="ascend-zone-event"></span></div>';
+      shell.appendChild(layer);
+    }
+
+    const old=document.getElementById('spikes');if(old&&old.closest('.card'))old.closest('.card').classList.add('ascend-old-scanner-hidden');
+    const sess=document.querySelector('.session.session-v3');if(sess)sess.classList.add('ascend-session-collapsed');
+
+    rail.addEventListener('click',e=>{
+      const r=e.target.closest('[data-ascend-symbol]');if(r){chooseSymbol(r.dataset.ascendSymbol);renderRadar();return}
+      const g=e.target.closest('[data-ascend-group]');if(g){ui.collapsed[g.dataset.ascendGroup]=!ui.collapsed[g.dataset.ascendGroup];renderRadar()}
+    });
+    document.getElementById('ascendCommonBtn').addEventListener('click',()=>{ui.filter='common';renderRadar()});
+    document.getElementById('ascendAllBtn').addEventListener('click',()=>{ui.filter='all';renderRadar()});
+    document.getElementById('ascendRadarSearch').addEventListener('input',e=>{ui.search=e.target.value;renderRadar()});
+    document.getElementById('ascendSessionToggle').addEventListener('click',()=>{
+      const s=document.querySelector('.session.session-v3');if(!s)return;
+      s.classList.toggle('ascend-session-collapsed');
+      document.getElementById('ascendSessionToggle').textContent=s.classList.contains('ascend-session-collapsed')?'СЕССИИ':'СКРЫТЬ';
+    });
+
+    const _renderCandidates=renderCandidates;renderCandidates=function(status){_renderCandidates(status);renderRadar()};
+    const _renderSessionUI=renderSessionUI;renderSessionUI=function(){_renderSessionUI();updateContext()};
+    const _renderChart=renderChart;renderChart=function(){_renderChart();requestAnimationFrame(updateContext)};
+    const _loadNews=loadNews;loadNews=async function(){const out=await _loadNews();updateContext();return out};
+    const _chooseSymbol=chooseSymbol;chooseSymbol=function(sym){const out=_chooseSymbol(sym);setTimeout(()=>{renderRadar();updateContext()},0);return out};
+    const _openManualPaper=openManualPaper;openManualPaper=function(dir){
+      const side=dir==='LONG'?'LONG':'SHORT';
+      if(!window.confirm('Открыть ТЕНЕВУЮ '+side+' сделку по '+String(state.symbol||'').replace('_','/')+'?\\n\\nРеальный ордер на биржу НЕ отправляется.'))return;
+      return _openManualPaper(dir);
+    };
+
+    new ResizeObserver(()=>updateZones()).observe(shell||market);
+    renderRadar();updateContext();loadBybit();
+    setInterval(()=>{renderRadar();updateContext()},15000);
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',injectUI,{once:true});else injectUI();
+})();
+</script>
+<!-- ASCEND_RADAR_UI_V4_END -->
+
 </body>
 </html>
