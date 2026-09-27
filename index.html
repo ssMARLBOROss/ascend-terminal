@@ -83,6 +83,22 @@
     .scanner-row .scan-open{color:#82c7ec;font-size:9px;font-weight:950}
     @media(max-width:1050px){.major-wrap{display:none}.session-cards{grid-template-columns:repeat(2,1fr)}.overlap-row{grid-template-columns:1fr}.session.session-v3{min-height:188px}}
 
+  
+    .coin-rank-head{display:grid;grid-template-columns:54px minmax(150px,1.3fr) 1fr 1fr .8fr .9fr 88px;gap:8px;align-items:center;padding:8px 10px;border:1px solid #20344e;border-radius:7px;background:#081522;color:#7890a7;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+    .coin-rank-list{display:grid;gap:5px;margin-top:6px}
+    .coin-rank-row{display:grid;grid-template-columns:54px minmax(150px,1.3fr) 1fr 1fr .8fr .9fr 88px;gap:8px;align-items:center;padding:9px 10px;border:1px solid #1c3148;border-radius:7px;background:#07111e;cursor:pointer;transition:.14s}
+    .coin-rank-row:hover{border-color:#3b6f94;background:#0a1b2b;transform:translateY(-1px)}
+    .coin-rank-row.active{border-color:#3d7ca6;background:#0b2033}
+    .coin-rank-pos{font-size:12px;font-weight:950;color:#7892aa}.coin-rank-pos.top{color:#d4b86d}
+    .coin-rank-symbol b{display:block;font-size:12px;color:#e8f1fa}.coin-rank-symbol small{display:block;margin-top:2px;color:#73889f;font-size:8px}
+    .coin-metric small{display:block;color:#71869c;font-size:8px}.coin-metric b{font-size:10px;color:#cfdeeb}
+    .coin-open{justify-self:end;border:1px solid #28516e;border-radius:6px;background:#0a1b2a;color:#9fd4ef;padding:6px 7px;font-size:9px;font-weight:950}
+    .coin-sort{display:flex;gap:6px;flex-wrap:wrap}.coin-sort button{min-height:32px;border:1px solid #244765;border-radius:6px;background:#071828;color:#9fb5c9;padding:0 9px;font-size:9px;font-weight:900;cursor:pointer}
+    .coin-sort button.active{border-color:#3c759c;background:#0b2840;color:#fff}
+    .coin-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:9px}.coin-summary>div{padding:8px 9px;border:1px solid #1e344c;border-radius:7px;background:#07111e}.coin-summary small{display:block;color:#71879e;font-size:8px}.coin-summary b{font-size:12px}
+    @media(max-width:980px){.coin-rank-head{display:none}.coin-rank-row{grid-template-columns:42px 1.3fr 1fr 1fr 72px}.coin-rank-row .coin-change,.coin-rank-row .coin-price{display:none}.coin-summary{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:620px){.coin-rank-row{grid-template-columns:36px 1.4fr 1fr 62px}.coin-rank-row .coin-volume{display:none}.coin-tools{align-items:stretch}.coin-sort{width:100%}}
+
   </style>
 </head>
 <body>
@@ -92,11 +108,11 @@
     <div class="version">MARKET INTELLIGENCE · V2</div>
     <nav class="nav" id="nav">
       <a href="/?view=market" data-view-link="market">◉ Рынок</a>
+      <a href="/?view=coins" data-view-link="coins">◆ Монеты</a>
       <a href="/?view=users" data-view-link="users">Пользователи</a>
       <a href="/?view=analytics" data-view-link="analytics">Аналитика</a>
       <a href="/?view=signals" data-view-link="signals">Сигналы</a>
       <a href="/?view=journal" data-view-link="journal">Журнал</a>
-      <a href="/?view=coins" data-view-link="coins">Монеты</a>
     </nav>
     <div class="core-note"><b>RADAR + BASE CORE</b>Radar находит момент. BASE CORE проверяет контекст, уровень, реакцию и R:R.</div>
   </aside>
@@ -114,7 +130,7 @@
       <div class="quick-search-wrap"><input class="select" id="quickSearch" placeholder="Быстрый поиск монеты / пары"><div class="quick-results" id="quickResults"></div></div><select class="select" id="symbol"><option>BTC_USDT</option></select>
     </div>
     <div class="mobile-nav">
-      <a href="/?view=market" data-view-link="market">Рынок</a><a href="/?view=users" data-view-link="users">Пользователи</a><a href="/?view=analytics" data-view-link="analytics">Аналитика</a><a href="/?view=signals" data-view-link="signals">Сигналы</a><a href="/?view=journal" data-view-link="journal">Журнал</a><a href="/?view=coins" data-view-link="coins">Монеты</a>
+      <a href="/?view=market" data-view-link="market">Рынок</a><a href="/?view=coins" data-view-link="coins">Монеты</a><a href="/?view=users" data-view-link="users">Пользователи</a><a href="/?view=analytics" data-view-link="analytics">Аналитика</a><a href="/?view=signals" data-view-link="signals">Сигналы</a><a href="/?view=journal" data-view-link="journal">Журнал</a>
     </div>
     <div class="content">
       <div class="newsbar"><span class="news-title">НОВОСТИ · РЫНОК</span><div class="news-window"><div class="news-track" id="newsTrack">Загрузка новостей…</div></div></div>
@@ -200,7 +216,27 @@
         <div class="card panel" id="breadthPanel"><h3>MARKET BREADTH · LIVE RADAR</h3><div class="breadth"><div><small>Доступно</small><b id="breadthAvailable">—</b></div><div><small>LONG</small><b class="long" id="breadthLong">—</b></div><div><small>SHORT</small><b class="short" id="breadthShort">—</b></div><div><small>NEUTRAL</small><b class="neutral" id="breadthNeutral">—</b></div></div><div class="scan-meta" id="breadthBasis">Источник: LIVE REVERSAL RADAR</div></div>
         <div class="card panel wide section-anchor" id="shadowNotebook"><h3>БЛОКНОТ ТЕНЕВЫХ СДЕЛОК</h3><div class="shadow-summary"><div><small>Открыто</small><b id="shadowOpen">0</b></div><div><small>Закрыто</small><b id="shadowClosed">0</b></div><div><small>Shadow Equity</small><b id="shadowEquity">100.00</b></div><div><small>Всего сделок</small><b id="shadowTotal">0</b></div></div><div class="shadow-list" id="shadowTradeList"><div class="muted">Теневых сделок ещё нет.</div></div><div class="shadow-note">Сделки открываются вручную кнопками «КУПИТЬ · ТЕНЬ» / «ПРОДАТЬ · ТЕНЬ». Это симуляция внутри терминала: реальный ордер на биржу не отправляется. История хранится локально в этом браузере.</div></div>
         <div class="card panel section-anchor" id="journal"><h3>ЛЕНТА СОБЫТИЙ ТЕРМИНАЛА</h3><div class="journal-table" id="journalTable"><div class="muted">Пока нет событий текущей сессии.</div></div></div>
-        <div class="card panel wide section-anchor" id="coins"><h3>МОНЕТЫ РАДАРА</h3><div class="coin-tools"><input id="coinSearch" placeholder="Поиск монеты"><button id="coinPrev">←</button><button id="coinNext">→</button><span class="scan-meta" id="coinPageText">—</span></div><div class="pair-groups" id="pairGroups"></div><div class="coin-grid" id="coinGrid" style="display:none"></div></div>
+        <div class="card panel wide section-anchor" id="coins">
+  <h3>МОНЕТЫ · ОБОРОТ И ОБЪЁМ 24H</h3>
+  <div class="coin-summary">
+    <div><small>Контрактов</small><b id="coinTotal">—</b></div>
+    <div><small>Общий оборот 24ч</small><b id="coinTurnoverTotal">—</b></div>
+    <div><small>Макс. оборот</small><b id="coinTopTurnover">—</b></div>
+    <div><small>Сортировка</small><b id="coinSortText">Оборот 24ч ↓</b></div>
+  </div>
+  <div class="coin-tools">
+    <input id="coinSearch" placeholder="Поиск монеты / пары">
+    <div class="coin-sort" id="coinSort">
+      <button class="active" data-coin-sort="turnover">ОБОРОТ 24Ч ↓</button>
+      <button data-coin-sort="volume">ОБЪЁМ 24Ч ↓</button>
+      <button data-coin-sort="change">ДВИЖЕНИЕ 24Ч ↓</button>
+    </div>
+    <button id="coinPrev">←</button><button id="coinNext">→</button><span class="scan-meta" id="coinPageText">—</span>
+  </div>
+  <div class="coin-rank-head"><span>№</span><span>Монета / пара</span><span>Оборот 24ч</span><span>Объём 24ч</span><span>24ч</span><span>Цена</span><span></span></div>
+  <div class="coin-rank-list" id="coinRankList"></div>
+  <div class="pair-groups" id="pairGroups" style="display:none"></div><div class="coin-grid" id="coinGrid" style="display:none"></div>
+</div>
 <div class="card panel wide section-anchor" id="usersPanel">
   <h3>ПОЛЬЗОВАТЕЛИ · GROUP / BOT / MINI APP</h3>
   <div class="admin-auth"><input id="adminUser" placeholder="Admin login"><input id="adminPass" type="password" placeholder="Admin password"><button id="adminLogin">Войти</button><button id="adminRefresh">Обновить</button><span class="scan-meta" id="adminState">Нужна авторизация владельца</span></div>
@@ -222,7 +258,7 @@ const state={
   symbol:"BTC_USDT",timeframe:"5m",tf:{},ticker:null,volumeProfile:null,breadth:null,
   universe:[],candidateBusy:false,candidates:[],
   chartReady:false,needsFit:true,follow:true,projection:null,htfAt:0,lastRadarKey:"",
-  coinPage:0,coinPageSize:36,coinFilter:"",journal:[],refreshBusy:false,marketRequestSeq:0,newsRows:[],paperTrades:[],paperEquity:100
+  coinPage:0,coinPageSize:40,coinFilter:"",coinSort:"turnover",journal:[],refreshBusy:false,marketRequestSeq:0,newsRows:[],paperTrades:[],paperEquity:100
 };
 let chart,candles,vol,sma20,sma50,sma200,lines=[],overlayRaf=0;
 const $=id=>document.getElementById(id);
@@ -705,18 +741,37 @@ function applyNewsMarkers(){
   markers.sort((a,b)=>a.time-b.time);candles.setMarkers(markers);
 }
 function familyKey(symbol){return String(symbol||"").split("_")[0].replace(/^(1000000|100000|10000|1000|100)/,"")}
-function renderCoins(){
-  const q=state.coinFilter.trim().toUpperCase(),all=state.universe.filter(x=>!q||x.symbol.includes(q)||familyKey(x.symbol).includes(q));
-  const groups=new Map();
-  all.forEach(x=>{const k=familyKey(x.symbol);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(x)});
-  const families=[...groups.entries()].map(([key,items])=>{items.sort((a,b)=>Number(b.amount_24h||0)-Number(a.amount_24h||0));return{key,items,turnover:Number(items[0]?.amount_24h||0)}}).sort((a,b)=>b.turnover-a.turnover);
-  const pages=Math.max(1,Math.ceil(families.length/state.coinPageSize));state.coinPage=Math.max(0,Math.min(state.coinPage,pages-1));const chunk=families.slice(state.coinPage*state.coinPageSize,(state.coinPage+1)*state.coinPageSize);
-  $("pairGroups").innerHTML=chunk.map(g=>{
-    const main=g.items[0];
-    return '<div class="pair-family"><div class="pair-family-head" data-coin="'+main.symbol+'"><span>'+g.key+'</span><span>'+fmt(main.last_price)+'</span></div><div class="pair-family-list">'+g.items.map(x=>'<button class="pair-chip" data-coin="'+x.symbol+'">'+x.symbol.replace("_","/")+' · '+(Number(x.change_24h)>=0?"+":"")+Number(x.change_24h||0).toFixed(2)+'%</button>').join("")+"</div></div>"
-  }).join("");
-  $("coinPageText").textContent=(state.coinPage+1)+" / "+pages+" · "+all.length+" контрактов · "+families.length+" групп"
+function coinTurnover(x){return Number(x?.amount_24h??x?.turnover_24h??x?.quote_volume_24h??0)||0}
+function coinVolume(x){
+  const direct=Number(x?.volume_24h??x?.base_volume_24h??x?.volume24??x?.volume_24??0);
+  if(Number.isFinite(direct)&&direct>0)return direct;
+  const p=Number(x?.last_price)||0,t=coinTurnover(x);return p>0?t/p:0;
 }
+function renderCoins(){
+  const q=state.coinFilter.trim().toUpperCase().replace("/","_");
+  let all=state.universe.filter(x=>!q||String(x.symbol||"").toUpperCase().includes(q)||familyKey(x.symbol).includes(q));
+  const sort=state.coinSort||"turnover";
+  all=[...all].sort((a,b)=>{
+    if(sort==="volume")return coinVolume(b)-coinVolume(a)||coinTurnover(b)-coinTurnover(a);
+    if(sort==="change")return Math.abs(Number(b.change_24h||0))-Math.abs(Number(a.change_24h||0))||coinTurnover(b)-coinTurnover(a);
+    return coinTurnover(b)-coinTurnover(a)||coinVolume(b)-coinVolume(a);
+  });
+  const pages=Math.max(1,Math.ceil(all.length/state.coinPageSize));
+  state.coinPage=Math.max(0,Math.min(state.coinPage,pages-1));
+  const from=state.coinPage*state.coinPageSize,chunk=all.slice(from,from+state.coinPageSize);
+  const totalTurnover=all.reduce((s,x)=>s+coinTurnover(x),0);
+  $("coinTotal").textContent=all.length;
+  $("coinTurnoverTotal").textContent=humanVolume(totalTurnover);
+  $("coinTopTurnover").textContent=all[0]?all[0].symbol.replace("_","/")+" · "+humanVolume(coinTurnover(all[0])):"—";
+  $("coinSortText").textContent=sort==="volume"?"Объём 24ч ↓":sort==="change"?"Движение 24ч ↓":"Оборот 24ч ↓";
+  $("coinRankList").innerHTML=chunk.length?chunk.map((x,i)=>{
+    const rank=from+i+1,chg=Number(x.change_24h||0),turn=coinTurnover(x),volume=coinVolume(x),active=x.symbol===state.symbol;
+    return '<div class="coin-rank-row '+(active?"active":"")+'" data-coin="'+x.symbol+'"><span class="coin-rank-pos '+(rank<=3?"top":"")+'">#'+rank+'</span><span class="coin-rank-symbol"><b>'+x.symbol.replace("_","/")+'</b><small>'+familyKey(x.symbol)+' · MEXC FUTURES</small></span><span class="coin-metric"><small>Оборот</small><b>'+humanVolume(turn)+'</b></span><span class="coin-metric coin-volume"><small>Объём</small><b>'+humanVolume(volume)+'</b></span><span class="coin-metric coin-change"><small>24ч</small><b class="'+(chg>=0?"long":"short")+'">'+(chg>=0?"+":"")+chg.toFixed(2)+'%</b></span><span class="coin-metric coin-price"><small>Цена</small><b>'+fmt(x.last_price)+'</b></span><span class="coin-open">ГРАФИК →</span></div>'
+  }).join(""):'<div class="muted" style="padding:14px">Монеты по этому запросу не найдены.</div>';
+  $("coinPageText").textContent=(state.coinPage+1)+" / "+pages+" · "+all.length+" контрактов";
+  document.querySelectorAll("#coinSort [data-coin-sort]").forEach(b=>b.classList.toggle("active",b.dataset.coinSort===sort));
+}
+
 function pushJournal(status,dir,volx){
   const now=new Date(),entry={time:now.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit",second:"2-digit"}),symbol:state.symbol.replace("_","/"),status,dir,volx};state.journal.unshift(entry);state.journal=state.journal.slice(0,30);localStorage.setItem("ascend_terminal_journal_v2",JSON.stringify(state.journal));renderJournal()
 }
@@ -726,7 +781,7 @@ function clock(){renderShadowNotebook();const n=new Date(),u=n.getTime()+n.getTi
 function chooseSymbol(sym){$("majorPairMenu")?.classList.remove("open");document.querySelectorAll("[data-major]").forEach(b=>b.classList.remove("active"));if(!sym||sym===state.symbol&&state.tf["5m"]?.length)return;state.symbol=sym;$("symbol").value=sym;$("quickSearch").value=sym.replace("_","/");state.needsFit=true;state.htfAt=0;state.tf={};state.projection=null;if(state.chartReady){candles.setData([]);sma20.setData([]);sma50.setData([]);sma200.setData([]);vol.setData([]);candles.setMarkers([])}$("pairTop").textContent=sym.replace("_","/");$("chartTitle").textContent=sym.replace("_"," / ")+" · загрузка…";if(currentView()!=="market"){history.pushState(null,"","/?view=market");applyView()}loadMarket(true)}
 function setTimeframe(tf){if(!state.tf[tf]?.length)return;state.timeframe=tf;state.needsFit=true;document.querySelectorAll("[data-tf]").forEach(b=>b.classList.toggle("active",b.dataset.tf===tf));renderStructure();renderChart()}
 function currentView(){const v=new URLSearchParams(location.search).get("view")||"market";return ["market","users","analytics","signals","journal","coins"].includes(v)?v:"market"}
-function applyView(){const v=currentView();document.body.dataset.view=v;document.querySelectorAll("[data-view-link]").forEach(a=>a.classList.toggle("active",a.dataset.viewLink===v));if(v==="market"&&state.chartReady){requestAnimationFrame(()=>{chart.applyOptions({width:$("chart").clientWidth,height:$("chart").clientHeight});scheduleOverlay()})}if(v==="users")setTimeout(loadAdminUsers,0);return v}
+function applyView(){const v=currentView();document.body.dataset.view=v;document.querySelectorAll("[data-view-link]").forEach(a=>a.classList.toggle("active",a.dataset.viewLink===v));if(v==="market"&&state.chartReady){requestAnimationFrame(()=>{chart.applyOptions({width:$("chart").clientWidth,height:$("chart").clientHeight});scheduleOverlay()})}if(v==="users")setTimeout(loadAdminUsers,0);if(v==="coins")setTimeout(renderCoins,0);return v}
 $("symbol").addEventListener("change",e=>chooseSymbol(e.target.value));
 $("majorWrap")?.addEventListener("click",e=>{
   const pair=e.target.closest("[data-major-sym]");if(pair){chooseSymbol(pair.dataset.majorSym);$("majorPairMenu").classList.remove("open");document.querySelectorAll("[data-major]").forEach(b=>b.classList.remove("active"));return}
@@ -744,6 +799,8 @@ $("centerBtn").addEventListener("click",()=>{state.needsFit=true;renderChart()})
 $("followBtn").addEventListener("click",()=>{state.follow=!state.follow;$("followBtn").classList.toggle("active",state.follow);$("followBtn").textContent=state.follow?"Следить за ценой · ON":"Следить за ценой";if(state.follow)chart.timeScale().scrollToRealTime()});
 $("spikes").addEventListener("click",e=>{const b=e.target.closest("[data-sym]");if(b)chooseSymbol(b.dataset.sym)});
 $("pairGroups").addEventListener("click",e=>{const c=e.target.closest("[data-coin]");if(c)chooseSymbol(c.dataset.coin)});
+$("coinRankList")?.addEventListener("click",e=>{const row=e.target.closest("[data-coin]");if(row)chooseSymbol(row.dataset.coin)});
+$("coinSort")?.addEventListener("click",e=>{const b=e.target.closest("[data-coin-sort]");if(!b)return;state.coinSort=b.dataset.coinSort;state.coinPage=0;renderCoins()});
 $("coinSearch").addEventListener("input",e=>{state.coinFilter=e.target.value;state.coinPage=0;renderCoins()});
 function renderQuickResults(q){q=String(q||"").trim().toUpperCase().replace("/","_");const box=$("quickResults");if(!q){box.classList.remove("open");box.innerHTML="";return}const rows=state.universe.filter(x=>x.symbol.includes(q)||familyKey(x.symbol).includes(q)).slice(0,12);box.innerHTML=rows.map(x=>'<div class="quick-result" data-quick-sym="'+x.symbol+'"><b>'+x.symbol.replace("_","/")+'</b> · '+(Number(x.change_24h)>=0?"+":"")+Number(x.change_24h||0).toFixed(2)+"%</div>").join("");box.classList.toggle("open",rows.length>0)}
 $("quickSearch").addEventListener("input",e=>renderQuickResults(e.target.value));
