@@ -48,11 +48,21 @@ def _safe_symbol(symbol: str) -> str:
     return str(symbol or "").strip().upper().replace("/", "_").replace("-", "_")
 
 
-def _r2_enabled() -> bool:
-    return all(
+def _archive_enabled() -> bool:
+    railway_bucket = all(
+        os.getenv(k, "").strip()
+        for k in (
+            "HISTORY_ARCHIVE_ENDPOINT",
+            "HISTORY_ARCHIVE_BUCKET",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+        )
+    )
+    r2_bucket = all(
         os.getenv(k, "").strip()
         for k in ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET")
     )
+    return bool(railway_bucket or r2_bucket)
 
 
 async def init() -> bool:
@@ -170,7 +180,7 @@ async def shutdown() -> None:
 
 async def status() -> dict[str, Any]:
     if _pool is None:
-        return {"enabled": False, "r2_enabled": _r2_enabled()}
+        return {"enabled": False, "archive_enabled": _archive_enabled()}
     async with _pool.acquire() as con:
         counts = await con.fetchrow(
             """
@@ -193,8 +203,9 @@ async def status() -> dict[str, Any]:
         )
     return {
         "enabled": True,
-        "r2_enabled": _r2_enabled(),
-        "full_backfill_enabled": _r2_enabled() or os.getenv("HISTORY_ALLOW_FULL_BACKFILL", "").strip() == "1",
+        "archive_enabled": _archive_enabled(),
+        "archive_backend": "railway-bucket" if os.getenv("HISTORY_ARCHIVE_BUCKET", "").strip() else ("r2" if os.getenv("R2_BUCKET", "").strip() else None),
+        "full_backfill_enabled": _archive_enabled() or os.getenv("HISTORY_ALLOW_FULL_BACKFILL", "").strip() == "1",
         "hot_days": int(os.getenv("HISTORY_HOT_DAYS", "30")),
         "candles": int(counts["candles"] or 0),
         "backfill_done": int(counts["done_jobs"] or 0),
@@ -585,7 +596,7 @@ async def seed_universe() -> int:
 
     # Full-universe 1m backfill is intentionally held until cheap archive storage
     # is available. This prevents an accidentally large Railway Postgres bill.
-    allow_full = _r2_enabled() or os.getenv("HISTORY_ALLOW_FULL_BACKFILL", "").strip() == "1"
+    allow_full = _archive_enabled() or os.getenv("HISTORY_ALLOW_FULL_BACKFILL", "").strip() == "1"
     if not allow_full:
         defaults = [
             x.strip().upper()
@@ -599,7 +610,7 @@ async def seed_universe() -> int:
             await touch_symbol(symbol, priority=80)
         _last_seed_at = time.time()
         logger.info(
-            "history full-universe seed paused until R2 is configured; bootstrap=%s",
+            "history full-universe seed paused until archive storage is configured; bootstrap=%s",
             ",".join(defaults),
         )
         return len(defaults)
@@ -817,21 +828,41 @@ async def _backfill_loop() -> None:
             pass
 
 
-def _r2_client():
+def _archive_client():
     import boto3
-    return boto3.client(
-        "s3",
-        endpoint_url=f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
-        aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
-        aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
-        region_name="auto",
+
+    endpoint = os.getenv("HISTORY_ARCHIVE_ENDPOINT", "").strip()
+    bucket = os.getenv("HISTORY_ARCHIVE_BUCKET", "").strip()
+    access_key = os.getenv("AWS_ACCESS_KEY_ID", "").strip()
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY", "").strip()
+    region = os.getenv("AWS_DEFAULT_REGION", "").strip() or "auto"
+
+    if endpoint and bucket and access_key and secret_key:
+        return boto3.client(
+            "s3",
+            endpoint_url=endpoint,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            region_name=region,
+        ), bucket
+
+    endpoint = f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com"
+    return (
+        boto3.client(
+            "s3",
+            endpoint_url=endpoint,
+            aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+            aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+            region_name="auto",
+        ),
+        os.environ["R2_BUCKET"],
     )
 
 
 def _archive_upload_sync(key: str, payload: bytes) -> None:
-    client = _r2_client()
+    client, bucket = _archive_client()
     client.put_object(
-        Bucket=os.environ["R2_BUCKET"],
+        Bucket=bucket,
         Key=key,
         Body=payload,
         ContentType="text/csv",
@@ -841,7 +872,7 @@ def _archive_upload_sync(key: str, payload: bytes) -> None:
 
 async def archive_once() -> int:
     global _last_archive_at
-    if _pool is None or not _r2_enabled():
+    if _pool is None or not _archive_enabled():
         return 0
     hot_days = max(7, int(os.getenv("HISTORY_HOT_DAYS", "30")))
     cutoff = int(time.time() - hot_days * 86400)
@@ -919,10 +950,10 @@ async def archive_once() -> int:
 async def _archive_loop() -> None:
     while not _stop.is_set():
         try:
-            if _r2_enabled() and time.time() - _last_archive_at > 24 * 3600:
+            if _archive_enabled() and time.time() - _last_archive_at > 24 * 3600:
                 n = await archive_once()
                 if n:
-                    logger.info("archived %s history partitions to R2", n)
+                    logger.info("archived %s history partitions to object storage", n)
         except asyncio.CancelledError:
             raise
         except Exception:
