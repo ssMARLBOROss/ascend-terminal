@@ -13,6 +13,8 @@ import httpx
 from fastapi import HTTPException, Query
 from fastapi.responses import JSONResponse
 
+import history_store
+
 MEXC_BASE_URL = "https://api.mexc.com"
 MEXC_KLINE_URL = MEXC_BASE_URL + "/api/v1/contract/kline/{symbol}"
 MEXC_TICKER_URL = MEXC_BASE_URL + "/api/v1/contract/ticker"
@@ -36,6 +38,7 @@ _NEWS_CACHE: dict[str, Any] = {"at": 0.0, "rows": []}
 _PROFILE_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _BREADTH_CACHE: dict[str, Any] = {"at": 0.0, "data": None}
 _CANDIDATE_CACHE: dict[str, Any] = {"at": 0.0, "data": None}
+_HISTORY_SAVE_AT: dict[str, float] = {}
 
 
 def _safe_symbol(raw: str) -> str:
@@ -386,8 +389,77 @@ def install(app: Any) -> None:
     ):
         safe = _safe_symbol(symbol)
         rows = await _klines(safe, timeframe, limit)
+
+        # Reuse the 1m data the terminal already requests instead of adding extra
+        # exchange calls. Writes are throttled per symbol to keep storage cheap.
+        if timeframe == "1m":
+            now_mono = time.monotonic()
+            if now_mono - float(_HISTORY_SAVE_AT.get(safe) or 0.0) >= 45.0:
+                _HISTORY_SAVE_AT[safe] = now_mono
+                asyncio.create_task(history_store.save_candles("mexc", safe, rows))
+                asyncio.create_task(history_store.touch_symbol(safe, priority=100))
+
         return JSONResponse(
             {"symbol": safe, "timeframe": timeframe, "candles": rows, "server_time": int(time.time())},
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/api/v2/history/status")
+    async def history_status():
+        return JSONResponse(await history_store.status(), headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/v2/history/candles")
+    async def history_candles(
+        symbol: str = Query(default="BTC_USDT"),
+        exchange: str = Query(default="mexc"),
+        timeframe: str = Query(default="5m"),
+        start_ts: int = Query(default=0, ge=0),
+        end_ts: int = Query(default=0, ge=0),
+        limit: int = Query(default=1000, ge=1, le=5000),
+    ):
+        safe = _safe_symbol(symbol)
+        ex = str(exchange or "mexc").lower()
+        if ex not in {"mexc", "bybit"}:
+            raise HTTPException(status_code=400, detail="exchange must be mexc or bybit")
+        if timeframe not in TIMEFRAMES:
+            raise HTTPException(status_code=400, detail="unsupported timeframe")
+        await history_store.touch_symbol(safe, priority=120)
+        rows = await history_store.get_candles(
+            ex,
+            safe,
+            timeframe,
+            start_ts=start_ts or None,
+            end_ts=end_ts or None,
+            limit=limit,
+        )
+        return JSONResponse(
+            {
+                "symbol": safe,
+                "exchange": ex,
+                "timeframe": timeframe,
+                "candles": rows,
+                "count": len(rows),
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/api/v2/history/transitions")
+    async def history_transitions(
+        symbol: str = Query(default="BTC_USDT"),
+        transition: str = Query(default="LONDON_NY"),
+        exchange: str = Query(default="mexc"),
+        limit: int = Query(default=5000, ge=1, le=5000),
+    ):
+        safe = _safe_symbol(symbol)
+        ex = str(exchange or "mexc").lower()
+        tr = str(transition or "LONDON_NY").upper()
+        if ex not in {"mexc", "bybit"}:
+            raise HTTPException(status_code=400, detail="exchange must be mexc or bybit")
+        if tr not in {"ASIA_LONDON", "LONDON_NY"}:
+            raise HTTPException(status_code=400, detail="unsupported transition")
+        await history_store.touch_symbol(safe, priority=140)
+        return JSONResponse(
+            await history_store.transition_stats(safe, tr, exchange=ex, limit=limit),
             headers={"Cache-Control": "no-store"},
         )
 
