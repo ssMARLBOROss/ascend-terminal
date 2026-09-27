@@ -190,7 +190,7 @@
               <div class="ohlc"><span>ОТКР <b id="openP">—</b></span><span>МАКС <b id="highP">—</b></span><span>МИН <b id="lowP">—</b></span><span>ЗАКР <b id="closeP">—</b></span><span><b id="chgP">—</b></span></div>
             </div>
             <div class="chart-actions" id="tfBar">
-              <button class="tf-btn" data-tf="1m">1м</button><button class="tf-btn active" data-tf="5m">5м</button><button class="tf-btn" data-tf="10m">10м</button><button class="tf-btn" data-tf="15m">15м</button><button class="tf-btn" data-tf="1h">1ч</button><button class="tf-btn" data-tf="4h">4ч</button><button class="tf-btn" data-tf="1d">1д</button>
+              <button class="tf-btn" data-tf="1m">1м</button><button class="tf-btn active" data-tf="5m">5м</button><button class="tf-btn" data-tf="10m">10м</button><button class="tf-btn" data-tf="15m">15м</button><button class="tf-btn" data-tf="30m">30м</button><button class="tf-btn" data-tf="1h">1ч</button><button class="tf-btn" data-tf="4h">4ч</button><button class="tf-btn" data-tf="1d">1д</button>
               <button class="chart-btn" id="centerBtn">По центру</button><button class="chart-btn follow active" id="followBtn">Следить за ценой</button>
             </div>
             <div class="buy-sell"><div class="tradebox" id="sellBtn" role="button" tabindex="0" title="Открыть теневую SHORT сделку — реальный ордер не отправляется"><span>ПРОДАТЬ · ТЕНЬ</span><b id="sellP">—</b></div><div class="tradebox buy" id="buyBtn" role="button" tabindex="0" title="Открыть теневую LONG сделку — реальный ордер не отправляется"><span>КУПИТЬ · ТЕНЬ</span><b id="buyP">—</b></div><div class="trade-news" id="tradeNews"><span class="impact info">NEWS</span><a href="#" id="tradeNewsLink">Новостной поток загружается…</a></div></div>
@@ -301,6 +301,18 @@ function humanVolume(v){v=Number(v)||0;if(v>=1e9)return (v/1e9).toFixed(2)+"B";i
 function directionClass(d){return d==="LONG"?"long":d==="SHORT"?"short":"neutral"}
 function dirRu(d){return d==="LONG"?"LONG ↑":d==="SHORT"?"SHORT ↓":"NEUTRAL"}
 function aggregate10m(rows){const r=closed(rows),out=[];for(let i=0;i+1<r.length;i+=2){const g=r.slice(i,i+2);if(g.length<2)continue;out.push({time:g[0].time,open:g[0].open,high:Math.max(...g.map(x=>x.high)),low:Math.min(...g.map(x=>x.low)),close:g[g.length-1].close,volume:g.reduce((s,x)=>s+(Number(x.volume)||0),0)})}return out}
+function aggregate30m(rows){
+  const groups=new Map();
+  (rows||[]).forEach(x=>{
+    const t=Number(x.time)||0,b=Math.floor(t/1800)*1800;
+    if(!groups.has(b))groups.set(b,[]);
+    groups.get(b).push(x);
+  });
+  return [...groups.entries()].sort((a,b)=>a[0]-b[0]).map(([time,g])=>{
+    g.sort((a,b)=>Number(a.time)-Number(b.time));
+    return{time,open:Number(g[0].open),high:Math.max(...g.map(x=>Number(x.high))),low:Math.min(...g.map(x=>Number(x.low))),close:Number(g.at(-1).close),volume:g.reduce((s,x)=>s+(Number(x.volume)||0),0)}
+  });
+}
 function trend(rows){const r=closed(rows);if(r.length<12)return "NEUTRAL";const c=r.map(x=>Number(x.close)),last=c.at(-1),s20=avg(c.slice(-Math.min(20,c.length))),s50=avg(c.slice(-Math.min(50,c.length))),slope=last-c[Math.max(0,c.length-6)];if(last>s20&&s20>=s50&&slope>0)return "LONG";if(last<s20&&s20<=s50&&slope<0)return "SHORT";return "NEUTRAL"}
 function bosDirection(rows){const r=closed(rows);if(r.length<9)return "NEUTRAL";const last=r.at(-1),prev=r.slice(-8,-1),hi=Math.max(...prev.map(x=>Number(x.high))),lo=Math.min(...prev.map(x=>Number(x.low)));if(Number(last.close)>hi)return "LONG";if(Number(last.close)<lo)return "SHORT";return "NEUTRAL"}
 function currentRows(){return state.tf[state.timeframe]||state.tf["5m"]||[]}
@@ -615,7 +627,7 @@ function renderVolume(){
   const v=state.volumeProfile||{};$("volCoin").textContent=state.symbol.split("_")[0];$("volBase").textContent=humanVolume(v.standard_volume)+" · 1.00×";$("volNow").textContent=humanVolume(v.current_volume)+" · "+(Number(v.ratio)||0).toFixed(2)+"×";$("volDev").textContent=((Number(v.deviation_pct)||0)>=0?"+":"")+(Number(v.deviation_pct)||0).toFixed(0)+"%";$("volPct").textContent="P"+(Number(v.percentile)||0).toFixed(1);$("volClass").textContent=v.class||"NO DATA"}
 function renderBreadth(){const b=state.breadth||{};$("breadthAvailable").textContent=(b.available||0)+" / "+(b.target||state.universe.length||0);$("breadthLong").textContent=b.long??"—";$("breadthShort").textContent=b.short??"—";$("breadthNeutral").textContent=b.neutral??"—";$("breadthBasis").textContent="Источник: "+(b.basis||"LIVE REVERSAL RADAR")+(b.source==="fallback"?" · ⚠ FALLBACK":"")}
 function renderStructure(){
-  const tfs=["1m","5m","10m","15m","1h","4h","1d"];
+  const tfs=["1m","5m","10m","15m","30m","1h","4h","1d"];
   $("structureGrid").innerHTML=tfs.map(tf=>{const d=trend(state.tf[tf]||[]);return'<div class="structure-cell"><small>'+tf+"</small><b class=\""+directionClass(d)+'">'+dirRu(d)+"</b></div>"}).join("");
   $("miniRow").innerHTML=tfs.map(tf=>{const d=trend(state.tf[tf]||[]);return'<div class="mini '+(state.timeframe===tf?"active":"")+'" data-mini-tf="'+tf+'"><h4>'+tf+' · <span class="'+directionClass(d)+'">'+dirRu(d)+'</span></h4><div class="mini-arrow '+directionClass(d)+'">'+(d==="LONG"?"↑":d==="SHORT"?"↓":"↔")+"</div><small>Структура и положение цены относительно средних.</small></div>"}).join("")
 }
@@ -660,7 +672,7 @@ function shadowCandidate(){
 function shadowContext(side){
   const vp=state.volumeProfile||{},dec=radarDecision(),cand=shadowCandidate(),b=state.breadth||{};
   const structures={};
-  ["1m","5m","10m","15m","1h","4h","1d"].forEach(tf=>structures[tf]=trend(state.tf[tf]||[]));
+  ["1m","5m","10m","15m","30m","1h","4h","1d"].forEach(tf=>structures[tf]=trend(state.tf[tf]||[]));
   const delta=cand?.delta||{},htf=cand?.htf||{};
   const parts=[
     cand?("RADAR #"+(cand.rank||"—")+" "+(cand.status||"CANDIDATE")+" "+Number(cand.score||0).toFixed(0)+"/100"):"RADAR: вне текущего TOP 5–15",
@@ -791,7 +803,7 @@ async function loadMarket(full){
     if(res[1].status==="fulfilled")state.tf["1m"]=res[1].value.candles||[];
     if(res[2].status==="fulfilled")state.tf["5m"]=res[2].value.candles||[];
     if(res[3].status==="fulfilled")state.tf["15m"]=res[3].value.candles||[];
-    state.tf["10m"]=aggregate10m(state.tf["5m"]||[]);
+    state.tf["10m"]=aggregate10m(state.tf["5m"]||[]);state.tf["30m"]=aggregate30m(state.tf["15m"]||[]);
     if(res[4].status==="fulfilled")state.volumeProfile=res[4].value;
     if(res[5].status==="fulfilled")state.breadth=res[5].value;
     if(needHtf){if(res[6]?.status==="fulfilled")state.tf["1h"]=res[6].value.candles||[];if(res[7]?.status==="fulfilled")state.tf["4h"]=res[7].value.candles||[];if(res[8]?.status==="fulfilled")state.tf["1d"]=res[8].value.candles||[];state.htfAt=now}
