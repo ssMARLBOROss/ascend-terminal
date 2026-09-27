@@ -194,6 +194,7 @@ async def status() -> dict[str, Any]:
     return {
         "enabled": True,
         "r2_enabled": _r2_enabled(),
+        "full_backfill_enabled": _r2_enabled() or os.getenv("HISTORY_ALLOW_FULL_BACKFILL", "").strip() == "1",
         "hot_days": int(os.getenv("HISTORY_HOT_DAYS", "30")),
         "candles": int(counts["candles"] or 0),
         "backfill_done": int(counts["done_jobs"] or 0),
@@ -581,6 +582,28 @@ async def seed_universe() -> int:
     global _last_seed_at
     if _pool is None:
         return 0
+
+    # Full-universe 1m backfill is intentionally held until cheap archive storage
+    # is available. This prevents an accidentally large Railway Postgres bill.
+    allow_full = _r2_enabled() or os.getenv("HISTORY_ALLOW_FULL_BACKFILL", "").strip() == "1"
+    if not allow_full:
+        defaults = [
+            x.strip().upper()
+            for x in os.getenv(
+                "HISTORY_BOOTSTRAP_SYMBOLS",
+                "BTC_USDT,ETH_USDT,SOL_USDT",
+            ).split(",")
+            if x.strip()
+        ]
+        for symbol in defaults:
+            await touch_symbol(symbol, priority=80)
+        _last_seed_at = time.time()
+        logger.info(
+            "history full-universe seed paused until R2 is configured; bootstrap=%s",
+            ",".join(defaults),
+        )
+        return len(defaults)
+
     mexc, bybit = await asyncio.gather(_mexc_universe(), _bybit_universe())
     common = sorted(mexc & bybit)
     now_cursor = int(time.time() // 60 * 60) - 60
