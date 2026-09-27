@@ -51,6 +51,38 @@
     .admin-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:10px 0}.admin-summary>div{border:1px solid var(--line);background:#091321;border-radius:8px;padding:10px}.admin-summary small{display:block;color:var(--muted);font-size:10px}.admin-summary b{font-size:20px}
     .admin-table{overflow:auto}.admin-row{display:grid;grid-template-columns:1.3fr 1fr .8fr .8fr .8fr .9fr;gap:8px;align-items:center;padding:9px;border-top:1px solid #132941;font-size:11px}.admin-row.head{color:#8ea2b7;font-weight:800}.admin-actions{display:flex;gap:5px;flex-wrap:wrap}.admin-actions button{min-height:30px;padding:5px 8px;font-size:10px}.okbtn{border-color:#1d805f!important}.dangerbtn{border-color:#8a263b!important}.user-search{width:min(360px,100%);margin-bottom:8px}
     @media(max-width:900px){.admin-summary{grid-template-columns:repeat(2,1fr)}.admin-row{grid-template-columns:1.3fr .8fr .8fr 1fr}.admin-row>:nth-child(2),.admin-row>:nth-child(5){display:none}}
+  
+    /* ASCEND session-flow + market-scanner refinement */
+    .major-wrap{position:relative;display:flex;gap:5px;align-items:center}
+    .major-btn{border:1px solid #203a55;border-radius:7px;background:rgba(8,20,34,.82);color:#cbd8e8;padding:6px 9px;font-size:10px;font-weight:900;cursor:pointer;transition:.14s}
+    .major-btn:hover,.major-btn.active{border-color:#3f7ba8;background:rgba(22,48,73,.7);color:#fff}
+    .major-pair-menu{display:none;position:absolute;top:38px;right:0;width:250px;max-height:320px;overflow:auto;border:1px solid #264562;border-radius:9px;background:rgba(5,15,26,.98);box-shadow:0 18px 45px rgba(0,0,0,.42);padding:7px;z-index:150}
+    .major-pair-menu.open{display:block}.major-pair-title{padding:5px 6px 8px;color:#89a3bb;font-size:9px;font-weight:900;letter-spacing:.07em}
+    .major-pair-item{width:100%;display:flex;justify-content:space-between;gap:10px;border:1px solid #18314a;border-radius:6px;background:#071522;color:#cfe0ef;padding:8px;margin:4px 0;font-size:10px;cursor:pointer;text-align:left}
+    .major-pair-item:hover{border-color:#3b759e;background:#0a2032;color:#fff}
+    .session.session-v3{height:auto;min-height:122px;padding:8px 10px;background:linear-gradient(180deg,rgba(8,18,31,.9),rgba(5,13,23,.9));border-color:#172a40}
+    .session-v3 .session-head{margin-bottom:7px;color:#aebfd0;justify-content:space-between}
+    .session-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+    .session-card{position:relative;padding:8px 9px;border:1px solid #203650;border-radius:7px;background:rgba(7,18,31,.72);min-width:0;transition:.15s}
+    .session-card.active{border-color:#3f7395;background:rgba(11,27,45,.9)}
+    .session-card-head{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:10px;font-weight:950}
+    .session-card-head small{font-size:8px;color:#7f94a9;font-weight:700}.session-flow{margin-top:6px;font-size:10px;font-weight:900;color:#aebfd0}
+    .session-flow.buy{color:#43dca3}.session-flow.sell{color:#ef6075}.session-flow.balance{color:#9cb6d1}
+    .session-meter{height:4px;border-radius:5px;background:#15283d;overflow:hidden;margin:6px 0 5px}.session-meter>i{display:block;height:100%;background:#5a91b7;border-radius:5px}
+    .session-card-meta{display:flex;justify-content:space-between;gap:8px;color:#7f96ad;font-size:8px}.session-card-meta b{color:#c8d8e7}
+    .overlap-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+    .overlap-card{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:6px 9px;border:1px solid #293651;border-radius:7px;background:rgba(26,20,45,.32);font-size:9px;color:#aab8c9}
+    .overlap-card b{color:#d9b9e8;font-size:9px}.overlap-card .win{color:#d9c4eb}
+    .session-chart-overlay{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden}
+    .session-band{position:absolute;top:0;bottom:0;background:rgba(151,91,194,.055);border-left:1px solid rgba(206,112,255,.20);border-right:1px solid rgba(206,112,255,.20)}
+    .session-band.ny{background:rgba(192,78,116,.045);border-color:rgba(255,99,163,.18)}
+    .session-boundary{position:absolute;top:0;bottom:0;width:1px;background:rgba(162,188,211,.24)}
+    .transition-dot{position:absolute;width:8px;height:8px;border-radius:50%;background:#d7e5f0;border:2px solid #24465e;box-shadow:0 0 9px rgba(163,215,255,.45);transform:translate(-50%,-50%)}
+    .transition-pill{position:absolute;max-width:145px;transform:translateY(-50%);padding:4px 7px;border:1px solid rgba(130,168,199,.42);border-radius:6px;background:rgba(6,17,28,.91);color:#b7c8d7;font-size:8px;font-weight:900;white-space:nowrap}
+    .transition-pill b{color:#e0c6ed}.scanner-row{cursor:pointer;transition:.14s}.scanner-row:hover{border-color:#3c6d92;background:#0a1a2a;transform:translateY(-1px)}
+    .scanner-row .scan-open{color:#82c7ec;font-size:9px;font-weight:950}
+    @media(max-width:1050px){.major-wrap{display:none}.session-cards{grid-template-columns:repeat(2,1fr)}.overlap-row{grid-template-columns:1fr}.session.session-v3{min-height:188px}}
+
   </style>
 </head>
 <body>
@@ -72,6 +104,12 @@
     <div class="topbar">
       <div class="pair" id="pairTop">BTC/USDT</div>
       <div class="live" id="live"><span class="dot"></span> LIVE</div>
+      <div class="major-wrap" id="majorWrap">
+        <button class="major-btn" data-major="BTC">₿ BTC</button>
+        <button class="major-btn" data-major="ETH">◆ ETH</button>
+        <button class="major-btn" data-major="SOL">◎ SOL</button>
+        <div class="major-pair-menu" id="majorPairMenu"></div>
+      </div>
       <div class="spacer"></div>
       <div class="quick-search-wrap"><input class="select" id="quickSearch" placeholder="Быстрый поиск монеты / пары"><div class="quick-results" id="quickResults"></div></div><select class="select" id="symbol"><option>BTC_USDT</option></select>
     </div>
@@ -85,12 +123,19 @@
       <h2 class="view-title" data-title="signals">СИГНАЛЫ · RADAR + BASE CORE</h2>
       <h2 class="view-title" data-title="journal">ЖУРНАЛ ТЕРМИНАЛА</h2>
       <h2 class="view-title" data-title="coins">МОНЕТЫ РАДАРА</h2>
-      <section class="session">
-        <div class="session-head">Торговые сессии · UTC+3 <small id="clock">--:--:--</small></div>
-        <div class="timeline">
-          <div class="ov" style="left:12%;width:17%">Азия + Сидней</div><div class="ov" style="left:42%;width:8%">Азия + Лондон</div><div class="ov" style="left:63%;width:17%">Лондон + Нью-Йорк</div>
-          <div class="sess" style="left:0;width:29%">СИДНЕЙ</div><div class="sess" style="left:13%;width:37%">АЗИЯ</div><div class="sess" style="left:42%;width:37%">ЛОНДОН</div><div class="sess" style="left:63%;width:37%">НЬЮ-ЙОРК</div><div class="ptr" id="timePointer"></div>
+      <section class="session session-v3">
+        <div class="session-head"><span>ТОРГОВЫЕ СЕССИИ · UTC+3</span><small id="clock">--:--:--</small></div>
+        <div class="session-cards">
+          <div class="session-card" id="sessSydney"><div class="session-card-head"><span>🇦🇺 СИДНЕЙ</span><small>22:00–07:00</small></div><div class="session-flow balance" id="sSydneyFlow">Ожидаем данные</div><div class="session-meter"><i id="sSydneyMeter" style="width:50%"></i></div><div class="session-card-meta"><span>Сила <b id="sSydneyStrength">—</b></span><span>Объём <b id="sSydneyVol">—</b></span></div></div>
+          <div class="session-card" id="sessAsia"><div class="session-card-head"><span>🇯🇵 АЗИЯ</span><small>03:00–12:00</small></div><div class="session-flow balance" id="sAsiaFlow">Ожидаем данные</div><div class="session-meter"><i id="sAsiaMeter" style="width:50%"></i></div><div class="session-card-meta"><span>Сила <b id="sAsiaStrength">—</b></span><span>Объём <b id="sAsiaVol">—</b></span></div></div>
+          <div class="session-card" id="sessLondon"><div class="session-card-head"><span>🇬🇧 ЛОНДОН</span><small>08:00–17:00</small></div><div class="session-flow balance" id="sLondonFlow">Ожидаем данные</div><div class="session-meter"><i id="sLondonMeter" style="width:50%"></i></div><div class="session-card-meta"><span>Сила <b id="sLondonStrength">—</b></span><span>Объём <b id="sLondonVol">—</b></span></div></div>
+          <div class="session-card" id="sessNy"><div class="session-card-head"><span>🇺🇸 НЬЮ-ЙОРК</span><small>14:00–23:00</small></div><div class="session-flow balance" id="sNyFlow">Ожидаем данные</div><div class="session-meter"><i id="sNyMeter" style="width:50%"></i></div><div class="session-card-meta"><span>Сила <b id="sNyStrength">—</b></span><span>Объём <b id="sNyVol">—</b></span></div></div>
         </div>
+        <div class="overlap-row">
+          <div class="overlap-card"><span>ASIA × LONDON · 08:00–12:00</span><b class="win" id="overlapAL">Сильнее: —</b></div>
+          <div class="overlap-card"><span>LONDON × NEW YORK · 14:00–17:00</span><b class="win" id="overlapLN">Сильнее: —</b></div>
+        </div>
+        <div class="ptr" id="timePointer" style="display:none"></div>
       </section>
 
       <section class="grid section-anchor" id="market">
@@ -109,6 +154,7 @@
             <div class="smas"><div><b>SMA20</b> <span class="s20" id="sma20">—</span></div><div><b>SMA50</b> <span class="s50" id="sma50">—</span></div><div><b>SMA200</b> <span class="s200" id="sma200">—</span></div></div>
             <div class="chart-shell" id="chartShell">
               <div class="chart" id="chart"></div>
+              <div class="session-chart-overlay" id="sessionChartOverlay"></div>
               <div class="projection-overlay" id="projectionOverlay">
                 <svg class="projection-svg" id="projectionSvg"><defs><marker id="arrRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#ff536c"/></marker><marker id="arrGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#20f494"/></marker></defs><g id="projectionArrows"></g></svg>
                 <div class="zone red" id="zoneSupply"><span class="price-tag" id="supplyTag">S/R</span></div>
@@ -144,7 +190,7 @@
             <div class="kv-row"><span>Стандартный объём:</span><b id="volBase">—</b></div><div class="kv-row"><span>Текущий:</span><b class="big" id="volNow">—</b></div><div class="kv-row"><span>Отклонение от нормы:</span><b class="big" id="volDev">—</b></div><div class="kv-row"><span>Percentile монеты:</span><b id="volPct">—</b></div><div class="kv-row"><span>Класс:</span><b class="class" id="volClass">—</b></div>
           </div></div>
           <div class="card panel"><h3>RADAR · ОБЯЗАТЕЛЬНЫЕ GATES</h3><div class="checks" id="contextChecks"></div></div>
-          <div class="card panel"><h3>TOP 5–15 · RADAR CANDIDATES</h3><div class="spike-list" id="spikes"><div class="spike"><div><b>Радар формирует кандидатов…</b><small>liquidity → volume → displacement → BOS 5m → HTF → time → Delta</small></div></div></div><div class="scan-meta" id="scanMeta">ожидаем цикл радара</div></div>
+          <div class="card panel"><h3>СКАНЕР РЫНКА · MEXC FUTURES</h3><div class="spike-list" id="spikes"><div class="spike"><div><b>Радар формирует кандидатов…</b><small>liquidity → volume → displacement → BOS 5m → HTF → time → Delta</small></div></div></div><div class="scan-meta" id="scanMeta">ожидаем цикл радара</div></div>
           <div class="card panel"><h3>ЧЕК-ЛИСТ BASE CORE</h3><div class="checks" id="baseChecks"></div></div>
         </aside>
       </section>
@@ -245,7 +291,128 @@ function initChart(){
 }
 function clearLines(){lines.forEach(l=>{try{candles.removePriceLine(l)}catch(_){}});lines=[]}
 function setLine(p,c,t){if(!Number.isFinite(Number(p)))return;lines.push(candles.createPriceLine({price:Number(p),color:c,lineWidth:1,lineStyle:2,axisLabelVisible:true,title:t}))}
+
+const SESSION_DEFS={
+  sydney:{name:"Сидней",start:22,end:7,prefix:"Sydney"},
+  asia:{name:"Азия",start:3,end:12,prefix:"Asia"},
+  london:{name:"Лондон",start:8,end:17,prefix:"London"},
+  ny:{name:"Нью-Йорк",start:14,end:23,prefix:"Ny"}
+};
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function kyivDayBase(ts){
+  ts=Number(ts)||Date.now()/1000;
+  const d=new Date((ts+3*3600)*1000);
+  return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())/1000-3*3600;
+}
+function sessionWindow(key,refTs){
+  const def=SESSION_DEFS[key],base=kyivDayBase(refTs),localHour=(Number(refTs)-base)/3600;
+  let start=base+def.start*3600,end=base+def.end*3600;
+  if(def.end<=def.start){
+    if(localHour<def.end)start-=86400;
+    else end+=86400;
+  }
+  return {start:start,end:end};
+}
+function sessionMetrics(key,refTs){
+  const all=closed(state.tf["5m"]||[]);
+  if(!all.length)return null;
+  const now=Math.min(Number(refTs)||Date.now()/1000,Date.now()/1000);
+  const win=sessionWindow(key,now);
+  const until=Math.min(win.end,now);
+  const rows=all.filter(x=>Number(x.time)>=win.start&&Number(x.time)<=until);
+  if(rows.length<2)return null;
+  const vols=all.slice(-288).map(x=>Number(x.volume)||0).filter(v=>v>0),baseV=median(vols)||1;
+  let buy=0,sell=0,sumV=0;
+  rows.forEach(x=>{const v=Number(x.volume)||0;sumV+=v;if(Number(x.close)>=Number(x.open))buy+=v;else sell+=v});
+  const avgV=sumV/rows.length,volx=avgV/baseV,total=buy+sell||1,buyPct=buy/total*100;
+  const first=rows[0],last=rows[rows.length-1],net=Math.abs((Number(last.close)-Number(first.open))/Math.max(Number(first.open),1e-12)*100);
+  const strength=clamp(Math.round(42+(volx-1)*18+Math.abs(buyPct-50)*.72+Math.min(12,net*7)),1,99);
+  const flow=buyPct>=54?"Покупатели сильнее":buyPct<=46?"Продавцы сильнее":"Баланс";
+  return {strength:strength,volx:volx,buyPct:buyPct,flow:flow,rows:rows};
+}
+function renderSessionCard(key,idPrefix){
+  const m=sessionMetrics(key,Date.now()/1000),card=$("sess"+idPrefix);
+  if(!card)return;
+  const def=SESSION_DEFS[key],w=sessionWindow(key,Date.now()/1000),now=Date.now()/1000;
+  card.classList.toggle("active",now>=w.start&&now<=w.end);
+  const flow=$("s"+idPrefix+"Flow"),meter=$("s"+idPrefix+"Meter");
+  if(!m){
+    flow.textContent="Ожидаем данные";flow.className="session-flow balance";
+    $("s"+idPrefix+"Strength").textContent="—";$("s"+idPrefix+"Vol").textContent="—";meter.style.width="50%";return;
+  }
+  flow.textContent=m.flow+" · "+Math.round(m.buyPct)+"% / "+Math.round(100-m.buyPct)+"%";
+  flow.className="session-flow "+(m.flow.startsWith("Покуп")?"buy":m.flow.startsWith("Прод")?"sell":"balance");
+  $("s"+idPrefix+"Strength").textContent=m.strength+"/100";
+  $("s"+idPrefix+"Vol").textContent=m.volx.toFixed(2)+"×";
+  meter.style.width=clamp(m.buyPct,8,92)+"%";
+}
+function strongerLabel(a,b,refTs){
+  const ma=sessionMetrics(a,refTs),mb=sessionMetrics(b,refTs);
+  if(!ma&&!mb)return "Сильнее: —";
+  if(!ma)return "Сильнее: "+SESSION_DEFS[b].name;
+  if(!mb)return "Сильнее: "+SESSION_DEFS[a].name;
+  if(Math.abs(ma.strength-mb.strength)<4)return "Баланс";
+  return "Сильнее: "+(ma.strength>mb.strength?SESSION_DEFS[a].name:SESSION_DEFS[b].name);
+}
+function renderSessionUI(){
+  renderSessionCard("sydney","Sydney");renderSessionCard("asia","Asia");renderSessionCard("london","London");renderSessionCard("ny","Ny");
+  const now=Date.now()/1000;
+  $("overlapAL").textContent=strongerLabel("asia","london",now);
+  $("overlapLN").textContent=strongerLabel("london","ny",now);
+}
+function nearestClose(rows,ts){
+  let best=null,dist=Infinity;
+  rows.forEach(x=>{const d=Math.abs(Number(x.time)-ts);if(d<dist){dist=d;best=x}});
+  return best;
+}
+function addSessionBand(html,base,startH,endH,cls){
+  const x1=timeX(base+startH*3600),x2=timeX(base+endH*3600);
+  if(!Number.isFinite(x1)||!Number.isFinite(x2))return html;
+  const left=Math.min(x1,x2),width=Math.abs(x2-x1);
+  if(width<2)return html;
+  return html+'<div class="session-band '+(cls||"")+'" style="left:'+left+'px;width:'+width+'px"></div>';
+}
+function renderSessionChartOverlay(){
+  const layer=$("sessionChartOverlay");if(!layer||!state.chartReady)return;
+  const rows=closed(currentRows());if(!rows.length){layer.innerHTML="";return}
+  const bases=[...new Set(rows.map(x=>kyivDayBase(Number(x.time))))];
+  const transitions=[
+    {h:7,a:"sydney",b:"asia"},
+    {h:8,a:"asia",b:"london"},
+    {h:12,a:"asia",b:"london"},
+    {h:14,a:"london",b:"ny"},
+    {h:17,a:"london",b:"ny"}
+  ];
+  let html="";
+  bases.forEach(base=>{
+    html=addSessionBand(html,base,8,12,"");
+    html=addSessionBand(html,base,14,17,"ny");
+    transitions.forEach((tr,idx)=>{
+      const ts=base+tr.h*3600,x=timeX(ts);
+      if(!Number.isFinite(x)||x<-20||x>$("chartShell").clientWidth+20)return;
+      const nr=nearestClose(rows,ts),py=nr?priceY(Number(nr.close)):null;
+      const y=Number.isFinite(py)?clamp(py,38,$("chartShell").clientHeight-24):58+(idx%2)*28;
+      const sampleAt=Math.min(Date.now()/1000,ts+30*60);
+      const label=strongerLabel(tr.a,tr.b,sampleAt);
+      html+='<div class="session-boundary" style="left:'+x+'px"></div>';
+      html+='<div class="transition-dot" style="left:'+x+'px;top:'+y+'px"></div>';
+      html+='<div class="transition-pill" style="left:'+clamp(x+8,4,$("chartShell").clientWidth-150)+'px;top:'+clamp(y-18,18,$("chartShell").clientHeight-18)+'px"><b>'+label+'</b></div>';
+    });
+  });
+  layer.innerHTML=html;
+}
+function renderMajorPairMenu(asset){
+  const menu=$("majorPairMenu");if(!menu)return;
+  asset=String(asset||"").toUpperCase();
+  if(!asset){menu.classList.remove("open");return}
+  const rows=state.universe.filter(x=>familyKey(x.symbol)===asset).sort((a,b)=>Number(b.amount_24h||0)-Number(a.amount_24h||0));
+  menu.innerHTML='<div class="major-pair-title">'+asset+' · ТОРГОВЫЕ ПАРЫ</div>'+(rows.length?rows.map(x=>'<button class="major-pair-item" data-major-sym="'+x.symbol+'"><span>'+x.symbol.replace("_","/")+'</span><span>'+(Number(x.change_24h)>=0?"+":"")+Number(x.change_24h||0).toFixed(2)+'%</span></button>').join(""):'<div class="major-pair-title">В текущем фьючерсном списке пар нет</div>');
+  menu.classList.add("open");
+  document.querySelectorAll("[data-major]").forEach(b=>b.classList.toggle("active",b.dataset.major===asset));
+}
+
 function renderChart(){
+  renderSessionUI();
   const r=closed(currentRows());if(!r.length||!state.chartReady)return;
   const last=r.at(-1),prev=r.at(-2)||last,ss20=sma(r,20),ss50=sma(r,50),ss200=sma(r,200);
   candles.setData(r.map(x=>({time:Number(x.time),open:Number(x.open),high:Number(x.high),low:Number(x.low),close:Number(x.close)})));
@@ -269,6 +436,7 @@ function setBox(id,left,top,width,height){const e=$(id);if([left,top,width,heigh
 function setLabel(id,x,y,maxW){const e=$(id);if(!Number.isFinite(x)||!Number.isFinite(y)){e.classList.add("overlay-hidden");return}e.classList.remove("overlay-hidden");const w=Math.min(maxW||220,$("chartShell").clientWidth-12);e.style.maxWidth=w+"px";e.style.left=Math.max(4,Math.min($("chartShell").clientWidth-w-4,x))+"px";e.style.top=Math.max(18,Math.min($("chartShell").clientHeight-18,y))+"px"}
 function setDot(id,x,y){const e=$(id);if(!Number.isFinite(x)||!Number.isFinite(y)){e.classList.add("overlay-hidden");return}e.classList.remove("overlay-hidden");e.style.left=x+"px";e.style.top=y+"px"}
 function syncOverlay(){
+  renderSessionChartOverlay();
   const p=state.projection;if(!p||!state.chartReady)return;
   const shell=$("chartShell"),w=shell.clientWidth,h=shell.clientHeight,x=timeX(p.anchorTime);
   const range=chart.timeScale().getVisibleLogicalRange();
@@ -501,11 +669,17 @@ async function loadCandidates(){
 }
 function renderCandidates(status){
   const rows=state.candidates||[];
-  $("spikes").innerHTML=rows.length?rows.map(x=>{
+  const fallback=[...state.universe].sort((a,b)=>{
+    const sa=Math.abs(Number(a.change_24h||0))*Math.log10(Math.max(10,Number(a.amount_24h||0)));
+    const sb=Math.abs(Number(b.change_24h||0))*Math.log10(Math.max(10,Number(b.amount_24h||0)));
+    return sb-sa;
+  }).slice(0,12);
+  const htmlRows=rows.length?rows.map(x=>{
     const v=x.volume||{},dp=x.displacement||{},htf=x.htf||{},delta=x.delta||{},hot=String(x.status)==="PRIORITY";
-    return '<div class="spike '+(hot?"hot":"")+'"><div><b>#'+(x.rank||"—")+' '+String(x.symbol||"").replace("_","/")+' · '+(x.direction||"—")+' · '+Number(x.score||0).toFixed(0)+'/100</b><small>'+String(x.status||"CANDIDATE")+' · VOL '+Number(v.ratio||0).toFixed(2)+'× P'+Number(v.percentile||0).toFixed(0)+' · DISP '+Number(dp.range_atr||0).toFixed(2)+' ATR · BOS 5m ✓ · HTF '+Number(htf.score||0).toFixed(0)+'/20 · Δ '+(delta.delta_signal||"N/A")+'</small></div><button data-sym="'+x.symbol+'">ОТКР</button></div>'
-  }).join(""):'<div class="spike"><div><b>Нет сильных кандидатов</b><small>Радар не заполняет список слабыми вариантами только ради количества.</small></div></div>';
-  $("scanMeta").textContent=(status.liquid_size||0)+" liquid / "+(status.universe_size||0)+" USDT PERP · pre "+(status.prefilter_count||0)+" → deep "+(status.deep_count||0)+" → TOP "+(status.candidate_count||rows.length);
+    return '<div class="spike scanner-row '+(hot?"hot":"")+'" data-sym="'+x.symbol+'"><div><b>#'+(x.rank||"—")+' '+String(x.symbol||"").replace("_","/")+' · '+(x.direction||"—")+' · '+Number(x.score||0).toFixed(0)+'/100</b><small>'+String(x.status||"CANDIDATE")+' · VOL '+Number(v.ratio||0).toFixed(2)+'× · DISP '+Number(dp.range_atr||0).toFixed(2)+' ATR · HTF '+Number(htf.score||0).toFixed(0)+'/20 · Δ '+(delta.delta_signal||"N/A")+'</small></div><span class="scan-open">ОТКРЫТЬ →</span></div>';
+  }):fallback.map((x,i)=>'<div class="spike scanner-row" data-sym="'+x.symbol+'"><div><b>#'+(i+1)+' '+x.symbol.replace("_","/")+'</b><small>MARKET · 24H '+(Number(x.change_24h)>=0?"+":"")+Number(x.change_24h||0).toFixed(2)+'% · turnover '+humanVolume(Number(x.amount_24h||0))+'</small></div><span class="scan-open">ОТКРЫТЬ →</span></div>');
+  $("spikes").innerHTML=htmlRows.join("")||'<div class="spike"><div><b>Сканер ждёт данные</b><small>Рынок временно недоступен.</small></div></div>';
+  $("scanMeta").textContent=(status.liquid_size||0)+" liquid / "+(status.universe_size||state.universe.length||0)+" USDT PERP · "+(rows.length?"RADAR TOP "+rows.length:"market fallback");
 }
 async function loadNews(){
   try{
@@ -548,12 +722,17 @@ function pushJournal(status,dir,volx){
 }
 function renderJournal(){const rows=state.journal||[];$("journalTable").innerHTML=rows.length?rows.map(x=>'<div class="journal-row"><span>'+x.time+'</span><b>'+x.symbol+'</b><span class="'+directionClass(x.dir)+'">'+x.dir+' · '+x.status+'</span><span>'+x.volx+"</span></div>").join(""):'<div class="muted">Пока нет событий текущей сессии.</div>'}
 function loadJournal(){try{state.journal=JSON.parse(localStorage.getItem("ascend_terminal_journal_v2")||"[]")||[]}catch(_){state.journal=[]}renderJournal()}
-function clock(){renderShadowNotebook();const n=new Date(),u=n.getTime()+n.getTimezoneOffset()*60000,k=new Date(u+3*3600000),h=k.getHours(),m=k.getMinutes(),s=k.getSeconds();$("clock").textContent=[h,m,s].map(x=>String(x).padStart(2,"0")).join(":");$("timePointer").style.left=((h+m/60+s/3600)/24*100)+"%";$("kyivDate").textContent=k.toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit"})+" · "+String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+" Киев"}
-function chooseSymbol(sym){if(!sym||sym===state.symbol&&state.tf["5m"]?.length)return;state.symbol=sym;$("symbol").value=sym;$("quickSearch").value=sym.replace("_","/");state.needsFit=true;state.htfAt=0;state.tf={};state.projection=null;if(state.chartReady){candles.setData([]);sma20.setData([]);sma50.setData([]);sma200.setData([]);vol.setData([]);candles.setMarkers([])}$("pairTop").textContent=sym.replace("_","/");$("chartTitle").textContent=sym.replace("_"," / ")+" · загрузка…";if(currentView()!=="market"){history.pushState(null,"","/?view=market");applyView()}loadMarket(true)}
+function clock(){renderShadowNotebook();const n=new Date(),u=n.getTime()+n.getTimezoneOffset()*60000,k=new Date(u+3*3600000),h=k.getHours(),m=k.getMinutes(),s=k.getSeconds();$("clock").textContent=[h,m,s].map(x=>String(x).padStart(2,"0")).join(":");if($("timePointer"))$("timePointer").style.left=((h+m/60+s/3600)/24*100)+"%";$("kyivDate").textContent=k.toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit"})+" · "+String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+" Киев"}
+function chooseSymbol(sym){$("majorPairMenu")?.classList.remove("open");document.querySelectorAll("[data-major]").forEach(b=>b.classList.remove("active"));if(!sym||sym===state.symbol&&state.tf["5m"]?.length)return;state.symbol=sym;$("symbol").value=sym;$("quickSearch").value=sym.replace("_","/");state.needsFit=true;state.htfAt=0;state.tf={};state.projection=null;if(state.chartReady){candles.setData([]);sma20.setData([]);sma50.setData([]);sma200.setData([]);vol.setData([]);candles.setMarkers([])}$("pairTop").textContent=sym.replace("_","/");$("chartTitle").textContent=sym.replace("_"," / ")+" · загрузка…";if(currentView()!=="market"){history.pushState(null,"","/?view=market");applyView()}loadMarket(true)}
 function setTimeframe(tf){if(!state.tf[tf]?.length)return;state.timeframe=tf;state.needsFit=true;document.querySelectorAll("[data-tf]").forEach(b=>b.classList.toggle("active",b.dataset.tf===tf));renderStructure();renderChart()}
 function currentView(){const v=new URLSearchParams(location.search).get("view")||"market";return ["market","users","analytics","signals","journal","coins"].includes(v)?v:"market"}
 function applyView(){const v=currentView();document.body.dataset.view=v;document.querySelectorAll("[data-view-link]").forEach(a=>a.classList.toggle("active",a.dataset.viewLink===v));if(v==="market"&&state.chartReady){requestAnimationFrame(()=>{chart.applyOptions({width:$("chart").clientWidth,height:$("chart").clientHeight});scheduleOverlay()})}if(v==="users")setTimeout(loadAdminUsers,0);return v}
 $("symbol").addEventListener("change",e=>chooseSymbol(e.target.value));
+$("majorWrap")?.addEventListener("click",e=>{
+  const pair=e.target.closest("[data-major-sym]");if(pair){chooseSymbol(pair.dataset.majorSym);$("majorPairMenu").classList.remove("open");document.querySelectorAll("[data-major]").forEach(b=>b.classList.remove("active"));return}
+  const b=e.target.closest("[data-major]");if(b){const menu=$("majorPairMenu"),same=b.classList.contains("active")&&menu.classList.contains("open");document.querySelectorAll("[data-major]").forEach(x=>x.classList.remove("active"));if(same){menu.classList.remove("open")}else renderMajorPairMenu(b.dataset.major)}
+});
+document.addEventListener("pointerdown",e=>{const w=$("majorWrap"),m=$("majorPairMenu");if(w&&m&&!w.contains(e.target)){m.classList.remove("open");document.querySelectorAll("[data-major]").forEach(b=>b.classList.remove("active"))}});
 $("buyBtn").addEventListener("click",()=>openManualPaper("LONG"));
 $("sellBtn").addEventListener("click",()=>openManualPaper("SHORT"));
 ["buyBtn","sellBtn"].forEach(id=>$(id).addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openManualPaper(id==="buyBtn"?"LONG":"SHORT")}}));
