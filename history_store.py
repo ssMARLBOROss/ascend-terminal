@@ -151,11 +151,13 @@ async def init() -> bool:
         )
 
     _stop.clear()
-    _tasks = [
-        asyncio.create_task(_backfill_loop(), name="ascend-history-backfill"),
-        asyncio.create_task(_seed_loop(), name="ascend-history-seed"),
-        asyncio.create_task(_archive_loop(), name="ascend-history-archive"),
-    ]
+    _tasks = []
+    if os.getenv("HISTORY_ENABLE_BACKFILL", "1").strip() != "0":
+        _tasks.append(asyncio.create_task(_backfill_loop(), name="ascend-history-backfill"))
+    if os.getenv("HISTORY_ENABLE_SEED", "1").strip() != "0":
+        _tasks.append(asyncio.create_task(_seed_loop(), name="ascend-history-seed"))
+    if os.getenv("HISTORY_ENABLE_ARCHIVE", "1").strip() != "0":
+        _tasks.append(asyncio.create_task(_archive_loop(), name="ascend-history-archive"))
     logger.info("ASCEND history storage initialized")
     return True
 
@@ -207,6 +209,7 @@ async def status() -> dict[str, Any]:
         "archive_backend": "railway-bucket" if os.getenv("HISTORY_ARCHIVE_BUCKET", "").strip() else ("r2" if os.getenv("R2_BUCKET", "").strip() else None),
         "full_backfill_enabled": _archive_enabled() or os.getenv("HISTORY_ALLOW_FULL_BACKFILL", "").strip() == "1",
         "hot_days": int(os.getenv("HISTORY_HOT_DAYS", "30")),
+        "exchange_filter": os.getenv("HISTORY_EXCHANGE_FILTER", "").strip().lower() or "all",
         "candles": int(counts["candles"] or 0),
         "backfill_done": int(counts["done_jobs"] or 0),
         "backfill_active": int(counts["active_jobs"] or 0),
@@ -615,12 +618,25 @@ async def seed_universe() -> int:
         )
         return len(defaults)
 
-    mexc, bybit = await asyncio.gather(_mexc_universe(), _bybit_universe())
-    common = sorted(mexc & bybit)
+    exchange_filter = os.getenv("HISTORY_EXCHANGE_FILTER", "").strip().lower()
+    if exchange_filter == "mexc":
+        symbols = sorted(await _mexc_universe())
+        exchanges = ("mexc",)
+        label = "MEXC"
+    elif exchange_filter == "bybit":
+        symbols = sorted(await _bybit_universe())
+        exchanges = ("bybit",)
+        label = "Bybit"
+    else:
+        mexc, bybit = await asyncio.gather(_mexc_universe(), _bybit_universe())
+        symbols = sorted(mexc & bybit)
+        exchanges = ("mexc", "bybit")
+        label = "common MEXC+Bybit"
+
     now_cursor = int(time.time() // 60 * 60) - 60
     async with _pool.acquire() as con:
-        for symbol in common:
-            for exchange in ("mexc", "bybit"):
+        for symbol in symbols:
+            for exchange in exchanges:
                 await con.execute(
                     """
                     INSERT INTO history_backfill(exchange,symbol,cursor_end,priority,status,updated_at)
@@ -632,8 +648,8 @@ async def seed_universe() -> int:
                     now_cursor,
                 )
     _last_seed_at = time.time()
-    logger.info("history universe seeded: %s common MEXC+Bybit symbols", len(common))
-    return len(common)
+    logger.info("history universe seeded: %s %s symbols", len(symbols), label)
+    return len(symbols)
 
 
 async def _seed_loop() -> None:
@@ -725,14 +741,17 @@ async def _backfill_once() -> bool:
     if _pool is None:
         return False
     async with _pool.acquire() as con:
+        exchange_filter = os.getenv("HISTORY_EXCHANGE_FILTER", "").strip().lower()
         job = await con.fetchrow(
             """
             SELECT exchange, symbol, cursor_end, priority, attempts
             FROM history_backfill
             WHERE status IN ('PENDING','RETRY','RUNNING')
+              AND ($1 = '' OR exchange = $1)
             ORDER BY priority DESC, updated_at ASC
             LIMIT 1
-            """
+            """,
+            exchange_filter,
         )
         if not job:
             return False
