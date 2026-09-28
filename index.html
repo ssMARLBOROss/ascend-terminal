@@ -129,6 +129,44 @@
     @media(max-width:820px){.trade-entry-label{display:none}.trade-life-ribbon{height:16px;font-size:7px;padding:2px 5px}}
 
   </style>
+
+<style>
+/* ASCEND TERMINAL VISUAL V5 · approved entry-analysis layout */
+body[data-view="market"] .entry-analysis-side{gap:8px}
+.entry-analysis-card{padding:0;overflow:hidden;border-color:#1f3a55;background:linear-gradient(180deg,#071525 0%,#040c16 100%)}
+.entry-analysis-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 13px;border-bottom:1px solid #183149;background:linear-gradient(180deg,#0a1c2d,#071521)}
+.entry-analysis-head b{font-size:14px;letter-spacing:.025em}.entry-analysis-head small{display:block;margin-top:3px;color:#7f96ac;font-size:9px}
+.entry-live{color:#39e7a3;font-size:9px;font-weight:950;white-space:nowrap}
+.entry-rsi-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:9px;align-items:center;padding:11px 13px;border-bottom:1px solid #14283b}
+.entry-rsi-row>span:first-child{font-size:11px;color:#c5d2df;font-weight:850}.entry-rsi-row>b{font-size:16px;text-align:right}.entry-side-pill{justify-self:end;padding:5px 8px;border-radius:5px;background:#13243a;font-size:9px;font-weight:950}
+.entry-metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:8px}
+.entry-metrics-grid>div{padding:9px 10px;border:1px solid #183149;border-radius:7px;background:#06111d}.entry-metrics-grid small{display:block;color:#8095aa;font-size:9px}.entry-metrics-grid b{display:block;margin-top:4px;font-size:13px;color:#eaf3fb}
+.entry-analysis-kv{padding:0 8px}.entry-analysis-kv>div{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:9px 5px;border-top:1px solid #14283b;font-size:10px}.entry-analysis-kv span{color:#9fb0c1}.entry-analysis-kv b{text-align:right}
+.entry-pressure-box{margin:8px;padding:10px;border:1px solid #1b344c;border-radius:8px;background:#06111d}
+.entry-pressure-label{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:10px;margin:2px 0 5px}.entry-pressure-label span{color:#aebdca}.entry-pressure-label b{font-size:13px}
+.entry-pressure-track{height:9px;border-radius:999px;background:#14283b;overflow:hidden;margin-bottom:9px}.entry-pressure-track i{display:block;height:100%;width:0;border-radius:999px;transition:width .35s ease}.entry-pressure-track i.pressure{background:linear-gradient(90deg,#ff3858,#ff6279)}.entry-pressure-track i.resistance{background:linear-gradient(90deg,#19b67c,#39e3a4)}
+.entry-status-box{margin:8px;padding:10px;border:1px solid #1c344c;border-radius:8px;background:#07121e;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}.entry-status-box>span:first-child{font-size:10px;color:#a9b9c8}.entry-status-box small{grid-column:1/-1;color:#8095a9;font-size:9px;line-height:1.35}
+.entry-trade-plan{margin:8px;padding:10px;border:1px solid #173754;border-radius:8px;background:linear-gradient(180deg,rgba(9,29,47,.9),rgba(5,16,27,.9))}
+.entry-plan-head{font-size:9px;color:#54c5ff;font-weight:950;letter-spacing:.05em;margin-bottom:8px}.entry-plan-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:5px 0;font-size:10px;border-top:1px solid rgba(29,55,78,.65)}.entry-plan-row span{color:#99acbd}.entry-plan-row b{font-size:11px}.entry-legacy-data{display:none!important}
+
+.entry-rsi-panel{height:178px;border-top:1px solid #15283b;background:linear-gradient(180deg,#07101d,#050b14);position:relative;overflow:hidden}
+.entry-rsi-head{height:31px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;font-size:10px;border-bottom:1px solid #13263a}.entry-rsi-head>div{display:flex;gap:8px;align-items:center}.entry-rsi-head b{color:#cbd7e3}.entry-rsi-head #rsiChartValue{font-weight:950;color:#b37cff}.entry-rsi-head #rsiChartState{font-size:9px;font-weight:950}
+.entry-rsi-canvas{position:absolute;left:0;right:0;top:31px;bottom:0}.entry-rsi-canvas svg{position:absolute;inset:0;width:100%;height:100%}
+.rsi-guide{stroke:#31445a;stroke-width:1;stroke-dasharray:7 7}.rsi-guide.upper,.rsi-guide.lower{stroke:#5b4b7d}.rsi-line{fill:none;stroke:#a363ff;stroke-width:2.25;vector-effect:non-scaling-stroke}.rsi-dot{fill:#c489ff;stroke:#fff;stroke-width:1}
+.rsi-axis{position:absolute;right:7px;top:0;bottom:0;width:28px;pointer-events:none}.rsi-axis span{position:absolute;right:0;transform:translateY(-50%);font-size:8px;color:#73879b}
+.rsi-watch-tag{position:absolute;top:8px;left:50%;transform:translateX(-50%);padding:4px 7px;border:1px solid #2f4560;border-radius:5px;background:rgba(5,12,22,.88);font-size:8px;font-weight:950;color:#d5e0ea}
+
+.entry-market-bottom{display:grid;grid-template-columns:1.2fr .9fr .9fr;gap:8px;margin-top:8px}
+body:not([data-view="market"]) .entry-market-bottom{display:none!important}
+.entry-bottom-card{padding:10px;min-width:0}.entry-bottom-title{font-size:10px;font-weight:950;letter-spacing:.05em;color:#79cfff;margin-bottom:8px}
+.entry-session-table,.entry-levels-table,.entry-signals-table{display:grid;gap:5px}
+.entry-bottom-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:6px 7px;border:1px solid #172c40;border-radius:6px;background:#06111d;font-size:9px}
+.entry-bottom-row span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.entry-bottom-row small{color:#8093a7}.entry-bottom-row b{font-size:9px}
+.entry-level-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 7px;border-bottom:1px solid #14283b;font-size:9px}.entry-level-row span{color:#93a6b8}.entry-level-row b{font-size:10px}
+.entry-signal-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:7px;align-items:center;padding:6px 7px;border-bottom:1px solid #14283b;font-size:9px}.entry-signal-row small{color:#768ba0}
+@media(max-width:1320px){.entry-market-bottom{grid-template-columns:1fr 1fr}.entry-market-bottom>div:first-child{grid-column:1/-1}}
+@media(max-width:1080px){.entry-market-bottom{grid-template-columns:1fr}.entry-market-bottom>div:first-child{grid-column:auto}.entry-analysis-side{order:4}.entry-rsi-panel{height:165px}}
+</style>
 </head>
 <body>
 <div class="app">
@@ -268,27 +306,92 @@
                 <div class="anchor-dot entry" id="dotEntry"></div><div class="anchor-dot tp" id="dotTp1"></div><div class="anchor-dot tp" id="dotTp2"></div><div class="anchor-dot tp" id="dotTp3"></div>
               </div>
             </div>
+            <div class="entry-rsi-panel" id="entryRsiPanel">
+              <div class="entry-rsi-head"><div><b>RSI 14</b><span id="rsiChartValue">—</span></div><span id="rsiChartState" class="neutral">NEUTRAL</span></div>
+              <div class="entry-rsi-canvas">
+                <svg id="rsiChartSvg" viewBox="0 0 1000 150" preserveAspectRatio="none" aria-label="RSI 14">
+                  <line x1="0" x2="1000" y1="46" y2="46" class="rsi-guide upper"></line>
+                  <line x1="0" x2="1000" y1="104" y2="104" class="rsi-guide lower"></line>
+                  <line x1="0" x2="1000" y1="75" y2="75" class="rsi-guide mid"></line>
+                  <path id="rsiChartPath" d="" class="rsi-line"></path>
+                  <circle id="rsiChartDot" cx="0" cy="75" r="4" class="rsi-dot"></circle>
+                </svg>
+                <div class="rsi-axis"><span style="top:22%">70</span><span style="top:48%">50</span><span style="top:75%">30</span></div>
+                <div class="rsi-watch-tag" id="rsiWatchTag">RSI · WAIT</div>
+              </div>
+            </div>
           </div>
           <div class="mini-row" id="miniRow"></div>
         </div>
 
-        <aside class="side section-anchor" id="signals">
-          <div class="card panel projection">
-            <div class="proj-head"><div class="target">⌁</div><div><div class="proj-title">ASCEND · ПРОЕКЦИЯ</div><div class="proj-title"><span id="sideSymbol">BTC</span> · <span id="directionChain">—</span></div></div></div>
-            <div class="status"><span id="kyivDate">—</span><b id="entrySide">—</b></div><div class="status"><span>RADAR:</span><span class="status-pill wait" id="radarStatus">WAIT</span></div>
+        <aside class="side section-anchor entry-analysis-side" id="signals">
+          <div class="card entry-analysis-card">
+            <div class="entry-analysis-head">
+              <div><b>ASCEND · ENTRY ANALYSIS</b><small><span id="sideSymbol">BTC</span> · <span id="kyivDate">—</span></small></div>
+              <span class="entry-live">● LIVE</span>
+            </div>
+
+            <div class="entry-rsi-row">
+              <span>RSI (14)</span>
+              <b id="rsiEntrySide">—</b>
+              <span class="entry-side-pill" id="directionChain">—</span>
+            </div>
+
+            <div class="entry-metrics-grid">
+              <div><small>VWAP (Session)</small><b id="vwapStateSide">—</b></div>
+              <div><small>Текущая цена</small><b id="entrySide">—</b></div>
+            </div>
+
+            <div class="entry-analysis-kv">
+              <div><span>Структура</span><b id="entryStructureSide">—</b></div>
+              <div><span>Смена сессии</span><b id="entrySessionSide">—</b></div>
+            </div>
+
+            <div class="entry-pressure-box">
+              <div class="entry-pressure-label"><span>Давление</span><b id="entryPressureSide">—</b></div>
+              <div class="entry-pressure-track"><i id="entryPressureBar" class="pressure"></i></div>
+              <div class="entry-pressure-label"><span>Сопротивление</span><b id="entryResistanceSide">—</b></div>
+              <div class="entry-pressure-track"><i id="entryResistanceBar" class="resistance"></i></div>
+            </div>
+
+            <div class="entry-status-box">
+              <span>Статус входа</span>
+              <span class="status-pill wait" id="radarStatus">WAIT</span>
+              <small id="entryConfirmSide">—</small>
+            </div>
+
+            <div class="entry-trade-plan">
+              <div class="entry-plan-head">ПРИ ПОДТВЕРЖДЕНИИ ВХОДА</div>
+              <div class="entry-plan-row"><span>Направление</span><b id="dirSide">—</b></div>
+              <div class="entry-plan-row"><span>Entry · current price</span><b id="entrySide2">—</b></div>
+              <div class="entry-plan-row"><span>SL · structural</span><b class="red" id="slSide">—</b></div>
+              <div class="entry-plan-row"><span>TP1</span><b class="green" id="tp1Side">—</b></div>
+              <div class="entry-plan-row"><span>TP2</span><b class="green" id="tp2Side">—</b></div>
+              <div class="entry-plan-row"><span>TP3</span><b class="green" id="tp3Side">—</b></div>
+              <div class="entry-plan-row"><span>R:R</span><b class="green" id="rrSide">—</b></div>
+            </div>
           </div>
-          <div class="card panel"><h3>ПАРАМЕТРЫ СЦЕНАРИЯ</h3><div class="kv">
-            <div class="kv-row"><span>Направление:</span><b id="dirSide">—</b></div><div class="kv-row"><span>RSI(14) / поиск:</span><b id="rsiEntrySide">—</b></div><div class="kv-row"><span>VWAP / Entry:</span><b id="entrySide2">—</b></div><div class="kv-row"><span>VWAP state:</span><b id="vwapStateSide">—</b></div><div class="kv-row"><span>Structure:</span><b id="entryStructureSide">—</b></div><div class="kv-row"><span>Session change:</span><b id="entrySessionSide">—</b></div><div class="kv-row"><span>Давление:</span><b id="entryPressureSide">—</b></div><div class="kv-row"><span>Сопротивление:</span><b id="entryResistanceSide">—</b></div><div class="kv-row"><span>Статус входа:</span><b id="entryConfirmSide">—</b></div><div class="kv-row"><span>SL / invalidation:</span><b class="red" id="slSide">—</b></div>
-            <div class="kv-row"><span>TP1 (50% → BE):</span><b class="green" id="tp1Side">—</b></div><div class="kv-row"><span>TP2 (30%):</span><b class="green" id="tp2Side">—</b></div><div class="kv-row"><span>TP3 (20%):</span><b class="green" id="tp3Side">—</b></div><div class="kv-row"><span>R:R до TP3:</span><b class="green" id="rrSide">—</b></div>
-            <div class="kv-row"><span>Режим расчёта:</span><b>PAPER · 5% · 20× CROSS</b></div>
-          </div></div>
-          <div class="card panel volume"><h3>📊 ОБЪЁМ · <span id="volCoin">BTC</span></h3><div class="kv">
-            <div class="kv-row"><span>Стандартный объём:</span><b id="volBase">—</b></div><div class="kv-row"><span>Текущий:</span><b class="big" id="volNow">—</b></div><div class="kv-row"><span>Отклонение от нормы:</span><b class="big" id="volDev">—</b></div><div class="kv-row"><span>Percentile монеты:</span><b id="volPct">—</b></div><div class="kv-row"><span>Класс:</span><b class="class" id="volClass">—</b></div>
-          </div></div>
-          <div class="card panel"><h3>RADAR · ОБЯЗАТЕЛЬНЫЕ GATES</h3><div class="checks" id="contextChecks"></div></div>
-          <div class="card panel"><h3>СКАНЕР РЫНКА · MEXC FUTURES</h3><div class="spike-list" id="spikes"><div class="spike"><div><b>Радар формирует кандидатов…</b><small>liquidity → volume → displacement → BOS 5m → HTF → time → Delta</small></div></div></div><div class="scan-meta" id="scanMeta">ожидаем цикл радара</div></div>
-          <div class="card panel"><h3>ЧЕК-ЛИСТ BASE CORE</h3><div class="checks" id="baseChecks"></div></div>
+
+          <div class="entry-legacy-data" aria-hidden="true">
+            <div id="volCoin">BTC</div><div id="volBase">—</div><div id="volNow">—</div><div id="volDev">—</div><div id="volPct">—</div><div id="volClass">—</div>
+            <div id="contextChecks"></div><div id="spikes"></div><div id="scanMeta"></div><div id="baseChecks"></div>
+          </div>
         </aside>
+      </section>
+
+      <section class="entry-market-bottom" id="entryMarketBottom">
+        <div class="card entry-bottom-card">
+          <div class="entry-bottom-title">СЕССИИ · ДАВЛЕНИЕ РЫНКА</div>
+          <div class="entry-session-table" id="entrySessionTable"><div class="muted">Загрузка сессий…</div></div>
+        </div>
+        <div class="card entry-bottom-card">
+          <div class="entry-bottom-title">КЛЮЧЕВЫЕ УРОВНИ</div>
+          <div class="entry-levels-table" id="entryLevelsTable"><div class="muted">Ожидаем цену…</div></div>
+        </div>
+        <div class="card entry-bottom-card">
+          <div class="entry-bottom-title">ПОСЛЕДНИЕ СИГНАЛЫ</div>
+          <div class="entry-signals-table" id="entryRecentSignals"><div class="muted">Радар собирает сигналы…</div></div>
+        </div>
       </section>
 
       <section class="lower">
@@ -804,7 +907,7 @@ function renderChart(){
   $("sma20").textContent=fmt(ss20.at(-1));$("sma50").textContent=fmt(ss50.at(-1));$("sma200").textContent=fmt(ss200.at(-1));$("vwapNow").textContent=fmt(vw?.value);
   $("chartTitle").textContent=state.symbol.replace("_"," / ")+" · "+state.timeframe+" · MEXC";
   if(state.needsFit){chart.timeScale().fitContent();chart.timeScale().applyOptions({rightOffset:22});state.needsFit=false}else if(state.follow){chart.timeScale().scrollToRealTime()}
-  renderProjectionText();renderMarketPressure();scheduleOverlay();
+  renderProjectionText();renderMarketPressure();renderTerminalVisualV5();scheduleOverlay();
 }
 function scheduleOverlay(){if(overlayRaf)return;overlayRaf=requestAnimationFrame(()=>{overlayRaf=0;syncOverlay()})}
 function priceY(p){const y=candles.priceToCoordinate(Number(p));return Number.isFinite(y)?y:null}
@@ -936,6 +1039,49 @@ function syncOverlay(){
   const pts=[[x,yEntry,Math.min(w-70,x+100),y1],[Math.min(w-70,x+100),y1,Math.min(w-70,x+125),y2],[Math.min(w-70,x+125),y2,Math.min(w-70,x+150),y3]];
   $("projectionArrows").innerHTML=pts.map(q=>'<line x1="'+q[0]+'" y1="'+q[1]+'" x2="'+q[2]+'" y2="'+q[3]+'" stroke="#20f494" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrGreen)"/>').join("");
 }
+function renderEntryRsiVisual(){
+  const panel=$("entryRsiPanel"),svg=$("rsiChartSvg"),path=$("rsiChartPath"),dot=$("rsiChartDot");
+  if(!panel||!svg||!path||!dot)return;
+  const x=rsiSeries(currentRows(),14),vals=x.values.filter(v=>Number.isFinite(v)).slice(-140);
+  if(vals.length<2){path.setAttribute("d","");$("rsiChartValue").textContent="—";return}
+  const w=1000,h=150,padY=7,n=vals.length-1,y=v=>padY+(100-clamp(v,0,100))*(h-padY*2)/100;
+  const d=vals.map((v,i)=>(i?"L":"M")+" "+(i/n*w).toFixed(2)+" "+y(v).toFixed(2)).join(" ");
+  path.setAttribute("d",d);
+  const last=vals.at(-1),cx=1000,cy=y(last);dot.setAttribute("cx",cx);dot.setAttribute("cy",cy);
+  const em=entryModel(),stateText=em.rsi.phase||"NEUTRAL";
+  $("rsiChartValue").textContent=last.toFixed(1);$("rsiChartState").textContent=stateText;$("rsiChartState").className=em.side==="LONG"?"long":em.side==="SHORT"?"short":"neutral";
+  $("rsiWatchTag").textContent=em.side==="LONG"?"RSI < 30 · LONG ПОИСК":em.side==="SHORT"?"RSI > 70 · SHORT ПОИСК":(stateText==="PRE-LONG"?"ПОДХОД К 30 · PRE-LONG":stateText==="PRE-SHORT"?"ПОДХОД К 70 · PRE-SHORT":"RSI · WAIT");
+  $("rsiWatchTag").className="rsi-watch-tag "+(em.side==="LONG"?"long":em.side==="SHORT"?"short":"neutral");
+}
+function renderEntryMarketBottom(){
+  if(!$("entryMarketBottom"))return;
+  const now=Math.min(Date.now()/1000,Number(closed(state.tf["5m"]||[]).at(-1)?.time||Date.now()/1000)+300);
+  const defs=[["sydney","СИДНЕЙ"],["asia","АЗИЯ"],["london","ЛОНДОН"],["ny","НЬЮ-ЙОРК"]];
+  $("entrySessionTable").innerHTML=defs.map(([key,name])=>{
+    const m=sessionMetrics(key,now);
+    if(!m)return '<div class="entry-bottom-row"><span>'+name+'</span><small>NO DATA</small><b>—</b></div>';
+    const cls=m.flow==="BUY"?"long":m.flow==="SELL"?"short":"neutral";
+    return '<div class="entry-bottom-row"><span>'+name+' <small>'+m.interpretation+'</small></span><b class="long">'+Math.round(m.buyPct)+'% LONG</b><b class="short">'+Math.round(m.sellPct)+'% SHORT</b></div>';
+  }).join("");
+  const p=state.projection,em=p?.entryModel||entryModel(),price=Number(em.currentPrice||p?.entry),vw=Number(em.vw?.value);
+  const lv=[];
+  if(Number.isFinite(vw))lv.push(["VWAP",vw]);
+  if(p){lv.push(["ENTRY",Number(p.entry)],["SL",Number(p.sl)],["TP1",Number(p.tp1)],["TP2",Number(p.tp2)],["TP3",Number(p.tp3)])}
+  $("entryLevelsTable").innerHTML=lv.length?lv.map(([name,v])=>{
+    const dist=Number.isFinite(price)&&price?((v/price)-1)*100:0,cls=name==="SL"?"short":name.startsWith("TP")?"long":name==="ENTRY"?"neutral":"";
+    return '<div class="entry-level-row"><span>'+name+'</span><b class="'+cls+'">'+fmt(v)+' <small>'+(dist>=0?"+":"")+dist.toFixed(2)+'%</small></b></div>';
+  }).join(""):'<div class="muted">Ожидаем цену…</div>';
+  const sig=(state.candidates||[]).slice(0,6);
+  $("entryRecentSignals").innerHTML=sig.length?sig.map(x=>{
+    const dir=String(x.direction||x.status||"WATCH").toUpperCase(),cls=dir==="LONG"?"long":dir==="SHORT"?"short":"neutral";
+    return '<div class="entry-signal-row"><span>'+String(x.symbol||"—").replace("_","/")+'</span><b class="'+cls+'">'+dir+'</b><small>'+String(x.status||"WATCH")+'</small></div>';
+  }).join(""):'<div class="muted">Радар собирает сигналы…</div>';
+}
+function renderTerminalVisualV5(){
+  renderEntryRsiVisual();
+  renderEntryMarketBottom();
+}
+
 function renderProjectionText(){
   const p=state.projection;if(!p)return;const vp=state.volumeProfile||{},dec=p.dec,em=p.entryModel||dec.entryModel||entryModel();
   $("entryLabelTitle").textContent=(p.confirmed?"ENTRY READY ":"WATCH ")+p.dir;$("entryText").textContent=fmt(p.entry);$("slText").textContent=fmt(p.sl);$("tp1Text").textContent=fmt(p.tp1);$("tp2Text").textContent=fmt(p.tp2);$("tp3Text").textContent=fmt(p.tp3);
@@ -952,6 +1098,7 @@ function renderProjectionText(){
   $("entryStructureSide").textContent=(em.structure?.direction||"NEUTRAL")+" · BOS "+em.bos;$("entryStructureSide").className=em.structureOk?"green":"";
   $("entrySessionSide").textContent=em.session.text;$("entrySessionSide").className=em.session.conflict||em.session.opposes?"red":em.session.supports?"green":"";
   $("entryPressureSide").textContent=em.pressure+"% "+(em.side||"");$("entryPressureSide").className=em.pressure>=65?"green":em.pressure<50?"red":"";
+  if($("entryPressureBar"))$("entryPressureBar").style.width=clamp(em.pressure,0,100)+"%";if($("entryResistanceBar"))$("entryResistanceBar").style.width=clamp(em.resistance,0,100)+"%";
   $("entryResistanceSide").textContent=em.resistance+"%";$("entryResistanceSide").className=em.resistance>=50?"red":"";
   $("entryConfirmSide").textContent=em.status;$("entryConfirmSide").className=p.confirmed?"green":em.status.startsWith("WAIT")?"red":"";
   $("slSide").textContent=fmt(p.sl);$("tp1Side").textContent=fmt(p.tp1);$("tp2Side").textContent=fmt(p.tp2);$("tp3Side").textContent=fmt(p.tp3);
@@ -1310,7 +1457,7 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
 <!-- ASCEND_RADAR_UI_V4_START -->
 <style>
   /* ASCEND RADAR UI V4 · intentionally restrained */
-  .grid.ascend-radar-layout{grid-template-columns:250px minmax(0,1fr) 340px;align-items:start}
+  .grid.ascend-radar-layout{grid-template-columns:220px minmax(0,1fr) 360px;align-items:start}
   .ascend-radar-rail{display:block!important;visibility:visible!important;opacity:1!important;border:1px solid #1b2e45;border-radius:8px;background:#06101b;overflow:hidden;min-width:0;position:sticky;top:66px;max-height:calc(100vh - 78px);z-index:15}
   .ascend-session-radar{margin:0 0 9px;border:1px solid #1b2e45;border-radius:8px;background:linear-gradient(180deg,rgba(8,21,34,.98),rgba(5,13,22,.98));overflow:hidden}
   .ascend-session-radar-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;border-bottom:1px solid #172a40}
@@ -1364,7 +1511,7 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
   .ascend-zone-event{position:absolute;right:8px;top:50%;transform:translateY(-50%);padding:3px 6px;border-radius:4px;background:#071421;border:1px solid #29445c;color:#c9d8e5;font-size:8px;font-weight:900}
   .session.session-v3.ascend-session-collapsed{display:none}
   .side .ascend-old-scanner-hidden{display:none!important}
-  @media(max-width:1320px){.grid.ascend-radar-layout{grid-template-columns:225px minmax(0,1fr) 310px}.ascend-contextbar{grid-template-columns:1fr 1fr 1fr 1fr 1fr auto}}
+  @media(max-width:1320px){.grid.ascend-radar-layout{grid-template-columns:205px minmax(0,1fr) 330px}.ascend-contextbar{grid-template-columns:1fr 1fr 1fr 1fr 1fr auto}}
   @media(max-width:1080px){
     .grid.ascend-radar-layout{grid-template-columns:1fr}
     .ascend-radar-rail{position:relative;top:auto;max-height:310px;order:-10;width:100%}
