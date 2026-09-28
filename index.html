@@ -1040,7 +1040,7 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
 <style>
   /* ASCEND RADAR UI V4 · intentionally restrained */
   .grid.ascend-radar-layout{grid-template-columns:250px minmax(0,1fr) 340px;align-items:start}
-  .ascend-radar-rail{border:1px solid #1b2e45;border-radius:8px;background:#06101b;overflow:hidden;min-width:0;position:sticky;top:66px;max-height:calc(100vh - 78px)}
+  .ascend-radar-rail{display:block!important;border:1px solid #1b2e45;border-radius:8px;background:#06101b;overflow:hidden;min-width:0;position:sticky;top:66px;max-height:calc(100vh - 78px)}
   .ascend-radar-head{padding:10px;border-bottom:1px solid #172a40}
   .ascend-radar-title{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:950;letter-spacing:.08em}
   .ascend-radar-sub{margin-top:4px;color:#71869c;font-size:8px;line-height:1.35}
@@ -1165,6 +1165,7 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
     const g3=groupRows(rows,12,null),g2=groupRows(rows,3,12),g1=groupRows(rows,.5,3);
     const body=document.getElementById('ascendRadarBody');
     if(body)body.innerHTML=groupHtml('g3','12%+',g3)+groupHtml('g2','3–12%',g2)+groupHtml('g1','0.5–3%',g1);
+    const count=document.getElementById('ascendRadarCount');if(count)count.textContent=rows.length+' LIVE';
     const common=document.getElementById('ascendCommonBtn'),all=document.getElementById('ascendAllBtn');
     if(common){common.classList.toggle('active',ui.filter==='common');common.textContent=ui.bybitReady?'MEXC + BYBIT':'MEXC + BYBIT …'}
     if(all)all.classList.toggle('active',ui.filter==='all');
@@ -1285,7 +1286,7 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
     const market=document.getElementById('market');if(!market||document.getElementById('ascendRadarRail'))return;
     market.classList.add('ascend-radar-layout');
     const rail=document.createElement('aside');rail.className='ascend-radar-rail';rail.id='ascendRadarRail';
-    rail.innerHTML='<div class="ascend-radar-head"><div class="ascend-radar-title"><span>РАДАРЫ</span><span id="ascendRadarCount">LIVE</span></div><div class="ascend-radar-sub" id="ascendRadarSync">MEXC + Bybit sync…</div><div class="ascend-radar-tabs"><button id="ascendCommonBtn" class="active" type="button">MEXC + BYBIT</button><button id="ascendAllBtn" type="button">ВСЕ MEXC</button></div><input class="ascend-radar-search" id="ascendRadarSearch" placeholder="Поиск монеты"></div><div class="ascend-radar-body" id="ascendRadarBody"></div>';
+    rail.innerHTML='<div class="ascend-radar-head"><div class="ascend-radar-title"><span>РАДАРЫ</span><span id="ascendRadarCount">0 LIVE</span></div><div class="ascend-radar-sub" id="ascendRadarSync">MEXC + Bybit sync…</div><div class="ascend-radar-sub">12%+ · 3–12% · 0.5–3% · клик только открывает график</div><div class="ascend-radar-tabs"><button id="ascendCommonBtn" class="active" type="button">MEXC + BYBIT</button><button id="ascendAllBtn" type="button">ВСЕ MEXC</button></div><input class="ascend-radar-search" id="ascendRadarSearch" placeholder="Поиск монеты"></div><div class="ascend-radar-body" id="ascendRadarBody"></div>';
     market.insertBefore(rail,market.firstChild);
 
     const chartCard=market.querySelector('.chart-card');
