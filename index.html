@@ -278,7 +278,7 @@
             <div class="status"><span id="kyivDate">—</span><b id="entrySide">—</b></div><div class="status"><span>RADAR:</span><span class="status-pill wait" id="radarStatus">WAIT</span></div>
           </div>
           <div class="card panel"><h3>ПАРАМЕТРЫ СЦЕНАРИЯ</h3><div class="kv">
-            <div class="kv-row"><span>Направление:</span><b id="dirSide">—</b></div><div class="kv-row"><span>VWAP / Entry:</span><b id="entrySide2">—</b></div><div class="kv-row"><span>VWAP state:</span><b id="vwapStateSide">—</b></div><div class="kv-row"><span>SL / invalidation:</span><b class="red" id="slSide">—</b></div>
+            <div class="kv-row"><span>Направление:</span><b id="dirSide">—</b></div><div class="kv-row"><span>RSI(14) / поиск:</span><b id="rsiEntrySide">—</b></div><div class="kv-row"><span>VWAP / Entry:</span><b id="entrySide2">—</b></div><div class="kv-row"><span>VWAP state:</span><b id="vwapStateSide">—</b></div><div class="kv-row"><span>Structure:</span><b id="entryStructureSide">—</b></div><div class="kv-row"><span>Session change:</span><b id="entrySessionSide">—</b></div><div class="kv-row"><span>Давление:</span><b id="entryPressureSide">—</b></div><div class="kv-row"><span>Сопротивление:</span><b id="entryResistanceSide">—</b></div><div class="kv-row"><span>Статус входа:</span><b id="entryConfirmSide">—</b></div><div class="kv-row"><span>SL / invalidation:</span><b class="red" id="slSide">—</b></div>
             <div class="kv-row"><span>TP1 (50% → BE):</span><b class="green" id="tp1Side">—</b></div><div class="kv-row"><span>TP2 (30%):</span><b class="green" id="tp2Side">—</b></div><div class="kv-row"><span>TP3 (20%):</span><b class="green" id="tp3Side">—</b></div><div class="kv-row"><span>R:R до TP3:</span><b class="green" id="rrSide">—</b></div>
             <div class="kv-row"><span>Режим расчёта:</span><b>PAPER · 5% · 20× CROSS</b></div>
           </div></div>
@@ -394,6 +394,98 @@ function vwapSnapshot(rows){
   }
   return{value,price,side,hold,retest,cross,distPct:value?((price/value)-1)*100:0,series};
 }
+function rsiSeries(rows,n=14){
+  const r=closed(rows||[]),out=new Array(r.length).fill(null);
+  if(r.length<=n)return{rows:r,values:out};
+  let gain=0,loss=0;
+  for(let i=1;i<=n;i++){const d=Number(r[i].close)-Number(r[i-1].close);if(d>0)gain+=d;else loss-=d}
+  let ag=gain/n,al=loss/n;
+  out[n]=al===0?100:100-100/(1+ag/al);
+  for(let i=n+1;i<r.length;i++){
+    const d=Number(r[i].close)-Number(r[i-1].close),g=d>0?d:0,l=d<0?-d:0;
+    ag=(ag*(n-1)+g)/n;al=(al*(n-1)+l)/n;
+    out[i]=al===0?100:100-100/(1+ag/al);
+  }
+  return{rows:r,values:out};
+}
+function rsiEntryContext(rows){
+  const x=rsiSeries(rows,14),vals=x.values,last=Number(vals.at(-1));
+  if(!Number.isFinite(last))return{value:null,side:"NEUTRAL",phase:"NO DATA",barsSince:null};
+  let lastLow=-1,lastHigh=-1;
+  for(let i=Math.max(14,vals.length-36);i<vals.length;i++){
+    const v=Number(vals[i]),p=Number(vals[i-1]);
+    if(Number.isFinite(v)&&v<30&&(p>=30||!Number.isFinite(p)))lastLow=i;
+    if(Number.isFinite(v)&&v>70&&(p<=70||!Number.isFinite(p)))lastHigh=i;
+  }
+  let side="NEUTRAL",phase="MID",idx=-1;
+  if(last<30){side="LONG";phase="LONG ZONE";idx=vals.length-1}
+  else if(last>70){side="SHORT";phase="SHORT ZONE";idx=vals.length-1}
+  else if(last>=30&&last<=35){side="LONG";phase="PRE-LONG";idx=lastLow}
+  else if(last>=65&&last<=70){side="SHORT";phase="PRE-SHORT";idx=lastHigh}
+  else if(lastLow>lastHigh&&lastLow>=0&&vals.length-1-lastLow<=24){side="LONG";phase="LONG SEARCH";idx=lastLow}
+  else if(lastHigh>lastLow&&lastHigh>=0&&vals.length-1-lastHigh<=24){side="SHORT";phase="SHORT SEARCH";idx=lastHigh}
+  return{value:last,side,phase,barsSince:idx>=0?vals.length-1-idx:null};
+}
+function activeSessionEntries(refTs){
+  const now=Number(refTs)||Date.now()/1000,out=[];
+  Object.keys(SESSION_DEFS).forEach(key=>{
+    const w=sessionWindow(key,now);
+    if(now>=w.start&&now<=w.end){
+      const m=sessionMetrics(key,now);if(m)out.push({key,start:w.start,end:w.end,m,def:SESSION_DEFS[key]});
+    }
+  });
+  return out.sort((a,b)=>a.start-b.start);
+}
+function sessionEntryContext(side,refTs){
+  const active=activeSessionEntries(refTs),latest=active.at(-1)||null,previous=active.length>1?active.at(-2):null;
+  const signed=e=>!e?0:e.m.flow==="BUY"?Number(e.m.strength||0):e.m.flow==="SELL"?-Number(e.m.strength||0):0;
+  const newScore=signed(latest),oldScore=signed(previous);
+  let mode="SINGLE",text=latest?(latest.def.name+" · "+latest.m.flow):"NO DATA",direction=newScore>4?"LONG":newScore<-4?"SHORT":"NEUTRAL";
+  if(latest&&previous){
+    if(Math.sign(newScore)&&Math.sign(oldScore)&&Math.sign(newScore)!==Math.sign(oldScore)){
+      if(Math.abs(newScore)>=Math.abs(oldScore)+5){mode="TAKEOVER";text=latest.def.name+" TAKEOVER · "+direction}
+      else{mode="CONFLICT";text=previous.def.name+" ↔ "+latest.def.name+" · CONFLICT"}
+    }else if(Math.sign(newScore)&&Math.sign(newScore)===Math.sign(oldScore)){mode="SUPPORT";text=latest.def.name+" + "+previous.def.name+" · "+direction}
+    else{mode="BALANCE";text=latest.def.name+" · BALANCE"}
+  }
+  const supports=side==="LONG"?direction==="LONG":side==="SHORT"?direction==="SHORT":true;
+  const opposes=side==="LONG"?direction==="SHORT":side==="SHORT"?direction==="LONG":false;
+  return{active,latest,previous,newScore,oldScore,direction,mode,text,supports,opposes,conflict:mode==="CONFLICT"};
+}
+function entryPressureModel(side,rsi,vw,st,bos,session){
+  if(side!=="LONG"&&side!=="SHORT")return{pressure:50,resistance:50,structureOk:false,vwapOk:false,sessionOk:true};
+  const sign=side==="LONG"?1:-1;
+  const rsiOk=rsi?.side===side;
+  const vwapDist=Math.abs(Number(vw?.distPct)||99);
+  const nearVwap=!!vw&&(vwapDist<=.35||vw.retest);
+  const vwapAccepted=!!vw&&nearVwap&&((side==="LONG"&&vw.price>=vw.value)||(side==="SHORT"&&vw.price<=vw.value));
+  const structureOk=(st?.direction===side)||(bos===side);
+  const sessionOk=!session?.opposes&&!session?.conflict;
+  let score=0;
+  if(rsiOk)score+=30;
+  if(vwapAccepted)score+=25;else if(nearVwap)score+=12;
+  if(structureOk)score+=25;else if(st?.direction==="NEUTRAL")score+=8;
+  if(session?.supports)score+=20;else if(sessionOk)score+=10;
+  score=clamp(Math.round(score),0,100);
+  return{pressure:score,resistance:100-score,structureOk,vwapOk:vwapAccepted,nearVwap,sessionOk,sign};
+}
+function entryModel(){
+  const chartRows=state.tf[state.timeframe]||state.tf["5m"]||currentRows(),rsi=rsiEntryContext(chartRows);
+  const side=rsi.side,rows5=state.tf["5m"]||currentRows(),vw=vwapSnapshot(rows5),st=protectedStructure(rows5),bos=bosDirection(state.tf["1m"]||[]);
+  const latest=closed(rows5).at(-1),refTs=latest?Number(latest.time)+300:Date.now()/1000,session=sessionEntryContext(side,refTs);
+  const force=entryPressureModel(side,rsi,vw,st,bos,session);
+  const confirmed=(side==="LONG"||side==="SHORT")&&force.vwapOk&&force.structureOk&&force.sessionOk&&force.pressure>=65;
+  let status="NEUTRAL";
+  if(side==="LONG"||side==="SHORT"){
+    if(session.conflict||session.opposes)status="WAIT · SESSION";
+    else if(!force.vwapOk)status="WATCH · VWAP";
+    else if(!force.structureOk)status="WATCH · STRUCTURE";
+    else if(confirmed)status="ENTRY READY";
+    else status="WATCH";
+  }
+  return{side,rsi,vw,structure:st,bos,session,...force,confirmed,status,currentPrice:latest?Number(latest.close):null};
+}
+
 function protectedStructure(rows){
   const r=closed(rows).slice(-120),hi=[],lo=[];
   for(let i=2;i<r.length-2;i++){
@@ -409,35 +501,24 @@ function protectedStructure(rows){
 }
 function levels(rows){const r=closed(rows).slice(-180);if(!r.length)return null;const cur=Number(r.at(-1).close),highs=[...r].sort((a,b)=>b.high-a.high).slice(0,28).map(x=>Number(x.high)),lows=[...r].sort((a,b)=>a.low-b.low).slice(0,28).map(x=>Number(x.low));return{res1:avg(highs.slice(12,20))||cur*1.004,res2:avg(highs.slice(5,12))||cur*1.008,res3:avg(highs.slice(0,5))||cur*1.014,sup1:avg(lows.slice(12,20))||cur*.996,sup2:avg(lows.slice(5,12))||cur*.992,sup3:avg(lows.slice(0,5))||cur*.986}}
 function radarDecision(){
-  const bos=bosDirection(state.tf["1m"]||[]);
-  const t5=trend(state.tf["5m"]||[]),t15=trend(state.tf["15m"]||[]);
-  const vw=vwapSnapshot(state.tf["5m"]||currentRows());
-  const vp=state.volumeProfile||{},anomaly=["STRONG VOLUME","EXTREME VOLUME"].includes(vp.class);
-  const vwapSide=vw?.side||"NEUTRAL";
-  let direction=vwapSide!=="NEUTRAL"?vwapSide:(bos!=="NEUTRAL"?bos:(t5!=="NEUTRAL"?t5:t15));
-  const structureDir=t5!=="NEUTRAL"?t5:t15;
-  const vwapConflict=vwapSide!=="NEUTRAL"&&structureDir!=="NEUTRAL"&&vwapSide!==structureDir;
-  const b=state.breadth||{},breadthDir=(Number(b.long)>Number(b.short))?"LONG":(Number(b.short)>Number(b.long))?"SHORT":"NEUTRAL";
+  const em=entryModel(),side=em.side,vw=em.vw,bos=em.bos,st=em.structure;
+  const fallback=vw?.side||trend(state.tf["5m"]||[])||"NEUTRAL";
+  const direction=(side==="LONG"||side==="SHORT")?side:fallback;
   const gates=[
-    {label:"VWAP SIDE",ok:vwapSide!=="NEUTRAL",value:(vwapSide==="LONG"?"PRICE > VWAP":vwapSide==="SHORT"?"PRICE < VWAP":"AT VWAP")},
-    {label:"VWAP RETEST + HOLD",ok:!!(vw&&vw.retest&&vw.hold),value:vw?(vw.cross+" · "+(vw.hold?"HOLD":"NO HOLD")):"NO DATA"},
-    {label:"5m STRUCTURE ALIGN",ok:direction!=="NEUTRAL"&&t5===direction,value:dirRu(t5)},
-    {label:"BOS/CHOCH 1m",ok:bos===direction,value:dirRu(bos)},
-    {label:"VOLUME ANOMALY · профиль монеты",ok:anomaly,value:vp.class||"NO DATA"},
-    {label:"15m ALIGN",ok:direction!=="NEUTRAL"&&t15===direction,value:dirRu(t15)},
-    {label:"MARKET BREADTH ALIGN",ok:direction!=="NEUTRAL"&&breadthDir===direction,value:dirRu(breadthDir)}
+    {label:"RSI 30/70 · SIDE",ok:side==="LONG"||side==="SHORT",value:em.rsi.value===null?"NO DATA":em.rsi.value.toFixed(1)+" · "+em.rsi.phase},
+    {label:"VWAP · ENTRY ZONE",ok:em.vwapOk,value:vw?(fmt(vw.value)+" · Δ "+(vw.distPct>=0?"+":"")+vw.distPct.toFixed(2)+"%"):"NO DATA"},
+    {label:"STRUCTURE",ok:em.structureOk,value:(st?.direction||"NEUTRAL")+" · BOS "+bos},
+    {label:"SESSION CHANGE",ok:em.sessionOk,value:em.session.text},
+    {label:"PRESSURE / RESISTANCE",ok:em.pressure>=65,value:em.pressure+"% / "+em.resistance+"%"}
   ];
-  const all=gates.every(x=>x.ok);
-  const breadthConflict=direction!=="NEUTRAL"&&breadthDir!=="NEUTRAL"&&breadthDir!==direction;
-  const status=vwapConflict?"WAIT · VWAP CONFLICT":!(vw&&vw.retest&&vw.hold)?"WAIT · VWAP RETEST":all?"ENTER":breadthConflict?"WAIT · BREADTH CONFLICT":"WAIT";
-  return{direction,bos,t5,t15,breadthDir,vwapSide,vwap:vw,vwapConflict,gates,status};
+  return{direction,bos,t5:trend(state.tf["5m"]||[]),t15:trend(state.tf["15m"]||[]),breadthDir:"NEUTRAL",vwapSide:vw?.side||"NEUTRAL",vwap:vw,vwapConflict:false,gates,status:em.status,entryModel:em};
 }
 function projection(rows){
   const r=closed(rows),last=r.at(-1);if(!last)return null;
   const dec=radarDecision(),vw=dec.vwap||vwapSnapshot(state.tf["5m"]||rows);
   const dir=dec.direction==="NEUTRAL"?(trend(state.tf["5m"]||[])==="LONG"?"LONG":"SHORT"):dec.direction;
   const htf=levels(state.tf["1h"]||rows)||levels(rows),st=protectedStructure(state.tf["5m"]||rows);
-  const entry=Number(vw?.value)||Number(last.close),spread=Math.max(entry*.001,Math.abs(Number(last.high)-Number(last.low)));
+  const em=dec.entryModel||entryModel(),entry=(em.side==="LONG"||em.side==="SHORT")?Number(last.close):(Number(vw?.value)||Number(last.close)),spread=Math.max(entry*.001,Math.abs(Number(last.high)-Number(last.low)));
   if(dir==="LONG"){
     const below=[st.lastLow,htf.sup1,htf.sup2,htf.sup3].map(Number).filter(x=>Number.isFinite(x)&&x<entry).sort((a,b)=>b-a);
     let sl=below[0]||entry-spread*1.4;
@@ -445,7 +526,7 @@ function projection(rows){
     const risk=Math.max(entry-sl,spread*.8),above=[htf.res1,htf.res2,htf.res3].map(Number).filter(x=>Number.isFinite(x)&&x>entry).sort((a,b)=>a-b);
     const tp1=above[0]||entry+risk*1.5,tp2=above.find(x=>x>tp1)||Math.max(entry+risk*2.2,tp1+risk*.7),tp3=above.find(x=>x>tp2)||Math.max(entry+risk*3,tp2+risk*.8);
     const zoneHalf=Math.max(entry*.0002,spread*.22);
-    return{dir,entry,sl,tp1,tp2,tp3,zoneLow:entry-zoneHalf,zoneHigh:entry+zoneHalf,anchorTime:Number(last.time),spread,dec,vwap:vw,structure:st};
+    return{dir,entry,sl,tp1,tp2,tp3,zoneLow:entry-zoneHalf,zoneHigh:entry+zoneHalf,anchorTime:Number(last.time),spread,dec,vwap:vw,structure:st,entryModel:em,confirmed:!!em.confirmed};
   }
   const above=[st.lastHigh,htf.res1,htf.res2,htf.res3].map(Number).filter(x=>Number.isFinite(x)&&x>entry).sort((a,b)=>a-b);
   let sl=above[0]||entry+spread*1.4;
@@ -453,7 +534,7 @@ function projection(rows){
   const risk=Math.max(sl-entry,spread*.8),below=[htf.sup1,htf.sup2,htf.sup3].map(Number).filter(x=>Number.isFinite(x)&&x<entry).sort((a,b)=>b-a);
   const tp1=below[0]||entry-risk*1.5,tp2=below.find(x=>x<tp1)||Math.min(entry-risk*2.2,tp1-risk*.7),tp3=below.find(x=>x<tp2)||Math.min(entry-risk*3,tp2-risk*.8);
   const zoneHalf=Math.max(entry*.0002,spread*.22);
-  return{dir:"SHORT",entry,sl,tp1,tp2,tp3,zoneLow:entry-zoneHalf,zoneHigh:entry+zoneHalf,anchorTime:Number(last.time),spread,dec,vwap:vw,structure:st};
+  return{dir:"SHORT",entry,sl,tp1,tp2,tp3,zoneLow:entry-zoneHalf,zoneHigh:entry+zoneHalf,anchorTime:Number(last.time),spread,dec,vwap:vw,structure:st,entryModel:em,confirmed:!!em.confirmed};
 }
 
 function initChart(){
@@ -717,7 +798,7 @@ function renderChart(){
   vwapLine.setData(vw?.series||[]);state.vwap=vw;
   vol.setData(r.map(x=>({time:Number(x.time),value:Number(x.volume)||0,color:Number(x.close)>=Number(x.open)?"rgba(18,214,177,.35)":"rgba(255,54,85,.35)"})));
   state.projection=projection(r);clearLines();
-  if(state.projection){const p=state.projection;setLine(p.entry,"#18e889","VWAP ENTRY");setLine(p.sl,"#ff3655","SL");setLine(p.tp1,"#18e889","TP1");setLine(p.tp2,"#18e889","TP2");setLine(p.tp3,"#18e889","TP3")}
+  if(state.projection){const p=state.projection;setLine(p.entry,p.confirmed?"#18e889":"#ffc64d",p.confirmed?"ENTRY READY":"WATCH PRICE");setLine(p.sl,"#ff3655","SL");setLine(p.tp1,"#18e889","TP1");setLine(p.tp2,"#18e889","TP2");setLine(p.tp3,"#18e889","TP3")}
   const chg=(Number(last.close)-Number(prev.close))/Math.max(Number(prev.close),1e-12)*100;
   $("openP").textContent=fmt(last.open);$("highP").textContent=fmt(last.high);$("lowP").textContent=fmt(last.low);$("closeP").textContent=fmt(last.close);$("chgP").textContent=(chg>=0?"+":"")+chg.toFixed(2)+"%";
   $("sma20").textContent=fmt(ss20.at(-1));$("sma50").textContent=fmt(ss50.at(-1));$("sma200").textContent=fmt(ss200.at(-1));$("vwapNow").textContent=fmt(vw?.value);
@@ -856,16 +937,28 @@ function syncOverlay(){
   $("projectionArrows").innerHTML=pts.map(q=>'<line x1="'+q[0]+'" y1="'+q[1]+'" x2="'+q[2]+'" y2="'+q[3]+'" stroke="#20f494" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrGreen)"/>').join("");
 }
 function renderProjectionText(){
-  const p=state.projection;if(!p)return;const vp=state.volumeProfile||{},dec=p.dec;
-  $("entryLabelTitle").textContent="VWAP ENTRY "+p.dir;$("entryText").textContent=fmt(p.entry);$("slText").textContent=fmt(p.sl);$("tp1Text").textContent=fmt(p.tp1);$("tp2Text").textContent=fmt(p.tp2);$("tp3Text").textContent=fmt(p.tp3);
-  $("supplyText").textContent=fmt(p.zoneLow)+" – "+fmt(p.zoneHigh);$("supplyTag").textContent="VWAP "+fmt(p.entry);$("labelSupply").querySelector("b").textContent="VWAP ENTRY ZONE";$("labelSupply").className="label "+(p.dir==="LONG"?"green":"red");$("zoneSupply").className="zone "+(p.dir==="LONG"?"green":"red");$("slTag").textContent="SL "+fmt(p.sl);$("tp1Tag").textContent="TP1 "+fmt(p.tp1);$("tp2Tag").textContent="TP2 "+fmt(p.tp2);$("tp3Tag").textContent="TP3 "+fmt(p.tp3);
+  const p=state.projection;if(!p)return;const vp=state.volumeProfile||{},dec=p.dec,em=p.entryModel||dec.entryModel||entryModel();
+  $("entryLabelTitle").textContent=(p.confirmed?"ENTRY READY ":"WATCH ")+p.dir;$("entryText").textContent=fmt(p.entry);$("slText").textContent=fmt(p.sl);$("tp1Text").textContent=fmt(p.tp1);$("tp2Text").textContent=fmt(p.tp2);$("tp3Text").textContent=fmt(p.tp3);
+  const vwValue=Number(em.vw?.value);
+  $("supplyText").textContent=Number.isFinite(vwValue)?("VWAP "+fmt(vwValue)+" · PRICE "+fmt(p.entry)):fmt(p.zoneLow)+" – "+fmt(p.zoneHigh);
+  $("supplyTag").textContent=Number.isFinite(vwValue)?"VWAP "+fmt(vwValue):"ENTRY ZONE";
+  $("labelSupply").querySelector("b").textContent="VWAP · FAIR VALUE / ENTRY ZONE";$("labelSupply").className="label "+(p.dir==="LONG"?"green":"red");$("zoneSupply").className="zone "+(p.dir==="LONG"?"green":"red");$("slTag").textContent="SL "+fmt(p.sl);$("tp1Tag").textContent="TP1 "+fmt(p.tp1);$("tp2Tag").textContent="TP2 "+fmt(p.tp2);$("tp3Tag").textContent="TP3 "+fmt(p.tp3);
   $("volumeRatio").textContent=(Number(vp.ratio)||0).toFixed(2)+"× · P"+(Number(vp.percentile)||0).toFixed(0);
   $("directionChain").innerHTML='<span class="'+directionClass(p.dir)+'">'+p.dir+"</span>";
-  $("dirSide").textContent=p.dir;$("dirSide").className=p.dir==="LONG"?"green":"red";$("entrySide").textContent=fmt(p.entry);$("entrySide2").textContent=fmt(p.entry);const vwState=p.dec?.vwap?((p.dec.vwap.side==="LONG"?"ABOVE":"BELOW")+" · "+(p.dec.vwap.retest?"RETEST":"NO RETEST")+" · "+(p.dec.vwap.hold?"HOLD":"NO HOLD")):"NO DATA";$("vwapStateSide").textContent=vwState;$("vwapStateSide").className=p.dec?.vwapConflict?"red":(p.dec?.vwap?.side==="LONG"?"green":p.dec?.vwap?.side==="SHORT"?"red":"");$("slSide").textContent=fmt(p.sl);$("tp1Side").textContent=fmt(p.tp1);$("tp2Side").textContent=fmt(p.tp2);$("tp3Side").textContent=fmt(p.tp3);
+  $("dirSide").textContent=p.dir;$("dirSide").className=p.dir==="LONG"?"green":"red";
+  $("entrySide").textContent=fmt(p.entry);$("entrySide2").textContent=fmt(p.entry)+" · VWAP "+fmt(em.vw?.value);
+  const vwState=em.vw?((em.vw.side==="LONG"?"ABOVE":"BELOW")+" · "+(em.vwapOk?"ENTRY ZONE OK":"WAIT")):"NO DATA";$("vwapStateSide").textContent=vwState;$("vwapStateSide").className=em.vwapOk?"green":"red";
+  $("rsiEntrySide").textContent=em.rsi.value===null?"NO DATA":em.rsi.value.toFixed(1)+" · "+em.rsi.phase;$("rsiEntrySide").className=em.side==="LONG"?"green":em.side==="SHORT"?"red":"";
+  $("entryStructureSide").textContent=(em.structure?.direction||"NEUTRAL")+" · BOS "+em.bos;$("entryStructureSide").className=em.structureOk?"green":"";
+  $("entrySessionSide").textContent=em.session.text;$("entrySessionSide").className=em.session.conflict||em.session.opposes?"red":em.session.supports?"green":"";
+  $("entryPressureSide").textContent=em.pressure+"% "+(em.side||"");$("entryPressureSide").className=em.pressure>=65?"green":em.pressure<50?"red":"";
+  $("entryResistanceSide").textContent=em.resistance+"%";$("entryResistanceSide").className=em.resistance>=50?"red":"";
+  $("entryConfirmSide").textContent=em.status;$("entryConfirmSide").className=p.confirmed?"green":em.status.startsWith("WAIT")?"red":"";
+  $("slSide").textContent=fmt(p.sl);$("tp1Side").textContent=fmt(p.tp1);$("tp2Side").textContent=fmt(p.tp2);$("tp3Side").textContent=fmt(p.tp3);
   const rr=Math.abs(p.tp3-p.entry)/Math.max(Math.abs(p.sl-p.entry),1e-12);$("rrSide").textContent="1:"+rr.toFixed(2);
-  const st=$("radarStatus");st.textContent=dec.status;st.className="status-pill "+(dec.status==="ENTER"?"enter":dec.status.startsWith("WAIT")?"wait":"skip");
+  const stEl=$("radarStatus");stEl.textContent=dec.status;stEl.className="status-pill "+(dec.status==="ENTRY READY"?"enter":dec.status.startsWith("WAIT")||dec.status.startsWith("WATCH")?"wait":"skip");
   $("contextChecks").innerHTML=dec.gates.map(g=>'<div class="check '+(g.ok?"ok":"wait")+'"><i>'+(g.ok?"✓":"…")+'</i><span>'+g.label+' · <b>'+g.value+"</b></span></div>").join("");
-  const key=state.symbol+"|"+dec.status+"|"+p.dir;if(key!==state.lastRadarKey){state.lastRadarKey=key;pushJournal(dec.status,p.dir,(Number(vp.ratio)||0).toFixed(2)+"×")}
+  const key=state.symbol+"|"+dec.status+"|"+p.dir+"|"+em.rsi.phase;if(key!==state.lastRadarKey){state.lastRadarKey=key;pushJournal(dec.status,p.dir,"RSI "+(em.rsi.value===null?"—":em.rsi.value.toFixed(1))+" · P "+em.pressure+"%")}
 }
 function renderVolume(){
   const v=state.volumeProfile||{};$("volCoin").textContent=state.symbol.split("_")[0];$("volBase").textContent=humanVolume(v.standard_volume)+" · 1.00×";$("volNow").textContent=humanVolume(v.current_volume)+" · "+(Number(v.ratio)||0).toFixed(2)+"×";$("volDev").textContent=((Number(v.deviation_pct)||0)>=0?"+":"")+(Number(v.deviation_pct)||0).toFixed(0)+"%";$("volPct").textContent="P"+(Number(v.percentile)||0).toFixed(1);$("volClass").textContent=v.class||"NO DATA"}
@@ -880,7 +973,7 @@ function renderBaseChecks(){
   const rows=[
     ["1D → 4H → 1H TREND",t1===t4&&t4===tH&&t1!=="NEUTRAL"],
     ["KEY S/R",!!state.projection],["WAIT AT LEVEL",true],["REACTION · Pin/Engulf/Doji",false],["VOLUME · STRONG/EXTREME профиль монеты",["STRONG VOLUME","EXTREME VOLUME"].includes(state.volumeProfile?.class)],
-    ["SMA20/50/200",trend(currentRows())!=="NEUTRAL"],["VWAP ENTRY · RETEST + HOLD",!!(d.vwap&&d.vwap.retest&&d.vwap.hold&&!d.vwapConflict)],["BREAK + CLOSE + RETEST",d.bos!=="NEUTRAL"],["CONFIRMATION",d.gates.filter(x=>x.ok).length>=4],["STRUCTURAL SL",!!state.projection],["NEXT KEY LEVEL TP",!!state.projection],["R:R ≥ 1:2",state.projection?Math.abs(state.projection.tp3-state.projection.entry)/Math.max(Math.abs(state.projection.sl-state.projection.entry),1e-12)>=2:false],["ENTER / WAIT / SKIP",d.status==="ENTER"]
+    ["SMA20/50/200",trend(currentRows())!=="NEUTRAL"],["RSI 30/70 · SEARCH SIDE",d.entryModel?.side==="LONG"||d.entryModel?.side==="SHORT"],["VWAP · ENTRY ZONE",!!d.entryModel?.vwapOk],["STRUCTURE · BOS/HL/LH",!!d.entryModel?.structureOk],["SESSION CHANGE",!!d.entryModel?.sessionOk],["CONFIRMATION",d.status==="ENTRY READY"],["STRUCTURAL SL",!!state.projection],["NEXT KEY LEVEL TP",!!state.projection],["R:R ≥ 1:2",state.projection?Math.abs(state.projection.tp3-state.projection.entry)/Math.max(Math.abs(state.projection.sl-state.projection.entry),1e-12)>=2:false],["ENTER / WAIT / SKIP",d.status==="ENTER"]
   ];
   $("baseChecks").innerHTML=rows.map(x=>'<div class="check '+(x[1]?"ok":"wait")+'"><i>'+(x[1]?"✓":"…")+"</i>"+x[0]+"</div>").join("")
 }
