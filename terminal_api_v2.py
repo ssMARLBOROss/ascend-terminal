@@ -21,6 +21,7 @@ MEXC_TICKER_URL = MEXC_BASE_URL + "/api/v1/contract/ticker"
 MEXC_CONTRACT_DETAIL_URL = MEXC_BASE_URL + "/api/v1/contract/detail"
 RADAR_STATUS_URL = "https://ascend-clean-production.up.railway.app/api/telegram-reversal-41/status"
 RADAR_CANDIDATES_URL = "https://ascend-clean-production.up.railway.app/api/radar-candidates-v2/latest"
+BYBIT_INSTRUMENTS_URL = "https://api.bybit.com/v5/market/instruments-info"
 
 TIMEFRAMES = {
     "1m": ("Min1", 60),
@@ -38,6 +39,8 @@ _NEWS_CACHE: dict[str, Any] = {"at": 0.0, "rows": []}
 _PROFILE_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _BREADTH_CACHE: dict[str, Any] = {"at": 0.0, "data": None}
 _CANDIDATE_CACHE: dict[str, Any] = {"at": 0.0, "data": None}
+_BYBIT_SYMBOL_CACHE: dict[str, Any] = {"at": 0.0, "symbols": []}
+_SESSION_RADAR_CACHE: dict[str, Any] = {"at": 0.0, "data": None}
 _HISTORY_SAVE_AT: dict[str, float] = {}
 
 
@@ -223,6 +226,307 @@ async def _klines(symbol: str, timeframe: str, limit: int = 260) -> list[dict[st
     return rows[-limit:]
 
 
+
+async def _bybit_usdt_symbols(force: bool = False) -> list[str]:
+    now = time.monotonic()
+    cached = list(_BYBIT_SYMBOL_CACHE.get("symbols") or [])
+    if not force and cached and now - float(_BYBIT_SYMBOL_CACHE.get("at") or 0.0) < 300.0:
+        return cached
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            response = await client.get(
+                BYBIT_INSTRUMENTS_URL,
+                params={"category": "linear", "limit": 1000},
+                headers={"User-Agent": "ASCEND-Terminal/2.3"},
+            )
+            response.raise_for_status()
+            payload = response.json()
+        result = payload.get("result") or {}
+        raw = result.get("list") or []
+        symbols = sorted({
+            str(item.get("symbol") or "").upper()
+            for item in raw
+            if isinstance(item, dict)
+            and str(item.get("status") or "").lower() == "trading"
+            and str(item.get("quoteCoin") or "").upper() == "USDT"
+            and str(item.get("symbol") or "").upper().endswith("USDT")
+        })
+        if not symbols:
+            raise ValueError("Bybit returned no active USDT linear symbols")
+        _BYBIT_SYMBOL_CACHE["at"] = now
+        _BYBIT_SYMBOL_CACHE["symbols"] = symbols
+        return list(symbols)
+    except Exception:
+        if cached:
+            return cached
+        return []
+
+
+async def _candidate_rows_for_session(limit: int = 15) -> list[dict[str, Any]]:
+    now = time.monotonic()
+    cached = _CANDIDATE_CACHE.get("data")
+    if isinstance(cached, dict) and now - float(_CANDIDATE_CACHE.get("at") or 0.0) < 20.0:
+        rows = cached.get("rows") or []
+        if isinstance(rows, list) and rows:
+            return [x for x in rows[:limit] if isinstance(x, dict)]
+
+    try:
+        async with httpx.AsyncClient(timeout=6.0, follow_redirects=True) as client:
+            response = await client.get(
+                RADAR_CANDIDATES_URL,
+                params={"limit": int(limit)},
+                headers={"User-Agent": "ASCEND-Terminal/2.3"},
+            )
+            response.raise_for_status()
+            data = response.json()
+        if isinstance(data, dict):
+            _CANDIDATE_CACHE["at"] = now
+            _CANDIDATE_CACHE["data"] = data
+            rows = data.get("rows") or []
+            if isinstance(rows, list) and rows:
+                return [x for x in rows[:limit] if isinstance(x, dict)]
+    except Exception:
+        pass
+
+    if isinstance(cached, dict):
+        rows = cached.get("rows") or []
+        if isinstance(rows, list) and rows:
+            return [x for x in rows[:limit] if isinstance(x, dict)]
+
+    # Last-resort fallback: use liquid movers, but mark them as market fallback
+    # in the response so the UI never confuses them with production radar picks.
+    tickers = await _ticker_rows()
+    ranked = sorted(
+        tickers,
+        key=lambda x: abs(_f(x.get("change_24h"))) * max(1.0, math.log10(max(10.0, _f(x.get("amount_24h"))))),
+        reverse=True,
+    )
+    return [
+        {
+            "symbol": row.get("symbol"),
+            "status": "MARKET",
+            "direction": "LONG" if _f(row.get("change_24h")) > 0 else "SHORT" if _f(row.get("change_24h")) < 0 else "NEUTRAL",
+            "score": 0,
+        }
+        for row in ranked[:limit]
+    ]
+
+
+def _latest_session_handoff(now_ts: int) -> dict[str, Any]:
+    # The terminal intentionally uses fixed UTC+3 session labels, matching its
+    # existing session panel. We compare the newest session open with the
+    # immediately preceding handoff range.
+    offset = 3 * 3600
+    local_now = int(now_ts) + offset
+    day = (local_now // 86400) * 86400
+
+    specs = (
+        ("SYDNEY", "НЬЮ-ЙОРК", 22 * 3600, 14 * 3600, 0),
+        ("ASIA", "СИДНЕЙ", 3 * 3600, 22 * 3600, -1),
+        ("LONDON", "АЗИЯ", 8 * 3600, 3 * 3600, 0),
+        ("NEW YORK", "ЛОНДОН", 14 * 3600, 8 * 3600, 0),
+    )
+    candidates: list[dict[str, Any]] = []
+    for day_shift in (-86400, 0):
+        base = day + day_shift
+        for name, prev_name, start_sec, prev_sec, prev_day_shift in specs:
+            start_local = base + start_sec
+            if start_local > local_now:
+                continue
+            prev_local = base + prev_sec + (prev_day_shift * 86400)
+            candidates.append({
+                "session": name,
+                "previous_session": prev_name,
+                "open_ts": int(start_local - offset),
+                "previous_open_ts": int(prev_local - offset),
+            })
+    if not candidates:
+        return {
+            "session": "—",
+            "previous_session": "—",
+            "open_ts": now_ts - 3600,
+            "previous_open_ts": now_ts - 6 * 3600,
+        }
+    return max(candidates, key=lambda x: int(x["open_ts"]))
+
+
+def _session_classification(
+    symbol: str,
+    rows: list[dict[str, Any]],
+    handoff: dict[str, Any],
+    candidate: dict[str, Any],
+) -> dict[str, Any] | None:
+    open_ts = int(handoff["open_ts"])
+    prev_ts = int(handoff["previous_open_ts"])
+    prev = [x for x in rows if prev_ts <= int(x.get("time") or 0) < open_ts]
+    current = [x for x in rows if int(x.get("time") or 0) >= open_ts]
+    if len(prev) < 8 or len(current) < 2:
+        return None
+
+    prev_high = max(_f(x.get("high")) for x in prev)
+    prev_low = min(_f(x.get("low")) for x in prev)
+    span = prev_high - prev_low
+    if span <= 0:
+        return None
+
+    open_price = _f(current[0].get("open"))
+    current_price = _f(current[-1].get("close"))
+    if open_price <= 0 or current_price <= 0:
+        return None
+
+    open_pos = (open_price - prev_low) / span * 100.0
+    current_pos = (current_price - prev_low) / span * 100.0
+    move_from_open = (current_price / open_price - 1.0) * 100.0
+
+    closed_current = current[:-1] if len(current) > 2 else current
+    last2 = closed_current[-2:] if len(closed_current) >= 2 else closed_current
+    above_hold = len(last2) >= 2 and all(_f(x.get("close")) > prev_high for x in last2)
+    below_hold = len(last2) >= 2 and all(_f(x.get("close")) < prev_low for x in last2)
+    swept_high = any(_f(x.get("high")) > prev_high for x in current)
+    swept_low = any(_f(x.get("low")) < prev_low for x in current)
+
+    if open_pos >= 85.0:
+        open_position = "EXTREME HIGH"
+    elif open_pos >= 70.0:
+        open_position = "HIGH"
+    elif open_pos <= 15.0:
+        open_position = "EXTREME LOW"
+    elif open_pos <= 30.0:
+        open_position = "LOW"
+    else:
+        open_position = "MID"
+
+    reaction = "NEUTRAL"
+    bias = "NEUTRAL"
+    group = "watch"
+
+    if open_pos >= 70.0:
+        rejected = (
+            (current_price < open_price and current_pos <= open_pos - 8.0)
+            or (swept_high and current_price < prev_high)
+        )
+        if rejected:
+            reaction = "REJECT ↓"
+            bias = "SHORT PRESSURE"
+            group = "high_reject"
+        elif above_hold:
+            reaction = "ACCEPT ↑"
+            bias = "LONG CONTINUE"
+            group = "accept"
+        else:
+            reaction = "TEST HIGH"
+            bias = "WAIT"
+            group = "watch"
+    elif open_pos <= 30.0:
+        rejected = (
+            (current_price > open_price and current_pos >= open_pos + 8.0)
+            or (swept_low and current_price > prev_low)
+        )
+        if rejected:
+            reaction = "REJECT ↑"
+            bias = "LONG PRESSURE"
+            group = "low_reject"
+        elif below_hold:
+            reaction = "ACCEPT ↓"
+            bias = "SHORT CONTINUE"
+            group = "accept"
+        else:
+            reaction = "TEST LOW"
+            bias = "WAIT"
+            group = "watch"
+    else:
+        if above_hold:
+            reaction = "BREAK + ACCEPT ↑"
+            bias = "LONG CONTINUE"
+            group = "accept"
+        elif below_hold:
+            reaction = "BREAK + ACCEPT ↓"
+            bias = "SHORT CONTINUE"
+            group = "accept"
+        else:
+            reaction = "MID / WAIT"
+            bias = "NEUTRAL"
+            group = "watch"
+
+    edge_score = min(100.0, abs(open_pos - 50.0) * 2.0)
+    reaction_bonus = 20.0 if group in {"high_reject", "low_reject", "accept"} else 0.0
+    score = min(100.0, edge_score * 0.72 + reaction_bonus + min(12.0, abs(move_from_open) * 4.0))
+
+    return {
+        "symbol": symbol,
+        "session": handoff["session"],
+        "previous_session": handoff["previous_session"],
+        "open_ts": open_ts,
+        "previous_open_ts": prev_ts,
+        "open_position": open_position,
+        "open_pos_pct": round(open_pos, 2),
+        "current_pos_pct": round(current_pos, 2),
+        "reaction": reaction,
+        "bias": bias,
+        "group": group,
+        "score": round(score, 1),
+        "open_price": open_price,
+        "current_price": current_price,
+        "move_from_open_pct": round(move_from_open, 3),
+        "previous_high": prev_high,
+        "previous_low": prev_low,
+        "swept_high": bool(swept_high),
+        "swept_low": bool(swept_low),
+        "radar_status": str(candidate.get("status") or "CANDIDATE"),
+        "radar_direction": str(candidate.get("direction") or "NEUTRAL"),
+        "radar_score": _f(candidate.get("score")),
+    }
+
+
+async def _session_radar(limit: int = 15, force: bool = False) -> dict[str, Any]:
+    now_mono = time.monotonic()
+    cached = _SESSION_RADAR_CACHE.get("data")
+    if not force and isinstance(cached, dict) and now_mono - float(_SESSION_RADAR_CACHE.get("at") or 0.0) < 45.0:
+        data = dict(cached)
+        data["rows"] = list((data.get("rows") or [])[:limit])
+        return data
+
+    now_ts = int(time.time())
+    handoff = _latest_session_handoff(now_ts)
+    candidates = await _candidate_rows_for_session(max(8, min(15, int(limit))))
+    semaphore = asyncio.Semaphore(4)
+
+    async def one(candidate: dict[str, Any]):
+        symbol = str(candidate.get("symbol") or "").upper()
+        if not _SYMBOL_RE.fullmatch(symbol):
+            return None
+        async with semaphore:
+            try:
+                rows = await _klines(symbol, "5m", 320)
+                return _session_classification(symbol, rows, handoff, candidate)
+            except Exception:
+                return None
+
+    scanned = await asyncio.gather(*(one(x) for x in candidates))
+    rows = [x for x in scanned if isinstance(x, dict)]
+    rows.sort(key=lambda x: (float(x.get("score") or 0.0), abs(float(x.get("move_from_open_pct") or 0.0))), reverse=True)
+    counts = {
+        "high_reject": sum(1 for x in rows if x.get("group") == "high_reject"),
+        "low_reject": sum(1 for x in rows if x.get("group") == "low_reject"),
+        "accept": sum(1 for x in rows if x.get("group") == "accept"),
+        "watch": sum(1 for x in rows if x.get("group") == "watch"),
+    }
+    data = {
+        "session": handoff["session"],
+        "previous_session": handoff["previous_session"],
+        "open_ts": handoff["open_ts"],
+        "previous_open_ts": handoff["previous_open_ts"],
+        "rows": rows,
+        "counts": counts,
+        "scanned": len(candidates),
+        "updated_ts": now_ts,
+        "basis": "CURRENT SESSION OPEN vs PREVIOUS HANDOFF RANGE · 5m · observational",
+    }
+    _SESSION_RADAR_CACHE["at"] = now_mono
+    _SESSION_RADAR_CACHE["data"] = data
+    return dict(data)
+
+
 def _median(values: list[float]) -> float:
     vals = [float(x) for x in values if float(x) > 0 and math.isfinite(float(x))]
     return float(statistics.median(vals)) if vals else 0.0
@@ -372,6 +676,21 @@ def install(app: Any) -> None:
         selected = rows if int(limit) <= 0 else rows[: int(limit)]
         return JSONResponse(
             {"count": len(selected), "symbols": selected},
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/api/v2/bybit-symbols")
+    async def bybit_symbols():
+        symbols = await _bybit_usdt_symbols()
+        return JSONResponse(
+            {"count": len(symbols), "symbols": symbols},
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/api/v2/session-radar")
+    async def session_radar(limit: int = Query(default=15, ge=4, le=15)):
+        return JSONResponse(
+            await _session_radar(limit=int(limit)),
             headers={"Cache-Control": "no-store"},
         )
 
