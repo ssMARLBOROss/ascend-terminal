@@ -6,7 +6,7 @@ const OWNER_TOKEN_HASH = "d40b212fe51d0c456d7c5df5abe528df9817c646a63edcc38893a5
 const SHARE_TOKEN_HASH = "fa5ef0fe3a2ddb95cb234de5c9238e97761f3d198b64a87d950b3bbe3ae50cdd";
 const SHARE_LINK_EXPIRES_AT = Date.parse("2026-10-02T16:48:00Z");
 const SHARE_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
-const GUEST_API = new Set(["/api/v2/symbols","/api/v2/ticker","/api/v2/klines","/api/v2/volume-profile","/api/v2/breadth","/api/v2/radar-candidates","/api/v2/news"]);
+const GUEST_API = new Set(["/api/v2/symbols","/api/v2/ticker","/api/v2/klines","/api/v2/volume-profile","/api/v2/breadth","/api/v2/radar-candidates","/api/v2/bybit-symbols","/api/v2/session-radar","/api/v2/news"]);
 
 function cookie(req,name){
   const raw=req.headers.get("cookie")||"";
