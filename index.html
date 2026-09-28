@@ -1051,6 +1051,23 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
   /* ASCEND RADAR UI V4 · intentionally restrained */
   .grid.ascend-radar-layout{grid-template-columns:250px minmax(0,1fr) 340px;align-items:start}
   .ascend-radar-rail{display:block!important;visibility:visible!important;opacity:1!important;border:1px solid #1b2e45;border-radius:8px;background:#06101b;overflow:hidden;min-width:0;position:sticky;top:66px;max-height:calc(100vh - 78px);z-index:15}
+  .ascend-session-radar{margin:0 0 9px;border:1px solid #1b2e45;border-radius:8px;background:linear-gradient(180deg,rgba(8,21,34,.98),rgba(5,13,22,.98));overflow:hidden}
+  .ascend-session-radar-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;border-bottom:1px solid #172a40}
+  .ascend-session-radar-title{font-size:10px;font-weight:950;letter-spacing:.08em;color:#dce9f5}
+  .ascend-session-radar-title small{display:block;margin-top:3px;color:#73889e;font-size:8px;font-weight:700;letter-spacing:0}
+  .ascend-session-radar-live{font-size:8px;font-weight:900;color:#70e5bb;white-space:nowrap}
+  .ascend-session-radar-groups{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:7px}
+  .ascend-session-group{min-width:0;border:1px solid #172b40;border-radius:7px;background:#050f19;overflow:hidden}
+  .ascend-session-group-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:7px;min-height:31px;padding:6px 8px;border:0;background:#081522;color:#d7e4ef;font-size:8px;font-weight:950;cursor:pointer;text-align:left}
+  .ascend-session-group-head span{color:#7890a7;font-size:8px;white-space:nowrap}
+  .ascend-session-group-list{display:grid;gap:4px;padding:5px}
+  .ascend-session-row{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center;padding:7px;border:1px solid #162a3e;border-radius:6px;background:#06121d;color:#dce7f1;text-align:left;cursor:pointer}
+  .ascend-session-row:hover{border-color:#3a6683;background:#091a28}
+  .ascend-session-row b{display:block;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ascend-session-row small{display:block;margin-top:3px;color:#71869b;font-size:7px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ascend-session-signal{font-size:8px;font-weight:950;white-space:nowrap}
+  .ascend-session-signal.sell{color:#e98599}.ascend-session-signal.buy{color:#66d7b1}.ascend-session-signal.accept{color:#7cc9ff}.ascend-session-signal.wait{color:#d8bc72}
+  body:not([data-view="market"]) .ascend-session-radar{display:none!important}
   .ascend-radar-head{padding:10px;border-bottom:1px solid #172a40}
   .ascend-radar-title{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:950;letter-spacing:.08em}
   .ascend-radar-sub{margin-top:4px;color:#71869c;font-size:8px;line-height:1.35}
@@ -1092,18 +1109,21 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
     .ascend-radar-rail{position:relative;top:auto;max-height:310px;order:-10;width:100%}
     .ascend-radar-body{max-height:205px}
     .ascend-contextbar{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .ascend-session-radar-groups{grid-template-columns:repeat(2,minmax(0,1fr))}
     .ascend-session-toggle{margin:6px}
   }
   @media(max-width:620px){
     .ascend-contextbar{grid-template-columns:1fr 1fr}
     .ascend-contextcell{padding:6px 7px}
     .ascend-radar-tabs{grid-template-columns:1fr 1fr}
+    .ascend-session-radar-head{align-items:flex-start}
+    .ascend-session-radar-groups{grid-template-columns:1fr}
   }
 </style>
 <script>
 (function(){
   'use strict';
-  const ui={filter:'common',search:'',bybit:new Set(),bybitReady:false,collapsed:{g1:false,g2:false,g3:false},lastZone:null,historyCache:new Map()};
+  const ui={filter:'common',search:'',bybit:new Set(),bybitReady:false,collapsed:{g1:false,g2:false,g3:false},sessionCollapsed:{high_reject:true,low_reject:true,accept:true,watch:true},sessionRows:[],sessionMeta:null,sessionBusy:false,lastZone:null,historyCache:new Map()};
 
   function num(v){const n=Number(v);return Number.isFinite(n)?n:0}
   function coinBase(sym){return String(sym||'').replace('_USDT','').replace('USDT','')}
@@ -1133,10 +1153,8 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
 
   async function loadBybit(){
     try{
-      const r=await fetch('https://api.bybit.com/v5/market/instruments-info?category=linear&limit=1000',{cache:'no-store'});
-      if(!r.ok)throw new Error('Bybit '+r.status);
-      const d=await r.json(),list=d&&d.result&&Array.isArray(d.result.list)?d.result.list:[];
-      ui.bybit=new Set(list.filter(x=>String(x.status||'').toLowerCase()==='trading'&&String(x.quoteCoin||'').toUpperCase()==='USDT').map(x=>String(x.symbol||'').toUpperCase()));
+      const d=await api('/api/v2/bybit-symbols'),list=Array.isArray(d&&d.symbols)?d.symbols:[];
+      ui.bybit=new Set(list.map(x=>String(x||'').toUpperCase()).filter(Boolean));
       ui.bybitReady=ui.bybit.size>0;
     }catch(e){ui.bybitReady=false;console.warn('ASCEND Bybit universe unavailable',e)}
     renderRadar();
@@ -1180,6 +1198,55 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
     if(common){common.classList.toggle('active',ui.filter==='common');common.textContent=ui.bybitReady?'MEXC + BYBIT':'MEXC + BYBIT …'}
     if(all)all.classList.toggle('active',ui.filter==='all');
     const s=document.getElementById('ascendRadarSync');if(s)s.textContent=ui.bybitReady?('Bybit sync · '+ui.bybit.size+' USDT perp'):'Bybit sync ожидается · пока MEXC';
+  }
+
+  function sessionTone(row){
+    if(row.group==='high_reject')return 'sell';
+    if(row.group==='low_reject')return 'buy';
+    if(row.group==='accept')return 'accept';
+    return 'wait';
+  }
+  function sessionRowHtml(row){
+    const move=num(row.move_from_open_pct),arrow=move>0?'↑':move<0?'↓':'→';
+    const pos=Number.isFinite(Number(row.open_pos_pct))?Number(row.open_pos_pct).toFixed(0)+'%':'—';
+    const status=String(row.radar_status||'CANDIDATE').slice(0,12);
+    return '<button class="ascend-session-row" data-session-symbol="'+row.symbol+'" type="button" title="Открыть график. Ордер не создаётся."><span><b>'+coinBase(row.symbol)+' · '+row.open_position+'</b><small>OPEN '+pos+' диапазона · '+row.reaction+' · '+status+'</small></span><span class="ascend-session-signal '+sessionTone(row)+'">'+row.bias+' · '+(move>=0?'+':'')+move.toFixed(2)+'% '+arrow+'</span></button>';
+  }
+  function sessionGroupHtml(key,title,rows){
+    const collapsed=!!ui.sessionCollapsed[key];
+    return '<div class="ascend-session-group"><button class="ascend-session-group-head" data-session-group="'+key+'" type="button"><b>'+title+'</b><span>'+rows.length+' '+(collapsed?'▸':'▾')+'</span></button><div class="ascend-session-group-list" style="'+(collapsed?'display:none':'')+'">'+(rows.length?rows.map(sessionRowHtml).join(''):'<div class="scan-meta" style="padding:7px">Нет монет</div>')+'</div></div>';
+  }
+  function renderSessionRadar(){
+    const root=document.getElementById('ascendSessionRadar');if(!root)return;
+    const rows=ui.sessionRows||[],meta=ui.sessionMeta||{};
+    const groups={
+      high_reject:rows.filter(x=>x.group==='high_reject'),
+      low_reject:rows.filter(x=>x.group==='low_reject'),
+      accept:rows.filter(x=>x.group==='accept'),
+      watch:rows.filter(x=>x.group==='watch')
+    };
+    const body=document.getElementById('ascendSessionRadarGroups');
+    if(body)body.innerHTML=
+      sessionGroupHtml('high_reject','ВЕРХ · ОТКАЗ ↓',groups.high_reject)+
+      sessionGroupHtml('low_reject','НИЗ · ОТКАЗ ↑',groups.low_reject)+
+      sessionGroupHtml('accept','ПРИНЯТИЕ / ПРОБОЙ',groups.accept)+
+      sessionGroupHtml('watch','НА ГРАНИЦЕ / ЖДЁМ',groups.watch);
+    const sub=document.getElementById('ascendSessionRadarSub');
+    if(sub)sub.textContent=(meta.session||'—')+' ← '+(meta.previous_session||'—')+' · позиция на открытии → реакция → удержание/отказ';
+    const live=document.getElementById('ascendSessionRadarLive');
+    if(live)live.textContent=(meta.scanned||rows.length||0)+' SCANNED · '+rows.length+' READY';
+  }
+  async function loadSessionRadar(){
+    if(ui.sessionBusy)return;ui.sessionBusy=true;
+    try{
+      const d=await api('/api/v2/session-radar?limit=15');
+      ui.sessionRows=Array.isArray(d&&d.rows)?d.rows:[];
+      ui.sessionMeta=d||{};
+      renderSessionRadar();
+    }catch(e){
+      console.warn('ASCEND session radar unavailable',e);
+      const live=document.getElementById('ascendSessionRadarLive');if(live)live.textContent='SESSION DATA —';
+    }finally{ui.sessionBusy=false}
   }
 
   function zoneData(){
@@ -1295,6 +1362,12 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
   function injectUI(){
     const market=document.getElementById('market');if(!market)return;
     market.classList.add('ascend-radar-layout');
+    let sessionRadar=document.getElementById('ascendSessionRadar');
+    if(!sessionRadar){
+      sessionRadar=document.createElement('section');sessionRadar.className='ascend-session-radar';sessionRadar.id='ascendSessionRadar';
+      sessionRadar.innerHTML='<div class="ascend-session-radar-head"><div class="ascend-session-radar-title">SESSION OPEN RADAR<small id="ascendSessionRadarSub">Определяем положение монет на открытии сессии…</small></div><div class="ascend-session-radar-live" id="ascendSessionRadarLive">LOADING…</div></div><div class="ascend-session-radar-groups" id="ascendSessionRadarGroups"><div class="scan-meta" style="padding:8px">Session radar загружается…</div></div>';
+      market.parentNode.insertBefore(sessionRadar,market);
+    }
     let rail=document.getElementById('ascendRadarRail');
     if(!rail){
       rail=document.createElement('aside');rail.className='ascend-radar-rail';rail.id='ascendRadarRail';
@@ -1317,6 +1390,15 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
 
     const old=document.getElementById('spikes');if(old&&old.closest('.card'))old.closest('.card').classList.add('ascend-old-scanner-hidden');
     const sess=document.querySelector('.session.session-v3');if(sess)sess.classList.add('ascend-session-collapsed');
+
+    if(sessionRadar&&!sessionRadar.dataset.bound){
+      sessionRadar.dataset.bound='1';
+      sessionRadar.addEventListener('click',e=>{
+        const row=e.target.closest('[data-session-symbol]');if(row){chooseSymbol(row.dataset.sessionSymbol);return}
+        const group=e.target.closest('[data-session-group]');
+        if(group){const key=group.dataset.sessionGroup;ui.sessionCollapsed[key]=!ui.sessionCollapsed[key];renderSessionRadar()}
+      });
+    }
 
     if(!rail.dataset.bound){
       rail.dataset.bound='1';
@@ -1346,8 +1428,9 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
     };
 
     new ResizeObserver(()=>updateZones()).observe(shell||market);
-    renderRadar();updateContext();loadBybit();
+    renderRadar();renderSessionRadar();updateContext();loadBybit();loadSessionRadar();
     setInterval(()=>{renderRadar();updateContext()},15000);
+    setInterval(loadSessionRadar,45000);
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',injectUI,{once:true});else injectUI();
