@@ -4,6 +4,7 @@ const FRONTEND = "https://raw.githubusercontent.com/ssMARLBOROss/ascend-terminal
 
 const OWNER_TOKEN_HASH = "d40b212fe51d0c456d7c5df5abe528df9817c646a63edcc38893a5063dc8a509";
 const SHARE_TOKEN_HASH = "fa5ef0fe3a2ddb95cb234de5c9238e97761f3d198b64a87d950b3bbe3ae50cdd";
+const MULTI_SHARE_TOKEN_HASH = "d328e25505cd4d511c234adfb1143e6339fe7491fec35cd7cc7306b4e376fbbc";
 const SHARE_LINK_EXPIRES_AT = Date.parse("2026-10-02T16:48:00Z");
 const SHARE_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 const GUEST_API = new Set(["/api/v2/symbols","/api/v2/ticker","/api/v2/klines","/api/v2/volume-profile","/api/v2/breadth","/api/v2/radar-candidates","/api/v2/bybit-symbols","/api/v2/session-radar","/api/v2/news"]);
@@ -26,6 +27,9 @@ function eq(a,b){
 }
 async function owner(req){
   const t=cookie(req,"ascend_owner"); return !!t && eq(await sha(t),OWNER_TOKEN_HASH);
+}
+async function shared(req){
+  const t=cookie(req,"ascend_share"); return !!t && eq(await sha(t),MULTI_SHARE_TOKEN_HASH);
 }
 function gate(env){
   return env.SHARE_GATE.get(env.SHARE_GATE.idFromName(SHARE_TOKEN_HASH));
@@ -116,13 +120,16 @@ export default{
       if(!t||!eq(await sha(t),OWNER_TOKEN_HASH)) return locked(403,"ASCEND · OWNER LINK INVALID");
       return new Response(null,{status:302,headers:{location:"/?view=market","set-cookie":"ascend_owner="+encodeURIComponent(t)+"; Path=/; Max-Age=2592000; HttpOnly; Secure; SameSite=Strict","cache-control":"no-store","referrer-policy":"no-referrer"}});
     }
-    if(u.pathname.startsWith("/guest/")) return locked(403,"ASCEND · OWNER ONLY");
+    if(u.pathname.startsWith("/guest/")){
+      const t=decodeURIComponent(u.pathname.slice(7));
+      if(!t||!eq(await sha(t),MULTI_SHARE_TOKEN_HASH)) return locked(403,"ASCEND · GUEST LINK INVALID");
+      return new Response(null,{status:302,headers:{location:"/?view=market&guest=1","set-cookie":"ascend_share="+encodeURIComponent(t)+"; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax","cache-control":"no-store","referrer-policy":"no-referrer"}});
+    }
 
-    const own=await owner(req), gst=false;
-    if(!own) return locked();
+    const own=await owner(req), gst=!own && await shared(req);
+    if(!own&&!gst) return locked();
     if(gst&&u.pathname==="/"&&u.searchParams.get("view")!=="market") return Response.redirect(u.origin+"/?view=market&guest=1",302);
     if(u.pathname.startsWith("/api/")){
-      if(gst && !(await guestTab(req,env))) return Response.json({ok:false,error:"guest_tab_closed"},{status:403,headers:{"cache-control":"no-store"}});
       return api(req,u,gst);
     }
     if(u.pathname==="/"||u.pathname==="/analysis"||u.pathname==="/index.html"){
