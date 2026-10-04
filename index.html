@@ -1845,5 +1845,292 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
 </script>
 <!-- ASCEND_RADAR_UI_V4_END -->
 
+<!-- ASCEND_UI_V1_1_START
+     Presentation-only shell. It reads the existing terminal state and moves
+     existing panels, but does not change API routes, signal gates or orders. -->
+<style>
+  body.ascend-ui-v11{
+    --v11-cyan:#48d6ff;
+    --v11-green:#21e6a2;
+    --v11-red:#ff6078;
+    --v11-amber:#ffc65c;
+    --v11-violet:#9d82ff;
+    background:
+      radial-gradient(circle at 52% -18%,rgba(42,113,169,.18),transparent 38%),
+      linear-gradient(180deg,#030812,#02060d 54%,#030913);
+  }
+  body.ascend-ui-v11 .app{grid-template-columns:188px minmax(0,1fr)}
+  body.ascend-ui-v11 .sidebar{padding:17px 11px;background:linear-gradient(180deg,rgba(5,12,22,.99),rgba(3,8,15,.99))}
+  body.ascend-ui-v11 .sidebar .brand{letter-spacing:.12em}
+  body.ascend-ui-v11 .sidebar .version{color:#5f7d97}
+  .v11-nav-label{margin:19px 7px 7px;color:#526d86;font-size:8px;font-weight:950;letter-spacing:.16em}
+  body.ascend-ui-v11 .nav a{position:relative;padding-left:13px;border:1px solid transparent}
+  body.ascend-ui-v11 .nav a.active{border-color:#22577b;background:linear-gradient(90deg,rgba(27,107,157,.28),rgba(10,31,50,.72));box-shadow:inset 3px 0 0 var(--v11-cyan)}
+  body.ascend-ui-v11 .core-note{border-color:#1c344a;background:#06121f;color:#69849c}
+  body.ascend-ui-v11 .core-note b{color:#cfeaff}
+
+  .v11-global-bar{height:38px;display:grid;grid-template-columns:auto minmax(180px,1fr) auto;align-items:center;gap:12px;padding:0 12px;border-bottom:1px solid #163149;background:rgba(3,10,18,.98);position:sticky;top:0;z-index:65;box-shadow:0 8px 24px rgba(0,0,0,.22)}
+  .v11-global-brand{display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:9px;font-weight:950;letter-spacing:.12em;color:#dcedfb}
+  .v11-global-brand i{width:7px;height:7px;border-radius:50%;background:var(--v11-cyan);box-shadow:0 0 13px var(--v11-cyan)}
+  .v11-global-brand small{padding:3px 5px;border:1px solid #28516f;border-radius:4px;color:#8ecfec;font-size:7px;letter-spacing:.08em}
+  .v11-news-slot{min-width:0;overflow:hidden}
+  .v11-news-slot .newsbar{margin:0;height:27px;border:0;background:transparent;padding:0}
+  .v11-news-slot .news-title{font-size:7px}
+  .v11-news-slot .news-window{font-size:8px}
+  .v11-global-state{display:flex;align-items:center;gap:5px;white-space:nowrap}
+  .v11-global-chip{min-width:68px;padding:4px 7px;border:1px solid #1a344b;border-radius:5px;background:#07131f;color:#829bb0;font-size:7px;line-height:1.2}
+  .v11-global-chip b{display:block;margin-top:2px;color:#e2edf6;font-size:9px;letter-spacing:.02em}
+  .v11-global-chip.live b{color:var(--v11-green)}
+  .v11-global-chip.setup b.ready{color:var(--v11-green)}
+  .v11-global-chip.setup b.wait{color:var(--v11-amber)}
+  body.ascend-ui-v11 .topbar{top:38px;height:50px;z-index:60;background:rgba(4,11,20,.96)}
+  body.ascend-ui-v11 .content{max-width:none;padding:8px 10px 30px}
+
+  .v11-workspace-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:2px 0 7px;padding:0 2px}
+  .v11-workspace-head b{display:block;color:#e5f2fc;font-size:11px;letter-spacing:.09em}
+  .v11-workspace-head span{display:block;margin-top:3px;color:#637f97;font-size:8px}
+  .v11-workspace-flow{color:#6f91aa!important;font-size:8px!important;font-weight:900;letter-spacing:.08em;text-align:right}
+  body:not([data-view="market"]) .v11-workspace-head{display:none}
+
+  body.ascend-ui-v11 .ascend-session-radar{margin-bottom:7px;border-color:#1e4059;background:linear-gradient(180deg,rgba(6,22,35,.98),rgba(4,13,23,.98))}
+  body.ascend-ui-v11 .ascend-session-radar-head{padding:8px 10px}
+  body.ascend-ui-v11 .ascend-session-radar-title{color:#dff4ff}
+  body.ascend-ui-v11 .grid.ascend-radar-layout{grid-template-columns:232px minmax(0,1fr) 360px;gap:8px}
+  body.ascend-ui-v11 .ascend-radar-rail{top:96px;max-height:calc(100vh - 108px);border-color:#1c3c55;background:#04101b}
+  body.ascend-ui-v11 .ascend-radar-head{background:linear-gradient(180deg,#081a29,#06131f)}
+  body.ascend-ui-v11 .chart-card{border-color:#1d405b;box-shadow:0 14px 42px rgba(0,0,0,.22)}
+
+  .v11-chart-eyebrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;border-bottom:1px solid #142d42;background:linear-gradient(90deg,rgba(21,80,116,.18),transparent);color:#7592a9;font-size:8px;font-weight:900;letter-spacing:.12em}
+  .v11-chart-eyebrow b{color:#d9edf9;font-size:9px}
+  .v11-chart-eyebrow span{font-size:7px;color:#5d7a92}
+
+  .v11-session-layer{border-bottom:1px solid #143047;background:#050f19}
+  .v11-session-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 9px}
+  .v11-session-head b{font-size:9px;letter-spacing:.11em;color:#d9edf9}
+  .v11-session-head small{color:#627f96;font-size:7px}
+  .v11-level-toggle{border:1px solid #26516d;border-radius:5px;background:#092034;color:#a9dff6;padding:4px 7px;font-size:7px;font-weight:950;cursor:pointer}
+  .v11-level-toggle.off{color:#6a7f91;background:#07121e;border-color:#1b3448}
+  .v11-level-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;padding:0 8px 8px}
+  .v11-level{min-width:0;padding:6px 7px;border:1px solid #162d41;border-radius:5px;background:#07131f}
+  .v11-level small{display:block;color:#58758d;font-size:7px;font-weight:900;letter-spacing:.08em}
+  .v11-level b{display:block;margin-top:3px;color:#dfeaf3;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .v11-level.on b{color:#b7aaff}.v11-level.yd b{color:#ffd37b}.v11-level.vw b{color:#62e6b5}.v11-level.open b{color:#dbe7f2}
+
+  .v11-rc{display:grid;grid-template-columns:auto minmax(150px,1fr) auto;gap:10px;align-items:center;padding:7px 9px;border-bottom:1px solid #142a3c;background:#06111c}
+  .v11-rc-title{font-size:8px;font-weight:950;letter-spacing:.1em;color:#d9e8f4;white-space:nowrap}
+  .v11-rc-title small{display:block;margin-top:2px;color:#58748a;font-size:6px;letter-spacing:.04em}
+  .v11-rc-track{position:relative;height:7px;border-radius:8px;background:linear-gradient(90deg,rgba(33,230,162,.65) 0 30%,#17314a 30% 48%,#31526b 48% 52%,#17314a 52% 70%,rgba(255,96,120,.68) 70% 100%);box-shadow:inset 0 0 0 1px #27445b}
+  .v11-rc-track:before,.v11-rc-track:after{position:absolute;top:11px;color:#526f86;font-size:6px}.v11-rc-track:before{content:"30";left:30%;transform:translateX(-50%)}.v11-rc-track:after{content:"70";left:70%;transform:translateX(-50%)}
+  .v11-rc-mid{position:absolute;top:11px;left:50%;transform:translateX(-50%);color:#6f8ba1;font-size:6px}
+  .v11-rc-marker{position:absolute;top:50%;left:50%;width:11px;height:11px;border:2px solid #fff;border-radius:50%;background:var(--v11-cyan);box-shadow:0 0 12px var(--v11-cyan);transform:translate(-50%,-50%);transition:left .2s ease}
+  .v11-rc-state{text-align:right;white-space:nowrap}.v11-rc-state b{display:block;font-size:10px}.v11-rc-state small{display:block;margin-top:2px;color:#607b91;font-size:7px}
+  .v11-rc-state.long b{color:var(--v11-green)}.v11-rc-state.short b{color:var(--v11-red)}.v11-rc-state.neutral b{color:var(--v11-amber)}
+
+  body.ascend-ui-v11 .entry-analysis-card{border-color:#224c68;box-shadow:0 14px 38px rgba(0,0,0,.2)}
+  body.ascend-ui-v11 .entry-analysis-head{background:linear-gradient(135deg,#0b2638,#071723)}
+  body.ascend-ui-v11 .entry-analysis-head b{color:#e4f5ff;letter-spacing:.08em}
+  .v11-decision-meta{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:8px;border-bottom:1px solid #173248;background:#06131f}
+  .v11-decision-meta div{padding:6px;border:1px solid #18354b;border-radius:5px;background:#071827}
+  .v11-decision-meta small{display:block;color:#607c93;font-size:7px}.v11-decision-meta b{display:block;margin-top:3px;font-size:9px}
+  .v11-decision-meta b.ready{color:var(--v11-green)}.v11-decision-meta b.wait{color:var(--v11-amber)}
+  .v11-why{margin:8px;padding:8px;border:1px solid #18364d;border-radius:6px;background:#05111c}
+  .v11-why-title{margin-bottom:4px;color:#7ca7c1;font-size:7px;font-weight:950;letter-spacing:.12em}
+  .v11-why-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:5px 0;border-top:1px solid #10283b;font-size:8px}.v11-why-row span{color:#6f889d}.v11-why-row b{max-width:175px;text-align:right;color:#cedde8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .v11-analytics-dock{margin-top:9px;border:1px solid #1b3b53;border-radius:8px;background:linear-gradient(180deg,rgba(6,17,29,.98),rgba(3,10,18,.98));overflow:hidden}
+  .v11-dock-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;border-bottom:1px solid #173047;background:#071622}
+  .v11-dock-head b{font-size:10px;letter-spacing:.1em;color:#dcecf8}.v11-dock-head span{display:block;margin-top:3px;color:#607c93;font-size:7px;letter-spacing:.04em}
+  .v11-dock-toggle{border:1px solid #234b65;border-radius:5px;background:#081a29;color:#9fcce2;padding:5px 8px;font-size:7px;font-weight:950;cursor:pointer}
+  .v11-dock-body{padding:8px}
+  .v11-analytics-dock.collapsed .v11-dock-body{display:none}
+  .v11-analytics-dock .market-pressure-layer{margin:0 0 8px}
+  .v11-analytics-dock .entry-market-bottom{grid-template-columns:1.12fr .84fr .84fr 1.1fr;margin:0}
+  .v11-event-list{display:grid;gap:5px;max-height:178px;overflow:auto}
+  .v11-event{display:grid;grid-template-columns:48px minmax(0,1fr);gap:7px;padding:6px;border:1px solid #142d41;border-radius:5px;background:#06131f}
+  .v11-event time{color:#59758c;font-size:7px}.v11-event b{display:block;font-size:8px;color:#d6e5ef}.v11-event small{display:block;margin-top:2px;color:#6e879b;font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  body:not([data-view="market"]) .v11-analytics-dock{display:none!important}
+
+  @media(max-width:1380px){
+    body.ascend-ui-v11 .grid.ascend-radar-layout{grid-template-columns:210px minmax(0,1fr) 330px}
+    .v11-level-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .v11-analytics-dock .entry-market-bottom{grid-template-columns:1fr 1fr}
+  }
+  @media(max-width:1080px){
+    .v11-global-bar{grid-template-columns:auto minmax(120px,1fr)}.v11-global-state{display:none}
+    body.ascend-ui-v11 .grid.ascend-radar-layout{grid-template-columns:1fr}
+    body.ascend-ui-v11 .ascend-radar-rail{top:auto;max-height:310px}
+    .v11-level-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
+  @media(max-width:820px){
+    body.ascend-ui-v11 .app{display:block}.v11-global-bar{top:0}.v11-global-brand small{display:none}
+    body.ascend-ui-v11 .topbar{top:38px}.v11-news-slot .news-title{display:none}
+    .v11-workspace-flow{display:none}.v11-rc{grid-template-columns:1fr}.v11-rc-state{text-align:left}
+    .v11-level-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .v11-analytics-dock .entry-market-bottom{grid-template-columns:1fr}
+  }
+  @media(max-width:520px){
+    body.ascend-ui-v11 .topbar{gap:7px;padding:0 8px}
+    body.ascend-ui-v11 .topbar .quick-search-wrap{display:none}
+    body.ascend-ui-v11 .topbar .pair{font-size:12px}
+    body.ascend-ui-v11 .topbar .live{font-size:9px}
+    body.ascend-ui-v11 .topbar .select{width:104px;max-width:104px}
+  }
+</style>
+<script>
+(() => {
+  'use strict';
+  const v11={levelsEnabled:true,levelLines:[],levelSignature:'',events:[],lastEventKey:'',lastSymbol:''};
+  const nyFormatter=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+  const kyivClock=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Kyiv',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+
+  function byId(id){return document.getElementById(id)}
+  function setText(id,value){const el=byId(id);if(el)el.textContent=value===null||value===undefined||value===''?'—':String(value)}
+  function nyParts(time){const parts={};nyFormatter.formatToParts(new Date(Number(time)*1000)).forEach(x=>{if(x.type!=='literal')parts[x.type]=x.value});return{date:parts.year+'-'+parts.month+'-'+parts.day,minutes:(Number(parts.hour)%24)*60+Number(parts.minute)}}
+  function shiftDate(key,days){const [y,m,d]=String(key).split('-').map(Number),x=new Date(Date.UTC(y,m-1,d)+Number(days)*86400000);return x.getUTCFullYear()+'-'+String(x.getUTCMonth()+1).padStart(2,'0')+'-'+String(x.getUTCDate()).padStart(2,'0')}
+  function tradingDate(ny){return ny.minutes>=17*60?shiftDate(ny.date,1):ny.date}
+  function range(rows){if(!rows.length)return{high:null,low:null};return{high:Math.max(...rows.map(x=>x.high)),low:Math.min(...rows.map(x=>x.low))}}
+  function displayPrice(value){return Number.isFinite(Number(value))&&Number(value)>0?fmt(Number(value)):'N/A'}
+
+  function calculateSessionLevels(){
+    const raw=typeof closed==='function'?closed(state.tf['15m']||[]):(state.tf['15m']||[]);
+    const rows=raw.map(x=>({time:Number(x.time),open:Number(x.open),high:Number(x.high),low:Number(x.low),close:Number(x.close),volume:Number(x.volume)||0})).filter(x=>[x.time,x.open,x.high,x.low,x.close].every(Number.isFinite)).sort((a,b)=>a.time-b.time);
+    if(!rows.length)return null;
+    rows.forEach(x=>{x.ny=nyParts(x.time);x.tradeDate=tradingDate(x.ny)});
+    const activeTradeDate=rows.at(-1).tradeDate,rthByDate=new Map();
+    rows.forEach(x=>{if(x.ny.minutes>=570&&x.ny.minutes<1020){if(!rthByDate.has(x.ny.date))rthByDate.set(x.ny.date,[]);rthByDate.get(x.ny.date).push(x)}});
+    const currentRth=rthByDate.get(activeTradeDate)||[];
+    const priorDate=[...rthByDate.keys()].filter(x=>x<activeTradeDate).sort().at(-1)||null;
+    const prior=priorDate?rthByDate.get(priorDate):[];
+    const overnight=rows.filter(x=>x.tradeDate===activeTradeDate&&(x.ny.minutes>=1020||x.ny.minutes<570));
+    const y=range(prior),on=range(overnight),vw=typeof vwapSnapshot==='function'?vwapSnapshot(state.tf['5m']||[]):null;
+    return{tradeDate:activeTradeDate,open:currentRth.length?currentRth[0].open:null,onh:on.high,onl:on.low,yh:y.high,yl:y.low,vwap:vw?Number(vw.value):null};
+  }
+
+  function clearLevelLines(){
+    if(typeof candles==='undefined'||!candles)return;
+    v11.levelLines.forEach(line=>{try{candles.removePriceLine(line)}catch(_){}});v11.levelLines=[];
+  }
+  function renderLevelLines(levels,force=false){
+    const signature=JSON.stringify([state.symbol,v11.levelsEnabled,levels&&levels.open,levels&&levels.onh,levels&&levels.onl,levels&&levels.yh,levels&&levels.yl]);
+    if(!force&&signature===v11.levelSignature)return;
+    v11.levelSignature=signature;clearLevelLines();
+    if(!v11.levelsEnabled||!levels||typeof candles==='undefined'||!candles)return;
+    [[levels.open,'#dce8f2','RTH O',1],[levels.onh,'#9d82ff','ONH',2],[levels.onl,'#9d82ff','ONL',2],[levels.yh,'#ffc65c','YH',2],[levels.yl,'#ffc65c','YL',2]].forEach(([value,color,title,lineStyle])=>{
+      const price=Number(value);if(!Number.isFinite(price)||price<=0)return;
+      try{v11.levelLines.push(candles.createPriceLine({price,color,lineWidth:1,lineStyle,axisLabelVisible:true,title}))}catch(_){ }
+    });
+  }
+
+  function renderSessionLayer(){
+    const levels=calculateSessionLevels();
+    [['v11Open',levels&&levels.open],['v11Onh',levels&&levels.onh],['v11Onl',levels&&levels.onl],['v11Yh',levels&&levels.yh],['v11Yl',levels&&levels.yl],['v11Vwap',levels&&levels.vwap]].forEach(([id,value])=>setText(id,displayPrice(value)));
+    setText('v11TradeDate',levels?('NY '+levels.tradeDate+' · 15m CLOSED'):'DATA_UNAVAILABLE');
+    renderLevelLines(levels);
+  }
+
+  function renderRc(){
+    const rows=state.tf[state.timeframe]||state.tf['5m']||[],ctx=typeof rsiEntryContext==='function'?rsiEntryContext(rows):null,rawValue=ctx&&ctx.value,value=rawValue==null?NaN:Number(rawValue),marker=byId('v11RcMarker'),box=byId('v11RcState');
+    if(marker)marker.style.left=(Number.isFinite(value)?Math.max(1,Math.min(99,value)):50)+'%';
+    let tone='neutral',label='NO DATA',detail='RSI 14';
+    if(Number.isFinite(value)){
+      if(value<=30){tone='long';label='RC30 · LONG ZONE'}
+      else if(value>=70){tone='short';label='RC70 · SHORT ZONE'}
+      else if(value>=45&&value<=55){tone='neutral';label='RC50 · PIVOT'}
+      else{tone='neutral';label=value<50?'30 → 50 · RECOVERY':'50 → 70 · EXTENSION'}
+      detail=value.toFixed(1)+' · '+String(ctx.phase||'CONTEXT');
+    }
+    if(box){box.className='v11-rc-state '+tone;box.innerHTML='<b>'+label+'</b><small>'+detail+'</small>'}
+  }
+
+  function renderDecision(){
+    const em=typeof entryModel==='function'?entryModel():null,decision=typeof radarDecision==='function'?radarDecision():null;
+    const status=String(em&&em.status||decision&&decision.status||'WAIT'),statusEl=byId('v11SetupStatus');
+    if(statusEl){statusEl.textContent=status;statusEl.className=/READY|ENTER/.test(status)?'ready':'wait'}
+    setText('v11SetupMode','BASE CORE · DISPLAY');
+    setText('v11WhyRsi',em&&em.rsi&&Number.isFinite(Number(em.rsi.value))?(Number(em.rsi.value).toFixed(1)+' · '+em.rsi.phase):'NO DATA');
+    setText('v11WhyVwap',em&&em.vwap?(displayPrice(em.vwap.value)+' · '+(em.vwapOk?'ACCEPT':'WAIT')):'NO DATA');
+    setText('v11WhyStructure',em&&em.structure?(em.structure.direction+' · BOS '+em.bos):'NO DATA');
+    setText('v11WhySession',em&&em.session?em.session.text:'NO DATA');
+    const globalSetup=byId('v11GlobalSetup');if(globalSetup){globalSetup.textContent=status;globalSetup.className=/READY|ENTER/.test(status)?'ready':'wait'}
+    return em;
+  }
+
+  function pushEvent(title,detail,key){
+    if(key&&key===v11.lastEventKey)return;v11.lastEventKey=key||v11.lastEventKey;
+    v11.events.unshift({time:kyivClock.format(new Date()),title,detail});v11.events=v11.events.slice(0,8);renderEvents();
+  }
+  function renderEvents(){
+    const root=byId('v11EventList');if(!root)return;
+    root.innerHTML=v11.events.length?v11.events.map(x=>'<div class="v11-event"><time>'+x.time+'</time><div><b>'+x.title+'</b><small>'+x.detail+'</small></div></div>').join(''):'<div class="muted">Событий текущей UI-сессии пока нет.</div>';
+  }
+
+  function renderGlobal(em){
+    setText('v11Clock',kyivClock.format(new Date()));
+    setText('v11Pair',String(state.symbol||'—').replace('_','/'));
+    setText('v11Price',displayPrice(state.ticker&&state.ticker.last_price));
+    const live=(byId('live')&&byId('live').textContent||'LIVE').replace(/\s+/g,' ').trim();setText('v11Feed',live);
+    setText('v11Session',em&&em.session?em.session.text:'SESSION —');
+  }
+
+  function renderAll(){
+    if(!document.body.classList.contains('ascend-ui-v11'))return;
+    renderSessionLayer();renderRc();const em=renderDecision();renderGlobal(em);renderEvents();
+    const eventKey=[state.symbol,em&&em.status,em&&em.side,em&&em.session&&em.session.mode].join('|');
+    if(eventKey!==v11.lastEventKey)pushEvent('SETUP · '+String(em&&em.status||'WAIT'),String(state.symbol||'—').replace('_','/')+' · '+String(em&&em.side||'NEUTRAL')+' · '+String(em&&em.session&&em.session.mode||'SESSION —'),eventKey);
+  }
+
+  function buildShell(){
+    if(byId('v11GlobalBar'))return;
+    document.body.classList.add('ascend-ui-v11');
+    const main=document.querySelector('.main'),topbar=document.querySelector('.topbar'),content=document.querySelector('.content'),market=byId('market');if(!main||!topbar||!content||!market)return;
+
+    const global=document.createElement('div');global.className='v11-global-bar';global.id='v11GlobalBar';
+    global.innerHTML='<div class="v11-global-brand"><i></i>ASCEND TERMINAL <small>UI V1.1 · SAFE SHELL</small></div><div class="v11-news-slot" id="v11NewsSlot"></div><div class="v11-global-state"><div class="v11-global-chip live">DATA FEED<b id="v11Feed">CONNECTING</b></div><div class="v11-global-chip">PAIR / PRICE<b><span id="v11Pair">—</span> · <span id="v11Price">—</span></b></div><div class="v11-global-chip">SESSION<b id="v11Session">—</b></div><div class="v11-global-chip setup">ASCEND SETUP<b id="v11GlobalSetup" class="wait">WAIT</b></div><div class="v11-global-chip">KYIV<b id="v11Clock">--:--:--</b></div></div>';
+    main.insertBefore(global,topbar);
+    const news=document.querySelector('.newsbar');if(news)byId('v11NewsSlot').appendChild(news);
+
+    const nav=document.querySelector('.nav');if(nav){nav.setAttribute('aria-label','Terminal navigation');const label=document.createElement('div');label.className='v11-nav-label';label.textContent='NAVIGATION';nav.parentNode.insertBefore(label,nav)}
+    const version=document.querySelector('.sidebar .version');if(version)version.textContent='MARKET INTELLIGENCE · UI V1.1';
+
+    const head=document.createElement('div');head.className='v11-workspace-head';head.innerHTML='<div><b>MARKET WORKSPACE</b><span>Текущие данные и расчёты сохранены без изменения ядра</span></div><span class="v11-workspace-flow">SMART RADAR → CHART → ASCEND SETUP</span>';
+    const sessionRadar=byId('ascendSessionRadar');content.insertBefore(head,sessionRadar||market);
+    const radarTitle=document.querySelector('.ascend-radar-title span:first-child');if(radarTitle)radarTitle.textContent='SMART RADAR';
+    const sessionTitle=document.querySelector('.ascend-session-radar-title');if(sessionTitle&&sessionTitle.firstChild)sessionTitle.firstChild.nodeValue='SMART RADAR · SESSION OPEN';
+
+    const chartCard=market.querySelector('.chart-card'),chartTop=chartCard&&chartCard.querySelector('.chart-top');
+    if(chartCard&&chartTop){
+      const eyebrow=document.createElement('div');eyebrow.className='v11-chart-eyebrow';eyebrow.innerHTML='<b>EXISTING MARKET CHART</b><span>CANDLES · API · SYMBOLS · TIMEFRAMES PRESERVED</span>';chartCard.insertBefore(eyebrow,chartTop);
+      const layer=document.createElement('section');layer.className='v11-session-layer';layer.id='v11SessionLayer';layer.innerHTML='<div class="v11-session-head"><div><b>SESSIONLAYER</b> <small id="v11TradeDate">DATA_UNAVAILABLE</small></div><button class="v11-level-toggle" id="v11LevelsToggle" type="button">LEVELS ON</button></div><div class="v11-level-grid"><div class="v11-level open"><small>RTH OPEN</small><b id="v11Open">N/A</b></div><div class="v11-level on"><small>ONH</small><b id="v11Onh">N/A</b></div><div class="v11-level on"><small>ONL</small><b id="v11Onl">N/A</b></div><div class="v11-level yd"><small>YH</small><b id="v11Yh">N/A</b></div><div class="v11-level yd"><small>YL</small><b id="v11Yl">N/A</b></div><div class="v11-level vw"><small>VWAP</small><b id="v11Vwap">N/A</b></div><div class="v11-level"><small>MODE</small><b>WHERE ONLY</b></div></div>';
+      chartCard.insertBefore(layer,chartTop);
+      const rc=document.createElement('section');rc.className='v11-rc';rc.id='v11Rc';rc.innerHTML='<div class="v11-rc-title">RC30/50/70<small>VISUAL CONTEXT · CURRENT TF</small></div><div class="v11-rc-track"><i class="v11-rc-marker" id="v11RcMarker"></i><span class="v11-rc-mid">50</span></div><div class="v11-rc-state neutral" id="v11RcState"><b>NO DATA</b><small>RSI 14</small></div>';
+      chartCard.insertBefore(rc,chartTop);
+    }
+
+    const analysis=market.querySelector('.entry-analysis-card'),analysisHead=analysis&&analysis.querySelector('.entry-analysis-head b');if(analysisHead)analysisHead.textContent='ASCEND SETUP';
+    if(analysis){
+      const meta=document.createElement('div');meta.className='v11-decision-meta';meta.innerHTML='<div><small>SETUP STATUS</small><b id="v11SetupStatus" class="wait">WAIT</b></div><div><small>DECISION CORE</small><b id="v11SetupMode">BASE CORE · DISPLAY</b></div>';analysis.querySelector('.entry-analysis-head').insertAdjacentElement('afterend',meta);
+      const plan=analysis.querySelector('.entry-trade-plan'),why=document.createElement('div');why.className='v11-why';why.innerHTML='<div class="v11-why-title">WHY NOW / WHY WAIT</div><div class="v11-why-row"><span>RC context</span><b id="v11WhyRsi">NO DATA</b></div><div class="v11-why-row"><span>VWAP</span><b id="v11WhyVwap">NO DATA</b></div><div class="v11-why-row"><span>Structure</span><b id="v11WhyStructure">NO DATA</b></div><div class="v11-why-row"><span>Session</span><b id="v11WhySession">NO DATA</b></div>';if(plan)analysis.insertBefore(why,plan);else analysis.appendChild(why);
+    }
+
+    const dock=document.createElement('section');dock.className='v11-analytics-dock';dock.id='v11AnalyticsDock';dock.innerHTML='<div class="v11-dock-head"><div><b>ANALYTICS DOCK</b><span>Market pressure · sessions · key levels · recent signals · event timeline</span></div><button class="v11-dock-toggle" id="v11DockToggle" type="button" aria-expanded="true">COLLAPSE</button></div><div class="v11-dock-body" id="v11DockBody"></div>';
+    market.insertAdjacentElement('afterend',dock);
+    const dockBody=byId('v11DockBody'),pressure=byId('marketPressureLayer'),bottom=byId('entryMarketBottom');if(pressure)dockBody.appendChild(pressure);if(bottom)dockBody.appendChild(bottom);
+    if(bottom){const eventCard=document.createElement('div');eventCard.className='card entry-bottom-card';eventCard.innerHTML='<div class="entry-bottom-title">EVENT TIMELINE · LIVE CONTEXT</div><div class="v11-event-list" id="v11EventList"></div>';bottom.appendChild(eventCard)}
+
+    byId('v11LevelsToggle')?.addEventListener('click',()=>{v11.levelsEnabled=!v11.levelsEnabled;const button=byId('v11LevelsToggle');button.textContent=v11.levelsEnabled?'LEVELS ON':'LEVELS OFF';button.classList.toggle('off',!v11.levelsEnabled);v11.levelSignature='';renderSessionLayer()});
+    byId('v11DockToggle')?.addEventListener('click',()=>{dock.classList.toggle('collapsed');const collapsed=dock.classList.contains('collapsed'),button=byId('v11DockToggle');button.textContent=collapsed?'EXPAND':'COLLAPSE';button.setAttribute('aria-expanded',String(!collapsed))});
+
+    const baseRenderChart=renderChart;renderChart=function(){const out=baseRenderChart();requestAnimationFrame(renderAll);return out};
+    const baseChooseSymbol=chooseSymbol;chooseSymbol=function(symbol){const changed=symbol&&symbol!==state.symbol,out=baseChooseSymbol(symbol);if(changed){v11.levelSignature='';pushEvent('SYMBOL',String(symbol).replace('_','/')+' selected','symbol|'+symbol)}setTimeout(renderAll,0);return out};
+    pushEvent('UI V1.1 READY','Presentation shell online · trading logic unchanged','ui-ready');
+    renderAll();setInterval(renderAll,1000);
+    if(typeof chart!=='undefined'&&chart){requestAnimationFrame(()=>{try{chart.applyOptions({width:byId('chart').clientWidth,height:byId('chart').clientHeight})}catch(_){}})}
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',buildShell,{once:true});else buildShell();
+})();
+</script>
+<!-- ASCEND_UI_V1_1_END -->
+
 </body>
 </html>
