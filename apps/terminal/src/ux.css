@@ -158,3 +158,6 @@ button small,.top-nav small,.section-title small,.settings-card-title small,.dev
 
 /* English remains visible for learning, but never visually louder than Russian */
 small,em{font-weight:500}
+
+.settings-mock-badge,.dev-mock-badge{display:inline-block;margin-top:5px;border:1px solid #5d4b28;border-radius:4px;background:#171208;color:#cfae67;padding:4px 6px;font-size:6px}
+.settings-notice{margin-top:6px;border:1px solid #1f4a61;border-radius:5px;background:#071722;color:#6e99ad;padding:7px 9px;font-size:6px}
