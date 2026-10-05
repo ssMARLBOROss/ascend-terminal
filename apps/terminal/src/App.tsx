@@ -60,7 +60,7 @@ export default function App(){
   {currentView==='OVERVIEW' ? <OverviewPage onNavigate={setCurrentView}/> :
    currentView==='ANALYTICS' ? <div className="standalone-view"><AnalyticsPage/></div> :
    currentView==='TELEGRAM' ? <div className="standalone-view"><TelegramPage onNavigate={setCurrentView}/></div> :
-   currentView==='RADAR' ? <div className="standalone-view"><RadarPage/></div> :
+   currentView==='RADAR' ? <div className="standalone-view"><RadarPage onNavigate={setCurrentView}/></div> :
    currentView==='SIGNALS' ? <div className="standalone-view"><SignalsPage onNavigate={setCurrentView}/></div> :
    currentView==='MINIAPP' ? <div className="standalone-view"><MiniAppPage/></div> :
    currentView==='SETTINGS' ? <div className="standalone-view"><SettingsPage/></div> :
