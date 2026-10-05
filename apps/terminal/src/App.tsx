@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AscendEvent, SetupMode } from '@ascend/contracts';
 import { events, radar, sessions, stageOrder } from './data/mockScenario';
+import AnalyticsPage from './pages/AnalyticsPage';
 
 const fmtPrice=(v?:number)=>typeof v==='number'?v.toLocaleString('en-US'):'—';
 function payloadValue(event:AscendEvent,key:string,fallback='—'){const value=(event.payload as Record<string,unknown>)[key];return value===undefined||value===null?fallback:String(value)}
@@ -14,6 +15,7 @@ export default function App(){
  const[decisionOpen,setDecisionOpen]=useState(true);
  const[mode,setMode]=useState<SetupMode>('SCALP');
  const[activeGroup,setActiveGroup]=useState('ALL');
+ const[currentView,setCurrentView]=useState<'MARKET'|'ANALYTICS'>('MARKET');
 
  useEffect(()=>{if(!playing)return;if(visibleCount>=events.length){setPlaying(false);return}const timer=window.setTimeout(()=>{const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])},950);return()=>window.clearTimeout(timer)},[playing,visibleCount]);
  const visibleEvents=events.slice(0,visibleCount);
@@ -38,9 +40,14 @@ export default function App(){
    <div className="global-actions"><span className="mode-chip">MOCK / PAPER</span><button onClick={()=>setDensity(density==='compact'?'comfortable':'compact')}>{density==='compact'?'Compact':'Comfortable'}</button></div>
   </header>
 
-  <div className="terminal-grid">
-   <nav className="nav-rail">{['MARKET','STREAM','JOURNAL','ANALYTICS','USERS','TELEGRAM','SETTINGS'].map((item,index)=><button className={index===0?'active':''} key={item}><span>{item.slice(0,1)}</span><small>{item}</small></button>)}</nav>
+  <div className={'terminal-grid '+(currentView==='ANALYTICS'?'analytics-layout':'')}>
+   <nav className="nav-rail">{['MARKET','STREAM','JOURNAL','ANALYTICS','USERS','TELEGRAM','SETTINGS'].map((item)=><button
+      className={currentView===item?'active':''}
+      key={item}
+      onClick={()=>{if(item==='MARKET'||item==='ANALYTICS')setCurrentView(item)}}
+    ><span>{item.slice(0,1)}</span><small>{item}</small></button>)}</nav>
 
+   {currentView==='ANALYTICS' ? <AnalyticsPage/> : <>
    {radarOpen&&<aside className="radar-panel">
     <div className="panel-title"><div><strong>SMART RADAR</strong><small>full futures universe · server filtered</small></div><button onClick={()=>setRadarOpen(false)}>×</button></div>
     <input className="search" placeholder="Search symbol…"/>
@@ -92,6 +99,7 @@ export default function App(){
     <section><div className="section-title">RISK / ROUTE GATE</div><div className="kv"><span>Potential move</span><b>{confirmed?'0.96%':'—'}</b></div><div className="kv"><span>Risk</span><b>{confirmed?'0.38%':'—'}</b></div><div className="kv"><span>Lost move</span><b>{confirmed?'31%':'—'}</b></div><div className="kv"><span>Remaining</span><b>{confirmed?'69%':'—'}</b></div><div className="kv"><span>R:R</span><b>{confirmed?'2.4':'—'}</b></div><div className={'gate '+(riskPass?'pass':'wait')}>{riskPass?'RISK GATE PASSED':'WAIT CONFIRMATION'}</div></section>
     <section><div className="section-title">TRADE PLAN · SIMULATION</div><div className="kv"><span>Direction</span><b>SHORT</b></div><div className="kv"><span>Entry</span><b>{confirmed?'86,680':'—'}</b></div><div className="kv"><span>SL</span><b>{confirmed?'86,991+':'—'}</b></div><div className="kv"><span>TP1</span><b>{confirmed?'Balance 86,400':'—'}</b></div><div className="kv"><span>TP2</span><b>{confirmed?'RTH H 85,851':'—'}</b></div><div className="kv"><span>TP3</span><b>{confirmed?'Cluster 85,500–85,100':'—'}</b></div><button className="paper" disabled={!riskPass}>PAPER EXECUTE</button><small className="safety">LIVE execution is intentionally unavailable in V1.</small></section>
    </aside>}
+   </>}
   </div>
 
   <footer className="system-bar"><span className="ok">● UI ONLINE</span><span>Market Feed MOCK</span><span>Core Simulation</span><span>API skeleton</span><span>PostgreSQL planned</span><span>Redis planned</span><span>Telegram not connected</span><span className="latency">Latency —</span></footer>
