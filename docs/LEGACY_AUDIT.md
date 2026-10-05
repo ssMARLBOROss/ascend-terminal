@@ -1,20 +1,41 @@
 # Legacy audit
 
-Current production root is a working monolith and must not be destroyed before preview approval.
+The rebuild branch intentionally removes the old root monolith so there is one obvious application entry point.
 
-## Reuse
-- terminal_api_v2.py: market feed, session/radar endpoints.
-- history_store.py: historical storage and analysis.
-- bybit_collector.py: exchange data capability.
-- platform_proxy.py: review before adapter migration.
-- worker.js: current edge/auth/share gate until replacement is ready.
+The previous implementation remains preserved in Git history on `main`, especially commit:
 
-## Replace gradually
-- index.html: monolithic UI. Replace with apps/terminal after visual approval.
-- main.py: split management API, data worker and compatibility layer.
+`6f2d104d19a4325330ec36b7afbd7fcf4bb4cdea`
 
-## Candidate duplication
-- share_app.py overlaps current Cloudflare worker sharing logic. Keep temporarily, then choose one implementation after ChartShareToken lands.
+## Removed from rebuild root
 
-## Rule
-No deletion on main until the new preview reproduces required behavior and passes a manual checklist.
+- `index.html` — large monolithic UI.
+- `main.py` — mixed API/UI/Telegram runtime.
+- `terminal_api_v2.py` — legacy API module.
+- `history_store.py` — legacy history/storage module.
+- `bybit_collector.py` — legacy collector.
+- `platform_proxy.py` — old proxy.
+- `share_app.py` — duplicate share implementation.
+- `worker.js` + `wrangler.toml` — old Cloudflare share gate.
+- root `requirements.txt` — legacy Python runtime dependencies.
+- `README.next.md` — merged into the canonical README.
+
+## What must be migrated, not copied blindly
+
+Useful behavior from legacy code should be reimplemented behind the new boundaries:
+
+- MEXC/Bybit symbol and candle adapters.
+- historical storage/backfill.
+- session transition history.
+- breadth and radar data.
+- guest/owner access as a dedicated auth/share module.
+
+No old monolith file should be reintroduced into the repository root.
+
+## Cleanup rule
+
+If a legacy behavior is still required:
+1. identify the behavior,
+2. write the new contract,
+3. migrate only that behavior,
+4. add a test,
+5. then consider the migration complete.
