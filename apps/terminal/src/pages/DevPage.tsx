@@ -31,6 +31,7 @@ const logs=[
 
 export default function DevPage(){
  const[notice,setNotice]=useState('Все действия здесь MOCK · All actions are mock');
+ const[activeSection,setActiveSection]=useState('Статус системы');
  const mockAction=(label:string)=>{setNotice(label+' · MOCK OK');window.setTimeout(()=>setNotice('Все действия здесь MOCK · All actions are mock'),1800)};
 
  return <main className="dev-page">
@@ -38,7 +39,7 @@ export default function DevPage(){
    <div className="dev-side-title"><strong>РАЗРАБОТКА</strong><small>DEV / INFRASTRUCTURE</small><p>Разработка, инфраструктура и управление системой · System engineering & operations</p></div>
    {[
     ['⌂','Статус системы','System Status'],['⚙','Сервисы','Services'],['↻','Деплой','Deploy'],['▤','Логи','Logs'],['◉','Базы данных','Database'],['◇','API и Webhooks','API & Webhooks'],['⇄','Очереди','Queues'],['◷','Мониторинг','Monitoring'],['▦','Тестирование','Testing'],['⬡','Резервные копии','Backups'],['▤','Управление версиями','Versions'],['♙','Пользователи','Users'],['▣','Документация','Documentation']
-   ].map(([icon,ru,en],i)=><button key={ru} className={i===0?'active':''}><span>{icon}</span><b>{ru}<small>{en}</small></b></button>)}
+   ].map(([icon,ru,en])=><button key={ru} className={activeSection===ru?'active':''} onClick={()=>{setActiveSection(ru);mockAction('Раздел выбран · '+ru)}}><span>{icon}</span><b>{ru}<small>{en}</small></b></button>)}
   </aside>
 
   <section className="dev-workspace">
@@ -73,7 +74,7 @@ export default function DevPage(){
     <article className="dev-card deploy-card">
      <div className="dev-card-title">ДЕПЛОЙ И ВЕРСИИ <small>DEPLOY & VERSIONS</small></div>
      <div className="deploy-info"><span>Текущая версия<small>Current version</small></span><b>3.5.3</b><i>PRODUCTION</i></div>
-     <div className="env-tabs"><button className="active">Production</button><button>Staging</button><button>Development</button></div>
+     <div className="env-tabs"><button className="active" onClick={()=>mockAction("Production environment")}>Production</button><button onClick={()=>mockAction("Staging environment")}>Staging</button><button onClick={()=>mockAction("Development environment")}>Development</button></div>
      <div className="deploy-info"><span>Последний деплой<small>Last deploy</small></span><b>05.10.2026 15:24</b><i className="positive">✓ Успешно · Success</i></div>
      <div className="deploy-actions"><button className="primary" onClick={()=>mockAction('Новый деплой · New Deploy')}>▶ Новый деплой<small>New Deploy</small></button><button onClick={()=>mockAction('Откат версии · Rollback')}>↶ Откатить версию<small>Rollback</small></button></div>
     </article>
