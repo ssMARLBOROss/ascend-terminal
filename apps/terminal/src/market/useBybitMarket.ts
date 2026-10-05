@@ -14,6 +14,24 @@ const intervalMap:Record<string,string>={
   '1H':'60','2H':'120','4H':'240','6H':'360','12H':'720','1D':'D','1W':'W','1M':'M'
 };
 
+const tfMs:Record<string,number>={
+  '1m':60000,'3m':180000,'5m':300000,'10m':600000,'15m':900000,'30m':1800000,'45m':2700000,
+  '1H':3600000,'2H':7200000,'4H':14400000,'6H':21600000,'12H':43200000,'1D':86400000
+};
+
+function aggregate(candles:Candle[],timeframe:AscendTimeframe){
+  if(timeframe!=='10m'&&timeframe!=='45m')return candles;
+  const size=tfMs[timeframe];
+  const buckets=new Map<number,Candle>();
+  for(const c of candles){
+    const ts=Math.floor(c.timestamp/size)*size;
+    const prev=buckets.get(ts);
+    if(!prev)buckets.set(ts,{...c,timestamp:ts});
+    else buckets.set(ts,{timestamp:ts,open:prev.open,high:Math.max(prev.high,c.high),low:Math.min(prev.low,c.low),close:c.close,volume:prev.volume+c.volume});
+  }
+  return [...buckets.values()].sort((a,b)=>a.timestamp-b.timestamp);
+}
+
 function normalize(list:any[]):Candle[]{
   return list.map(row=>({
     timestamp:Number(row[0]),
@@ -53,6 +71,7 @@ export type LiveMarketState={
 
 export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMarketState{
   const[candles,setCandles]=useState<Candle[]>([]);
+  const[rawCandles,setRawCandles]=useState<Candle[]>([]);
   const[contextCandles,setContextCandles]=useState<Candle[]>([]);
   const[ticker,setTicker]=useState<Ticker>({});
   const[status,setStatus]=useState<LiveMarketState['status']>('CONNECTING');
@@ -67,11 +86,11 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
   useEffect(()=>{
     let disposed=false;
     setStatus('CONNECTING');setError(undefined);
-    Promise.all([fetchKlines(symbol,interval,360),fetchKlines(symbol,'15',360)])
-      .then(([chart,context])=>{if(disposed)return;setCandles(chart);setContextCandles(context)})
+    Promise.all([fetchKlines(symbol,interval,timeframe==='10m'||timeframe==='45m'?720:360),fetchKlines(symbol,'15',360)])
+      .then(([chart,context])=>{if(disposed)return;setRawCandles(chart);setCandles(aggregate(chart,timeframe).slice(-500));setContextCandles(context)})
       .catch(err=>{if(disposed)return;setError(String(err?.message??err))});
     return()=>{disposed=true};
-  },[symbol,interval]);
+  },[symbol,interval,timeframe]);
 
   useEffect(()=>{
     let disposed=false;
@@ -99,11 +118,16 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
             if(!item)return;
             const next:Candle={timestamp:Number(item.start),open:Number(item.open),high:Number(item.high),low:Number(item.low),close:Number(item.close),volume:Number(item.volume)};
             setCandles(prev=>{
+              return prev;
+            });
+            setRawCandles(prev=>{
               const copy=prev.slice();
               const i=copy.findIndex(c=>c.timestamp===next.timestamp);
               if(i>=0)copy[i]=next;else copy.push(next);
               copy.sort((a,b)=>a.timestamp-b.timestamp);
-              return copy.slice(-500);
+              const trimmed=copy.slice(-1500);
+              setCandles(aggregate(trimmed,timeframe).slice(-500));
+              return trimmed;
             });
             if(interval==='15'){
               setContextCandles(prev=>{
@@ -143,11 +167,14 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
     if(loadingOlder||!hasOlder||!candles.length)return;
     setLoadingOlder(true);
     try{
-      const older=await fetchKlines(symbol,interval,500,candles[0].timestamp-1);
-      setCandles(prev=>{
+      const oldestRaw=rawCandles[0]?.timestamp??candles[0].timestamp;
+      const older=await fetchKlines(symbol,interval,500,oldestRaw-1);
+      setRawCandles(prev=>{
         const byTs=new Map<number,Candle>();
         [...older,...prev].forEach(x=>byTs.set(x.timestamp,x));
-        return [...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-5000);
+        const merged=[...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-8000);
+        setCandles(aggregate(merged,timeframe).slice(-5000));
+        return merged;
       });
       if(older.length<500)setHasOlder(false);
     }catch(err){
