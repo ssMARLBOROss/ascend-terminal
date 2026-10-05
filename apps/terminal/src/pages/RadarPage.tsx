@@ -50,14 +50,17 @@ const groupRu:Record<string,string>={
   'SESSION TRANSITION':'ПЕРЕХОД СЕССИИ'
 };
 
-export default function RadarPage(){
+export default function RadarPage({onNavigate}:{onNavigate:(view:string)=>void}){
   const[selectedSymbol,setSelectedSymbol]=useState('BTCUSDT');
   const[group,setGroup]=useState('ALL');
   const[direction,setDirection]=useState('ALL');
   const[session,setSession]=useState('ALL');
   const[tf,setTf]=useState('ALL');
+  const[query,setQuery]=useState('');
+  const[notice,setNotice]=useState('');
 
   const filtered=useMemo(()=>rows.filter(r=>{
+    if(query&& !r.symbol.toLowerCase().includes(query.toLowerCase()))return false;
     if(group==='WATCH'||group==='SHIFTING'||group==='CONFIRMED'){
       if(r.state!==group)return false;
     }else if(group!=='ALL'&&r.group!==group)return false;
@@ -65,7 +68,7 @@ export default function RadarPage(){
     if(session!=='ALL'&&r.session!==session)return false;
     if(tf!=='ALL'&&r.tf!==tf)return false;
     return true;
-  }),[group,direction,session,tf]);
+  }),[group,direction,session,tf,query]);
 
   const selected=rows.find(r=>r.symbol===selectedSymbol)??rows[0];
 
@@ -88,7 +91,7 @@ export default function RadarPage(){
     </section>
 
     <section className="radar-controls">
-      <input placeholder="Поиск монеты / Search symbol…" />
+      <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск монеты / Search symbol…" />
       <div className="radar-group-tabs">{groups.map(g=><button key={g} className={group===g?'active':''} onClick={()=>setGroup(g)}><span>{groupRu[g]}</span><small>{g}</small></button>)}</div>
       <select value={direction} onChange={e=>setDirection(e.target.value)}><option value="ALL">Все направления / All</option><option>LONG</option><option>SHORT</option><option>NEUTRAL</option></select>
       <select value={session} onChange={e=>setSession(e.target.value)}><option value="ALL">Все сессии / All</option><option>ASIA</option><option>LONDON</option><option>NEW YORK</option></select>
@@ -148,9 +151,10 @@ export default function RadarPage(){
         </section>
 
         <div className="radar-preview-actions">
-          <button>ОТКРЫТЬ РЫНОК<small>OPEN MARKET</small></button>
-          <button className="primary">В НАБЛЮДЕНИЕ<small>PIN TO WATCH</small></button>
+          <button onClick={()=>onNavigate('MARKET')}>ОТКРЫТЬ РЫНОК<small>OPEN MARKET</small></button>
+          <button className="primary" onClick={()=>setNotice(selected.symbol+' добавлен в наблюдение · pinned (MOCK)')}>В НАБЛЮДЕНИЕ<small>PIN TO WATCH</small></button>
         </div>
+        {notice&&<div className="radar-action-notice">{notice}</div>}
       </aside>
     </section>
   </main>
