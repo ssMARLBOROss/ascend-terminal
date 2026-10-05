@@ -40,7 +40,7 @@ const filterRows = [
 ];
 
 export default function AnalyticsPage(){
-  return <>
+  return <div className="analytics-layout">
     <aside className="analytics-sidebar">
       <div className="analytics-sidebar-title">
         <strong>АНАЛИТИКА</strong>
@@ -166,5 +166,5 @@ export default function AnalyticsPage(){
         </article>
       </section>
     </main>
-  </>
+  </div>
 }
