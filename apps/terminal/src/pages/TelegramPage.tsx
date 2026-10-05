@@ -1,3 +1,4 @@
+import { useState } from 'react';
 type TelegramPageProps={onNavigate:(view:string)=>void};
 
 const signals=[
@@ -19,12 +20,15 @@ const lifecycle=[
 ];
 
 export default function TelegramPage({onNavigate}:TelegramPageProps){
+ const[activeSection,setActiveSection]=useState('Активные сигналы');
+ const[notice,setNotice]=useState('TG-Бот сейчас работает в UI MOCK · Telegram actions are mock');
+ const mockAction=(label:string)=>{setNotice(label+' · MOCK OK');window.setTimeout(()=>setNotice('TG-Бот сейчас работает в UI MOCK · Telegram actions are mock'),1800)};
  return <main className="tg-page">
   <aside className="tg-sidebar">
    <div className="tg-side-title"><span>➤</span><div><strong>TG-БОТ</strong><small>ОПЕРАЦИОННЫЙ ЦЕНТР · OPERATIONS CENTER</small></div></div>
    {[
     ['Активные сигналы','Active signals'],['Очередь','Queue'],['Каналы','Channels'],['Шаблоны','Templates'],['Пользователи','Users'],['Доступы','Access'],['История','History']
-   ].map(([ru,en],i)=><button className={i===0?'active':''} key={ru}><span>{['◉','☷','➤','▤','♙','▣','◷'][i]}</span><b>{ru}<small>{en}</small></b></button>)}
+   ].map(([ru,en],i)=><button className={activeSection===ru?'active':''} key={ru} onClick={()=>{setActiveSection(ru);mockAction('Раздел выбран · '+ru)}}><span>{['◉','☷','➤','▤','♙','▣','◷'][i]}</span><b>{ru}<small>{en}</small></b></button>)}
   </aside>
 
   <section className="tg-workspace">
@@ -42,7 +46,7 @@ export default function TelegramPage({onNavigate}:TelegramPageProps){
     </article>
 
     <article className="tg-panel queue-panel">
-     <div className="tg-panel-head"><strong>ОЧЕРЕДЬ ПУБЛИКАЦИЙ <small>PUBLISH QUEUE</small> <b>(4)</b></strong><button className="positive">⟳ Авто · Auto: ВКЛ / ON</button></div>
+     <div className="tg-panel-head"><strong>ОЧЕРЕДЬ ПУБЛИКАЦИЙ <small>PUBLISH QUEUE</small> <b>(4)</b></strong><button className="positive" onClick={()=>mockAction("Автоочередь переключена · Auto queue toggled")}>⟳ Авто · Auto: ВКЛ / ON</button></div>
      <div className="queue-table">
       <div className="queue-head"><span>#</span><span>Сигнал<small>Signal</small></span><span>Каналы<small>Channels</small></span><span>Статус<small>Status</small></span><span>Время<small>Time</small></span></div>
       {[
@@ -53,7 +57,7 @@ export default function TelegramPage({onNavigate}:TelegramPageProps){
       ].map((r,i)=><button className={'queue-row '+(i===0?'selected':'')} key={r[0]}>{r.map((v,j)=><span key={j}>{v}</span>)}</button>)}
      </div>
 
-     <div className="template-head"><strong>ШАБЛОН СООБЩЕНИЯ <small>MESSAGE TEMPLATE</small></strong><button>Стандартный · Standard v2⌄</button><button>⚙ Настроить · Configure</button></div>
+     <div className="template-head"><strong>ШАБЛОН СООБЩЕНИЯ <small>MESSAGE TEMPLATE</small></strong><button onClick={()=>mockAction("Шаблон выбран · Template selected")}>Стандартный · Standard v2⌄</button><button onClick={()=>mockAction("Настройки шаблона · Template settings")}>⚙ Настроить · Configure</button></div>
      <div className="message-preview-grid">
       <div className="message-preview"><div className="preview-brand"><b>ASCEND Signals</b><small>Публичный канал · Public channel</small></div><h3>#BTCUSDT <span className="positive">↗ LONG</span></h3><p>Вход · Entry: <b>83,950 – 84,200</b></p><p>TP1: <b className="positive">84,420 (+0.55%)</b></p><p>TP2: <b className="positive">84,690 (+1.34%)</b></p><p>TP3: <b className="positive">85,640 (+2.01%)</b></p><p>Стоп · Stop: <b className="negative">82,910 (-1.24%)</b></p><small>ТФ / TF: 15m · Сессия / Session: US · Вероятность / Probability: 72%</small></div>
       <div className="signal-life"><strong>ЖИЗНЕННЫЙ ЦИКЛ <small>SIGNAL LIFECYCLE</small></strong>{lifecycle.map(([en,ru],i)=><div className={i<3?'done':''} key={en}><span>{i+1}</span><b>{ru}<small>{en}</small></b><small>{i<3?['15:10','15:14','15:17'][i]:'Ожидает · Waiting'}</small></div>)}</div>
@@ -76,12 +80,13 @@ export default function TelegramPage({onNavigate}:TelegramPageProps){
 
      <article className="tg-panel actions">
       <div className="tg-panel-head"><strong>ДЕЙСТВИЯ <small>ACTIONS</small></strong></div>
-      <button className="send-public">➤ Отправить в паблик<small>Send public</small></button><button className="send-private">➤ Отправить в приват<small>Send private</small></button><button onClick={()=>onNavigate('MINIAPP')}>▦ Открыть Mini App<small>Open Mini App</small></button><button className="pause">Ⅱ Пауза очереди<small>Pause queue</small></button><button>⚗ Тест сообщения<small>Test message</small></button>
+      <button className="send-public" onClick={()=>mockAction("Отправка в паблик · Send public")}>➤ Отправить в паблик<small>Send public</small></button><button className="send-private" onClick={()=>mockAction("Отправка в приват · Send private")}>➤ Отправить в приват<small>Send private</small></button><button onClick={()=>onNavigate('MINIAPP')}>▦ Открыть Mini App<small>Open Mini App</small></button><button className="pause" onClick={()=>mockAction("Пауза очереди · Queue paused")}>Ⅱ Пауза очереди<small>Pause queue</small></button><button onClick={()=>mockAction("Тест сообщения · Test message")}>⚗ Тест сообщения<small>Test message</small></button>
      </article>
 
      <article className="tg-panel button-states"><div className="tg-panel-head"><strong>СОСТОЯНИЯ КНОПОК <small>BUTTON STATES</small></strong></div><div><button>Стандарт<small>Default</small></button><button className="hover-demo">Наведение<small>Hover</small></button><button className="pressed">Нажатие<small>Pressed</small></button><button disabled>Отключена<small>Disabled</small></button><button className="loading">◌ Загрузка...<small>Loading</small></button><button className="success">✓ Успех<small>Success</small></button></div></article>
     </aside>
    </div>
+   <div className="tg-notice">{notice}</div>
   </section>
  </main>
 }
