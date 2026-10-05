@@ -85,7 +85,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
 
   useEffect(()=>{
     let disposed=false;
-    setStatus('CONNECTING');setError(undefined);
+    setStatus('CONNECTING');setError(undefined);setHasOlder(true);setRawCandles([]);setCandles([]);
     Promise.all([fetchKlines(symbol,interval,timeframe==='10m'||timeframe==='45m'?720:360),fetchKlines(symbol,'15',360)])
       .then(([chart,context])=>{if(disposed)return;setRawCandles(chart);setCandles(aggregate(chart,timeframe).slice(-500));setContextCandles(context)})
       .catch(err=>{if(disposed)return;setError(String(err?.message??err))});
@@ -103,7 +103,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
       ws.onopen=()=>{
         if(disposed)return;
         setStatus('LIVE');setError(undefined);
-        ws?.send(JSON.stringify({op:'subscribe',args:[`kline.${interval}.${symbol}`,`tickers.${symbol}`]}));
+        const topics=[`kline.${interval}.${symbol}`,`tickers.${symbol}`];if(interval!=='15')topics.push(`kline.15.${symbol}`);ws?.send(JSON.stringify({op:'subscribe',args:topics}));
         ping=window.setInterval(()=>{if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({op:'ping'}))},20000);
       };
       ws.onmessage=(event)=>{
@@ -117,19 +117,19 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
             const item=Array.isArray(msg.data)?msg.data[0]:undefined;
             if(!item)return;
             const next:Candle={timestamp:Number(item.start),open:Number(item.open),high:Number(item.high),low:Number(item.low),close:Number(item.close),volume:Number(item.volume)};
-            setCandles(prev=>{
-              return prev;
-            });
-            setRawCandles(prev=>{
-              const copy=prev.slice();
-              const i=copy.findIndex(c=>c.timestamp===next.timestamp);
-              if(i>=0)copy[i]=next;else copy.push(next);
-              copy.sort((a,b)=>a.timestamp-b.timestamp);
-              const trimmed=copy.slice(-1500);
-              setCandles(aggregate(trimmed,timeframe).slice(-500));
-              return trimmed;
-            });
-            if(interval==='15'){
+            const topicInterval=msg.topic.split('.')[1];
+            if(topicInterval===interval){
+              setRawCandles(prev=>{
+                const copy=prev.slice();
+                const i=copy.findIndex(c=>c.timestamp===next.timestamp);
+                if(i>=0)copy[i]=next;else copy.push(next);
+                copy.sort((a,b)=>a.timestamp-b.timestamp);
+                const trimmed=copy.slice(-1500);
+                setCandles(aggregate(trimmed,timeframe).slice(-500));
+                return trimmed;
+              });
+            }
+            if(topicInterval==='15'){
               setContextCandles(prev=>{
                 const copy=prev.slice();
                 const i=copy.findIndex(c=>c.timestamp===next.timestamp);
@@ -161,7 +161,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
     };
     connect();
     return()=>{disposed=true;if(ping)window.clearInterval(ping);if(retryRef.current)window.clearTimeout(retryRef.current);ws?.close()};
-  },[symbol,interval]);
+  },[symbol,interval,timeframe]);
 
   const loadOlder=async()=>{
     if(loadingOlder||!hasOlder||!candles.length)return;
