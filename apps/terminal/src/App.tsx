@@ -13,6 +13,7 @@ import SettingsPage from './pages/SettingsPage';
 import DevPage from './pages/DevPage';
 import './dev.css';
 import './ux.css';
+import './quality.css';
 
 const fmtPrice=(v?:number)=>typeof v==='number'?v.toLocaleString('en-US'):'—';
 function payloadValue(event:AscendEvent,key:string,fallback='—'){const value=(event.payload as Record<string,unknown>)[key];return value===undefined||value===null?fallback:String(value)}
