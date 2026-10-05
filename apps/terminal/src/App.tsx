@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AscendEvent, SetupMode } from '@ascend/contracts';
 import { events, radar, sessions, stageOrder } from './data/mockScenario';
+import { historicalChronology, historyMeta, marketSources } from './data/mockHistory';
 import AnalyticsPage from './pages/AnalyticsPage';
 import OverviewPage from './pages/OverviewPage';
 import TelegramPage from './pages/TelegramPage';
@@ -26,10 +27,24 @@ export default function App(){
  const[mode,setMode]=useState<SetupMode>('SCALP');
  const[activeGroup,setActiveGroup]=useState('ALL');
  const[currentView,setCurrentView]=useState('OVERVIEW');
+ const[chartTf,setChartTf]=useState('15m');
+ const[loadedCandles,setLoadedCandles]=useState(2000);
+ const[historyRange,setHistoryRange]=useState('1D');
+ const[sourceFilter,setSourceFilter]=useState<'ALL'|'DEX'|'CEX'|'CORE'>('ALL');
 
  useEffect(()=>{if(!playing)return;if(visibleCount>=events.length){setPlaying(false);return}const timer=window.setTimeout(()=>{const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])},950);return()=>window.clearTimeout(timer)},[playing,visibleCount]);
  const visibleEvents=events.slice(0,visibleCount);
  const chain=useMemo(()=>events.filter(e=>e.sequenceId<=selected.sequenceId),[selected]);
+ const chronologyEvents=useMemo(()=>{
+  const current=visibleEvents.map(e=>({...e,source:'ASCEND_CORE' as const,status:'CONFIRMED' as const}));
+  const all=[...historicalChronology,...current].sort((a,b)=>a.timestamp-b.timestamp);
+  return all.filter(e=>{
+   if(sourceFilter==='ALL')return true;
+   if(sourceFilter==='DEX')return e.source==='DEX_SCANNER';
+   if(sourceFilter==='CORE')return e.source==='ASCEND_CORE';
+   return e.source!=='DEX_SCANNER'&&e.source!=='ASCEND_CORE';
+  });
+ },[visibleEvents,sourceFilter]);
  const filteredRadar=activeGroup==='ALL'?radar:radar.filter(i=>i.group===activeGroup);
  const confirmed=visibleEvents.some(e=>e.type==='CONFIRMED');
  const riskPass=confirmed&&Number(payloadValue(events[events.length-1],'remainingRangePct','0'))>=40;
@@ -81,7 +96,7 @@ export default function App(){
    <main className="market-workspace">
     <section className="instrument-bar">
      <div><strong>BTCUSDT</strong><small>ФЬЮЧЕРСЫ · FUTURES · MOCK FEED</small></div>
-     <div className="timeframes">{['1m','3m','5m','10m','15m','30m','45m','1H','2H','4H','6H','12H','1D'].map(tf=><button className={tf==='15m'?'active':''} key={tf}>{tf}</button>)}</div>
+     <div className="timeframes">{historyMeta.derivedTimeframes.filter(tf=>!['1W','1M'].includes(tf)).map(tf=><button className={chartTf===tf?'active':''} onClick={()=>setChartTf(tf)} key={tf}>{tf}</button>)}</div>
      <div className="instrument-actions">{!radarOpen&&<button onClick={()=>setRadarOpen(true)}>Радар · Radar</button>}{!decisionOpen&&<button onClick={()=>setDecisionOpen(true)}>Панель · Panel</button>}<button className={mode==='SCALP'?'active':''} onClick={()=>setMode('SCALP')}>SCALP</button><button className={mode==='NORMAL'?'active':''} onClick={()=>setMode('NORMAL')}>NORMAL</button></div>
     </section>
 
@@ -90,7 +105,12 @@ export default function App(){
     <section className="lifecycle">{stageOrder.map((stage,index)=>{const event=events[index],done=index<visibleCount,current=selected.type===stage;return <button key={stage} className={(done?'done ':'')+(current?'current':'')} onClick={()=>{if(done)setSelected(event)}}><span>{done?'✓':'○'}</span>{stage}</button>})}</section>
 
     <section className="chart-shell">
-     <div className="chart-toolbar"><div><b>BTCUSDT · 15m</b><small>СЕССИИ / СТЕНКИ / БАЛАНС / ЛИКВИДНОСТЬ · SESSION FLOW / WALLS / BALANCE / LIQUIDITY</small></div><div className="chart-toggles"><button>УРОВНИ · LEVELS</button><button>КЛАСТЕРЫ · CLUSTERS</button><button>СТРУКТУРА · STRUCTURE</button><button>СОБЫТИЯ · EVENTS</button></div></div>
+     <div className="chart-toolbar"><div><b>BTCUSDT · {chartTf}</b><small>СЕССИИ / СТЕНКИ / БАЛАНС / ЛИКВИДНОСТЬ · SESSION FLOW / WALLS / BALANCE / LIQUIDITY</small></div><div className="chart-toggles"><button>УРОВНИ · LEVELS</button><button>КЛАСТЕРЫ · CLUSTERS</button><button>СТРУКТУРА · STRUCTURE</button><button>СОБЫТИЯ · EVENTS</button></div></div>
+     <div className="history-toolbar">
+      <div className="history-summary"><strong>ИСТОРИЯ СВЕЧЕЙ · HISTORICAL CANDLES</strong><span>{loadedCandles.toLocaleString('ru-RU')} загружено / loaded</span><small>≈ {historyMeta.estimatedCandles.toLocaleString('ru-RU')} доступно · cursor pagination · lazy loading</small></div>
+      <div className="history-ranges">{['1D','7D','30D','90D'].map(r=><button key={r} className={historyRange===r?'active':''} onClick={()=>setHistoryRange(r)}>{r}</button>)}</div>
+      <div className="history-actions"><button onClick={()=>setLoadedCandles(v=>Math.min(v+1000,historyMeta.estimatedCandles))}>← СТАРШЕ · LOAD OLDER</button><button onClick={()=>setSelected(events[visibleCount-1]??events[0])}>К ПОСЛЕДНЕЙ · LATEST →</button></div>
+     </div>
      <div className="mock-chart">
       <div className="session-band asia"><span>ASIA · FROZEN</span></div><div className="session-band london"><span>LONDON · FROZEN</span></div><div className="session-band ny"><span>NEW YORK · LIVE</span></div><div className="session-band next"><span>NEXT ASIA · EXPECTED</span></div>
       <div className="level wall upper-wall"><b>ВЕРХНЯЯ СТЕНКА · UPPER WALL</b><span>ONH 86,978 · CONFIRMED</span></div>
@@ -102,9 +122,24 @@ export default function App(){
       <div className="level cluster low-cluster"><b>СЛЕДУЮЩАЯ НИЖНЯЯ ЛИКВИДНОСТЬ · NEXT LOWER LIQUIDITY</b><span>85,500–85,100</span></div>
       <svg viewBox="0 0 1000 520" preserveAspectRatio="none" className="price-path"><defs><linearGradient id="priceStroke" x1="0" x2="1"><stop offset="0%" stopColor="#68849b"/><stop offset="58%" stopColor="#44b8d9"/><stop offset="100%" stopColor="#d7e5ee"/></linearGradient></defs><polyline points="15,365 70,340 120,385 175,330 230,350 290,292 345,315 405,250 455,275 510,210 565,230 620,165 675,192 725,125 770,145 815,102 858,155 905,190 955,220 990,210" fill="none" stroke="url(#priceStroke)" strokeWidth="3" vectorEffect="non-scaling-stroke"/></svg>
       {visibleEvents.map((event,index)=><button key={event.eventId} className={'event-marker marker-'+(index+1)+(selected.eventId===event.eventId?' selected':'')} onClick={()=>setSelected(event)}>{index+1}</button>)}
-      <div className="event-popover"><div className="event-head"><div><strong>{selected.type}</strong><small>{selected.timeframe} · {selected.session}</small></div><span>{new Date(selected.timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</span></div><div className="event-level">{selected.level} · {fmtPrice(selected.price)}</div><p>{selected.explanation}</p><div className="event-next"><small>ЧТО ЖДЁМ ДАЛЬШЕ · NEXT EXPECTED</small><b>{selected.nextExpected}</b></div><div className="event-chain">{chain.map(item=>item.type).join(' → ')}</div></div>
+      <div className="event-popover"><div className="event-head"><div><strong>{selected.type}</strong><small>{selected.timeframe} · {selected.session} · {String((selected as any).source??'ASCEND_CORE')}</small></div><span>{new Date(selected.timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</span></div><div className="event-level">{selected.level} · {fmtPrice(selected.price)}</div><p>{selected.explanation}</p><div className="event-next"><small>ЧТО ЖДЁМ ДАЛЬШЕ · NEXT EXPECTED</small><b>{selected.nextExpected}</b></div><div className="event-chain">{chain.map(item=>item.type).join(' → ')}</div></div>
      </div>
      <div className="scenario-controls"><button className="primary" onClick={()=>setPlaying(true)} disabled={playing||visibleCount>=events.length}>▶ ПРОИГРАТЬ СЦЕНАРИЙ · PLAY</button><button onClick={()=>{if(visibleCount>=events.length)return;const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])}}>ШАГ +1 · STEP</button><button onClick={reset}>СБРОС · RESET</button><span>{visibleCount}/{events.length} событий · events</span></div>
+     <section className="chronology-panel">
+      <div className="chronology-head">
+       <div><strong>ХРОНОЛОГИЯ РЫНКА · MARKET CHRONOLOGY</strong><small>пробои, касания, снятия, возвраты, DEX early warning и подтверждения</small></div>
+       <div className="chronology-source">{(['ALL','DEX','CEX','CORE'] as const).map(s=><button key={s} className={sourceFilter===s?'active':''} onClick={()=>setSourceFilter(s)}>{s}</button>)}</div>
+      </div>
+      <div className="chronology-scroll">
+       {chronologyEvents.map(event=><button key={event.eventId} className={'chronology-event '+(selected.eventId===event.eventId?'active ':'')+(event.source==='DEX_SCANNER'?'dex ':'')+(event.type==='BREAK'?'break ':'')+(event.type==='SWEEP'?'sweep ':'')+(event.type==='CONFIRMED'?'confirmed ':'')} onClick={()=>setSelected(event)}>
+        <span>{new Date(event.timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</span>
+        <b>{event.type}</b>
+        <small>{event.level}</small>
+        <em>{event.source}</em>
+       </button>)}
+      </div>
+      <div className="chronology-legend"><span>DEX = раннее предупреждение · discovery only</span><span>CEX = проверка рынка · validation</span><span>CORE = решение · decision</span><span>Клик по событию → объяснение и время</span></div>
+     </section>
     </section>
 
     <section className="analytics-strip">
@@ -116,13 +151,13 @@ export default function App(){
     <div className="panel-title"><div><strong>ЦЕНТР РЕШЕНИЙ · DECISION CENTER</strong><small>почему сейчас / почему ждём · why now / why wait</small></div><button onClick={()=>setDecisionOpen(false)}>×</button></div>
     <div className="price-card"><div><small>BTCUSDT</small><b>86,140</b></div><span className={confirmed?'confirmed':'watch'}>{confirmed?'CONFIRMED':'WATCH'}</span></div>
     <section><div className="section-title">СТЕНКИ РЫНКА · MARKET WALLS</div><div className="kv"><span>Верхняя стенка · Upper Wall</span><b>86,978</b></div><div className="kv"><span>Balance</span><b>86,300–86,400</b></div><div className="kv"><span>Нижняя стенка · Lower Wall</span><b>85,851</b></div><div className="kv"><span>Положение цены · Price position</span><b>внутри диапазона · inside range</b></div></section>
-    <section><div className="section-title">АКТИВНОЕ СОБЫТИЕ · ACTIVE EVENT</div><h3>{selected.type}</h3><p>{selected.explanation}</p><div className="kv"><span>Время · Time</span><b>{new Date(selected.timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</b></div><div className="kv"><span>TF</span><b>{selected.timeframe}</b></div><div className="kv"><span>Уровень · Level</span><b>{selected.level}</b></div><div className="kv"><span>RSI</span><b>{payloadValue(selected,'rsi')}</b></div><div className="kv"><span>Объём · Volume</span><b>{payloadValue(selected,'volumeRatio')}×</b></div></section>
+    <section><div className="section-title">АКТИВНОЕ СОБЫТИЕ · ACTIVE EVENT</div><h3>{selected.type}</h3><p>{selected.explanation}</p><div className="kv"><span>Время · Time</span><b>{new Date(selected.timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</b></div><div className="kv"><span>TF</span><b>{selected.timeframe}</b></div><div className="kv"><span>Источник · Source</span><b>{String((selected as any).source??'ASCEND_CORE')}</b></div><div className="kv"><span>Уровень · Level</span><b>{selected.level}</b></div><div className="kv"><span>RSI</span><b>{payloadValue(selected,'rsi')}</b></div><div className="kv"><span>Объём · Volume</span><b>{payloadValue(selected,'volumeRatio')}×</b></div><div className="kv"><span>Глубина снятия · Sweep depth</span><b>{payloadValue(selected,'sweepDepthPct')}</b></div><div className="kv"><span>Закрытие выше · Close above</span><b>{payloadValue(selected,'closeAbovePct')}</b></div></section>
     <section><div className="section-title">ЦЕПОЧКА CORE · CORE CHAIN · {mode}</div>{stageOrder.map((stage,index)=><div className={'chain-row '+(index<visibleCount?'passed':'')} key={stage}><span>{index<visibleCount?'✓':'○'}</span><b>{stage}</b><small>{events[index].timeframe}</small></div>)}</section>
     <section><div className="section-title">РИСК / МАРШРУТ · RISK / ROUTE GATE</div><div className="kv"><span>Потенциальный ход · Potential Move</span><b>{confirmed?'0.96%':'—'}</b></div><div className="kv"><span>Риск · Risk</span><b>{confirmed?'0.38%':'—'}</b></div><div className="kv"><span>Потеряно движения · Lost Move</span><b>{confirmed?'31%':'—'}</b></div><div className="kv"><span>Осталось · Remaining</span><b>{confirmed?'69%':'—'}</b></div><div className="kv"><span>R:R</span><b>{confirmed?'2.4':'—'}</b></div><div className={'gate '+(riskPass?'pass':'wait')}>{riskPass?'РИСК-ФИЛЬТР ПРОЙДЕН · RISK GATE PASSED':'ЖДЁМ ПОДТВЕРЖДЕНИЕ · WAIT CONFIRMATION'}</div></section>
     <section><div className="section-title">ТОРГОВЫЙ ПЛАН · TRADE PLAN · SIMULATION</div><div className="kv"><span>Направление · Direction</span><b>SHORT</b></div><div className="kv"><span>Вход · Entry</span><b>{confirmed?'86,680':'—'}</b></div><div className="kv"><span>SL</span><b>{confirmed?'86,991+':'—'}</b></div><div className="kv"><span>TP1</span><b>{confirmed?'Balance 86,400':'—'}</b></div><div className="kv"><span>TP2</span><b>{confirmed?'RTH H 85,851':'—'}</b></div><div className="kv"><span>TP3</span><b>{confirmed?'Cluster 85,500–85,100':'—'}</b></div><button className="paper" disabled={!riskPass}>БУМАЖНЫЙ ВХОД · PAPER EXECUTE</button><small className="safety">LIVE-исполнение намеренно отключено в V1. Live execution is disabled in V1.</small></section>
    </aside>}
   </div>}
 
-  <footer className="system-bar"><span className="ok">● ИНТЕРФЕЙС · UI ONLINE</span><span className="mock-footer">ДЕМО-ДАННЫЕ · MOCK DATA</span><span>Рыночный поток · Market Feed MOCK</span><span>Симуляция Core · Core Simulation</span><span>Каркас API · API skeleton</span><span>PostgreSQL · запланирован / planned</span><span>Redis · запланирован / planned</span><span>Telegram · не подключён / not connected</span><span className="latency">Задержка · Latency —</span></footer>
+  <footer className="system-bar"><span className="ok">● ИНТЕРФЕЙС · UI ONLINE</span><span className="mock-footer">ДЕМО-ДАННЫЕ · MOCK DATA</span><span>CEX: {marketSources.filter(s=>s.kind==='CEX').length} adapters ready</span><span>DEX: discovery-only ready</span><span>Рыночный поток · Market Feed MOCK</span><span>Симуляция Core · Core Simulation</span><span>Каркас API · API skeleton</span><span>PostgreSQL · запланирован / planned</span><span>Redis · запланирован / planned</span><span>Telegram · не подключён / not connected</span><span className="latency">Задержка · Latency —</span></footer>
  </div>
 }
