@@ -161,3 +161,11 @@ small,em{font-weight:500}
 
 .settings-mock-badge,.dev-mock-badge{display:inline-block;margin-top:5px;border:1px solid #5d4b28;border-radius:4px;background:#171208;color:#cfae67;padding:4px 6px;font-size:6px}
 .settings-notice{margin-top:6px;border:1px solid #1f4a61;border-radius:5px;background:#071722;color:#6e99ad;padding:7px 9px;font-size:6px}
+
+.radar-action-notice,.tg-notice,.miniapp-notice{margin-top:6px;border:1px solid #5b4928;border-radius:5px;background:#171208;color:#cfad65;padding:7px 9px;font-size:6px}
+.device-tablet .phone-shell{width:390px;transform:scale(.82)}
+.device-desktop .phone-shell{width:500px;transform:scale(.72)}
+@media(max-width:1400px){
+ .device-tablet .phone-shell{width:360px}
+ .device-desktop .phone-shell{width:440px}
+}
