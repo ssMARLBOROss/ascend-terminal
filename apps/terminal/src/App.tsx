@@ -11,6 +11,7 @@ import MiniAppPage from './pages/MiniAppPage';
 import SettingsPage from './pages/SettingsPage';
 import DevPage from './pages/DevPage';
 import './dev.css';
+import './ux.css';
 
 const fmtPrice=(v?:number)=>typeof v==='number'?v.toLocaleString('en-US'):'—';
 function payloadValue(event:AscendEvent,key:string,fallback='—'){const value=(event.payload as Record<string,unknown>)[key];return value===undefined||value===null?fallback:String(value)}
@@ -51,7 +52,7 @@ export default function App(){
     ].map(([key,ru,en])=><button key={key} className={currentView===key?'active':''} onClick={()=>setCurrentView(key)}><span>{ru}</span><small>{en}</small></button>)}
    </nav>
    <div className="global-actions">
-    <span className="live-status">● В ЭФИРЕ · LIVE</span>
+    <span className="live-status mock-status">● ДЕМО · MOCK</span>
     <button onClick={()=>setDensity(density==='compact'?'comfortable':'compact')}>{density==='compact'?'Компактно · Compact':'Удобно · Comfortable'}</button>
    </div>
   </header>
@@ -122,6 +123,6 @@ export default function App(){
    </aside>}
   </div>}
 
-  <footer className="system-bar"><span className="ok">● ИНТЕРФЕЙС ONLINE</span><span>Рыночный поток · Market Feed MOCK</span><span>Симуляция Core · Core Simulation</span><span>Каркас API · API skeleton</span><span>PostgreSQL · запланирован / planned</span><span>Redis · запланирован / planned</span><span>Telegram · не подключён / not connected</span><span className="latency">Задержка · Latency —</span></footer>
+  <footer className="system-bar"><span className="ok">● ИНТЕРФЕЙС · UI ONLINE</span><span className="mock-footer">ДЕМО-ДАННЫЕ · MOCK DATA</span><span>Рыночный поток · Market Feed MOCK</span><span>Симуляция Core · Core Simulation</span><span>Каркас API · API skeleton</span><span>PostgreSQL · запланирован / planned</span><span>Redis · запланирован / planned</span><span>Telegram · не подключён / not connected</span><span className="latency">Задержка · Latency —</span></footer>
  </div>
 }
