@@ -102,6 +102,10 @@ export default function LiveCandleChart({
   const priceLinesRef=useRef<any[]>([]);
   const visibleTimeRef=useRef<any>(null);
   const autoLoadingRef=useRef(false);
+  const drawOverlayRef=useRef<()=>void>(()=>{});
+  const loadOlderRef=useRef(onLoadOlder);
+  const loadingOlderRef=useRef(loadingOlder);
+  const hasOlderRef=useRef(hasOlder);
   const [hoverTime,setHoverTime]=useState<number>();
   const [pinnedTime,setPinnedTime]=useState<number>();
   const [interactionHint,setInteractionHint]=useState('Перетаскивай график мышью · колесо = zoom');
@@ -112,6 +116,10 @@ export default function LiveCandleChart({
     candles.forEach(c=>map.set(Math.floor(c.timestamp/1000),c));
     return map;
   },[candles]);
+  useEffect(()=>{loadOlderRef.current=onLoadOlder},[onLoadOlder]);
+  useEffect(()=>{loadingOlderRef.current=loadingOlder},[loadingOlder]);
+  useEffect(()=>{hasOlderRef.current=hasOlder},[hasOlder]);
+
   const selectedCandle=(pinnedTime?candleBySecond.get(Math.floor(pinnedTime/1000)):undefined)
     ??(hoverTime?candleBySecond.get(Math.floor(hoverTime/1000)):undefined);
 
@@ -210,6 +218,7 @@ export default function LiveCandleChart({
       }
     }
   },[candles,pinnedTime,sessions]);
+  drawOverlayRef.current=drawOverlay;
 
   useEffect(()=>{
     const host=hostRef.current;
@@ -261,13 +270,14 @@ export default function LiveCandleChart({
     };
     const visible=(range:any)=>{
       visibleTimeRef.current=chart.timeScale().getVisibleRange();
-      drawOverlay();
-      if(!range||!onLoadOlder||loadingOlder||!hasOlder||autoLoadingRef.current)return;
+      drawOverlayRef.current();
+      const loadOlder=loadOlderRef.current;
+      if(!range||!loadOlder||loadingOlderRef.current||!hasOlderRef.current||autoLoadingRef.current)return;
       const info=series.barsInLogicalRange(range);
       if(info&&info.barsBefore<24){
         autoLoadingRef.current=true;
         setInteractionHint('Подгружаем старую историю · loading older candles…');
-        Promise.resolve(onLoadOlder()).finally(()=>{
+        Promise.resolve(loadOlder()).finally(()=>{
           autoLoadingRef.current=false;
           setInteractionHint('Перетаскивай график мышью · колесо = zoom');
         });
@@ -276,12 +286,12 @@ export default function LiveCandleChart({
     chart.subscribeCrosshairMove(move);
     chart.subscribeClick(click);
     chart.timeScale().subscribeVisibleLogicalRangeChange(visible);
-    chart.timeScale().subscribeVisibleTimeRangeChange(()=>{visibleTimeRef.current=chart.timeScale().getVisibleRange();drawOverlay()});
+    chart.timeScale().subscribeVisibleTimeRangeChange(()=>{visibleTimeRef.current=chart.timeScale().getVisibleRange();drawOverlayRef.current()});
 
     const resize=new ResizeObserver(()=>{
       if(!hostRef.current)return;
       chart.applyOptions({width:hostRef.current.clientWidth,height:hostRef.current.clientHeight});
-      drawOverlay();
+      drawOverlayRef.current();
     });
     resize.observe(host);
 
