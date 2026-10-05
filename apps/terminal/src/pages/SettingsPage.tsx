@@ -11,6 +11,8 @@ export default function SettingsPage(){
   });
   const[density,setDensity]=useState('Стандартная · Standard');
   const[theme,setTheme]=useState('Тёмная · Dark');
+  const[activeSection,setActiveSection]=useState('Основные');
+  const[notice,setNotice]=useState('Настройки пока локальные UI · Settings are UI mock');
   const flip=(key:ToggleKey)=>setToggles(v=>({...v,[key]:!v[key]}));
 
   const Toggle=({k}:{k:ToggleKey})=><button className={'settings-toggle '+(toggles[k]?'on':'')} onClick={()=>flip(k)} aria-pressed={toggles[k]}><i></i></button>;
@@ -20,12 +22,12 @@ export default function SettingsPage(){
       <div className="settings-side-title"><strong>НАСТРОЙКИ</strong><small>SETTINGS · TERMINAL & STRATEGY</small></div>
       {[
         ['⌂','Основные','General'],['◈','Торговля','Trading'],['◉','Риск-менеджмент','Risk Management'],['◷','Сессии и время','Sessions & Time'],['≋','Индикаторы','Indicators'],['◎','Радар','Radar'],['♧','Сигналы','Signals'],['♙','TG-Бот','Telegram Bot'],['▣','Мини-приложение','Mini App'],['♧','Уведомления','Notifications'],['▤','Интерфейс','Interface'],['◇','Доступы','Access'],['▦','Данные и API','Data & API'],['▤','Журнал','Logs'],['⬡','Резервные копии','Backups']
-      ].map(([icon,ru,en],i)=><button key={ru} className={i===0?'active':''}><span>{icon}</span><b>{ru}<small>{en}</small></b></button>)}
+      ].map(([icon,ru,en])=><button key={ru} className={activeSection===ru?'active':''} onClick={()=>{setActiveSection(ru);setNotice('Раздел выбран · Selected: '+ru)}}><span>{icon}</span><b>{ru}<small>{en}</small></b></button>)}
     </aside>
 
     <section className="settings-workspace">
       <header className="settings-title">
-        <div><h2>ОСНОВНЫЕ НАСТРОЙКИ <small>GENERAL SETTINGS</small></h2><p>Базовые параметры работы терминала · Basic terminal parameters</p></div>
+        <div><h2>ОСНОВНЫЕ НАСТРОЙКИ <small>GENERAL SETTINGS</small></h2><p>Базовые параметры работы терминала · Basic terminal parameters</p><div className="settings-mock-badge">UI MOCK — значения пока не применяются к реальному Core / бирже</div></div>
       </header>
 
       <section className="settings-summary">
@@ -106,11 +108,12 @@ export default function SettingsPage(){
 
         <article className="settings-card settings-management">
           <div className="settings-card-title">УПРАВЛЕНИЕ <small>MANAGEMENT</small></div>
-          <button className="save-settings">СОХРАНИТЬ НАСТРОЙКИ <small>SAVE SETTINGS</small></button>
-          <button className="reset-settings">СБРОСИТЬ К ЗНАЧЕНИЯМ ПО УМОЛЧАНИЮ <small>RESET TO DEFAULTS</small></button>
-          <div><button>Экспорт настроек<small>Export Settings</small></button><button>Импорт настроек<small>Import Settings</small></button></div>
+          <button className="save-settings" onClick={()=>setNotice("Сохранено локально · Saved locally (MOCK)")}>СОХРАНИТЬ НАСТРОЙКИ <small>SAVE SETTINGS</small></button>
+          <button className="reset-settings" onClick={()=>setNotice("Сброс интерфейса · UI reset (MOCK)")}>СБРОСИТЬ К ЗНАЧЕНИЯМ ПО УМОЛЧАНИЮ <small>RESET TO DEFAULTS</small></button>
+          <div><button onClick={()=>setNotice("Экспорт подготовлен · Export prepared (MOCK)")}>Экспорт настроек<small>Export Settings</small></button><button onClick={()=>setNotice("Импорт открыт · Import opened (MOCK)")}>Импорт настроек<small>Import Settings</small></button></div>
         </article>
       </section>
+      <div className="settings-notice">{notice}</div>
     </section>
   </main>
 }
