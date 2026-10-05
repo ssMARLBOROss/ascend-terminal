@@ -9,8 +9,8 @@ export const CORE_TIMEFRAMES = [
 export type AscendTimeframe = typeof CORE_TIMEFRAMES[number];
 
 export type AscendEventType =
-  | 'OBSERVE' | 'APPROACH' | 'TOUCH' | 'PROBE' | 'SWEEP'
-  | 'RECLAIM' | 'ACCEPT' | 'WATCH'
+  | 'OBSERVE' | 'APPROACH' | 'TOUCH' | 'PROBE' | 'BREAK' | 'SWEEP'
+  | 'RECLAIM' | 'ACCEPT' | 'FLIP' | 'WATCH'
   | 'HH' | 'HL' | 'LH' | 'LL'
   | 'BOS' | 'CHOCH' | 'MSS' | 'RETEST'
   | 'SHIFTING' | 'CONFIRMED' | 'ENTRY'
@@ -137,4 +137,90 @@ export interface GlobalContext {
   globalPressure: number;
   activeSession: SessionName;
   sessionFuel?: number;
+}
+
+
+/**
+ * Market-data layer contracts.
+ * DEX sources are discovery-only and can never authorize CONFIRMED/ENTRY by themselves.
+ */
+export type MarketDataSourceKind = 'CEX' | 'DEX';
+export type MarketDataSourceId = 'MEXC' | 'BYBIT' | 'OKX' | 'BINANCE' | 'DEX_SCANNER';
+
+export interface MarketDataSource {
+  id: MarketDataSourceId;
+  kind: MarketDataSourceKind;
+  enabled: boolean;
+  capabilities: Array<'UNIVERSE'|'CANDLES'|'TRADES'|'VOLUME'|'FUNDING'|'OPEN_INTEREST'|'LIQUIDITY'|'DISCOVERY'>;
+  decisionAuthority: 'VALIDATION' | 'DISCOVERY_ONLY';
+}
+
+export interface HistoricalCandle extends Candle {
+  source: MarketDataSourceId;
+  instrument: string;
+  timeframe: AscendTimeframe;
+  closed: boolean;
+}
+
+export interface CandleHistoryQuery {
+  instrument: string;
+  timeframe: AscendTimeframe;
+  before?: number;
+  after?: number;
+  limit: number;
+  sources?: MarketDataSourceId[];
+}
+
+export interface CandleHistoryPage {
+  items: HistoricalCandle[];
+  nextBefore?: number;
+  previousAfter?: number;
+  hasOlder: boolean;
+  hasNewer: boolean;
+  sourceCount: number;
+}
+
+export type ChronologyEventStatus = 'OBSERVED'|'CONFIRMED'|'INVALIDATED'|'PENDING';
+
+export interface MarketChronologyEvent extends AscendEvent {
+  source: MarketDataSourceId | 'ASCEND_CORE';
+  status: ChronologyEventStatus;
+  levelRole?: MarketLevel['role'];
+  confirmationTimeframe?: AscendTimeframe;
+  candleTimestamp?: number;
+}
+
+export type DiscoveryEventType =
+  | 'DEX_VOLUME_SPIKE'
+  | 'DEX_LIQUIDITY_INFLOW'
+  | 'DEX_LIQUIDITY_OUTFLOW'
+  | 'DEX_CEX_PRICE_GAP'
+  | 'NEW_PAIR';
+
+export interface MarketDiscoveryEvent {
+  discoveryId: string;
+  source: 'DEX_SCANNER';
+  type: DiscoveryEventType;
+  instrument: string;
+  timestamp: number;
+  price?: number;
+  score: number;
+  explanation: string;
+  payload: Record<string, unknown>;
+  /**
+   * Hard safety rule: discovery events may promote a symbol to Radar/WATCH,
+   * but cannot produce CONFIRMED/ENTRY without CEX + structure validation.
+   */
+  canConfirmTrade: false;
+}
+
+export interface MarketHistoryMeta {
+  instrument: string;
+  oldestTimestamp?: number;
+  newestTimestamp?: number;
+  estimatedCandles: number;
+  storedBaseTimeframe: '1m';
+  derivedTimeframes: AscendTimeframe[];
+  pagination: 'CURSOR';
+  lazyLoading: true;
 }
