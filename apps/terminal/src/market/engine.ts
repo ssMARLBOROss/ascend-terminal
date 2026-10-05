@@ -35,6 +35,21 @@ const range=(items:Candle[])=>items.length?{
   balance:(Math.max(...items.map(x=>x.high))+Math.min(...items.map(x=>x.low)))/2
 }:undefined;
 
+
+const nyFormatter=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+function nyParts(ts:number){
+  const parts=Object.fromEntries(nyFormatter.formatToParts(new Date(ts)).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
+  return{date:`${parts.year}-${parts.month}-${parts.day}`,minutes:Number(parts.hour)*60+Number(parts.minute)};
+}
+function previousDateKey(key:string){
+  const[y,m,d]=key.split('-').map(Number);
+  const dt=new Date(Date.UTC(y,m-1,d)-86400000);
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,'0')}-${String(dt.getUTCDate()).padStart(2,'0')}`;
+}
+function freezeAfter(items:Candle[],fallback:number){
+  return items.length?Math.max(...items.map(x=>x.timestamp))+15*60000:fallback;
+}
+
 const SESSION_WINDOWS:Array<{name:SessionName;start:number;end:number}>=[
   {name:'ASIA',start:0,end:8},
   {name:'LONDON',start:7,end:16},
@@ -105,6 +120,55 @@ export function deriveLiveMarketContext(instrument:string,context:Candle[],chart
 
   const nextAsiaStart=todayStart+(hour<24?24:48)*3600000;
   sessions.push({name:'ASIA',status:'UPCOMING',startsIn:formatCountdown(nextAsiaStart-now)});
+
+  // GG-Levels / US cash-session levels in America/New_York.
+  // ON = 17:00–09:29, RTH = 09:30–16:59, IB = 09:30–10:30.
+  // We classify each candle in NY local time so DST is handled by Intl rather than fixed UTC offsets.
+  const nyNow=nyParts(now);
+  const nyPrevDate=previousDateKey(nyNow.date);
+  const nyMin=nyNow.minutes;
+  let onItems:Candle[]=[];
+  let onStatus:'FROZEN'|'LIVE'='LIVE';
+  if(nyMin<570){
+    onItems=context.filter(c=>{const p=nyParts(c.timestamp);return(p.date===nyPrevDate&&p.minutes>=1020)||(p.date===nyNow.date&&p.minutes<570)});
+    onStatus='LIVE';
+  }else if(nyMin<1020){
+    onItems=context.filter(c=>{const p=nyParts(c.timestamp);return(p.date===nyPrevDate&&p.minutes>=1020)||(p.date===nyNow.date&&p.minutes<570)});
+    onStatus='FROZEN';
+  }else{
+    onItems=context.filter(c=>{const p=nyParts(c.timestamp);return p.date===nyNow.date&&p.minutes>=1020});
+    onStatus='LIVE';
+  }
+  const onRange=range(onItems);
+  if(onRange){
+    const available=onStatus==='FROZEN'?freezeAfter(onItems,now):now;
+    levels.push(
+      {id:'ONH',label:'ONH',price:onRange.high,status:onStatus,role:'RESISTANCE',availableFrom:available},
+      {id:'ONL',label:'ONL',price:onRange.low,status:onStatus,role:'SUPPORT',availableFrom:available}
+    );
+  }
+
+  const rthItems=context.filter(c=>{const p=nyParts(c.timestamp);return p.date===nyNow.date&&p.minutes>=570&&p.minutes<1020});
+  const rthRange=range(rthItems);
+  const rthStatus:'FROZEN'|'LIVE'=nyMin>=1020?'FROZEN':'LIVE';
+  if(rthRange){
+    const available=rthStatus==='FROZEN'?freezeAfter(rthItems,now):now;
+    levels.push(
+      {id:'RTH_HIGH',label:'RTH H',price:rthRange.high,status:rthStatus,role:'RESISTANCE',availableFrom:available},
+      {id:'RTH_LOW',label:'RTH L',price:rthRange.low,status:rthStatus,role:'SUPPORT',availableFrom:available}
+    );
+  }
+
+  const ibItems=context.filter(c=>{const p=nyParts(c.timestamp);return p.date===nyNow.date&&p.minutes>=570&&p.minutes<630});
+  const ibRange=range(ibItems);
+  const ibStatus:'FROZEN'|'LIVE'=nyMin>=630?'FROZEN':'LIVE';
+  if(ibRange){
+    const available=ibStatus==='FROZEN'?freezeAfter(ibItems,now):now;
+    levels.push(
+      {id:'IBH',label:'IBH',price:ibRange.high,status:ibStatus,role:'RESISTANCE',availableFrom:available},
+      {id:'IBL',label:'IBL',price:ibRange.low,status:ibStatus,role:'SUPPORT',availableFrom:available}
+    );
+  }
 
   // Market-level chronology is intentionally evaluated on closed 15m context candles.
   // Lower-TF structure will be a separate Core layer so raw breaks do not masquerade as entries.
