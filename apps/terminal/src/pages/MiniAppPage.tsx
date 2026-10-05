@@ -20,6 +20,8 @@ export default function MiniAppPage(){
   const[tier,setTier]=useState<AccessTier>('USER');
   const[preview,setPreview]=useState<'HOME'|'SIGNALS'|'DETAIL'>('HOME');
   const[settings,setSettings]=useState({market:true,signals:true,trades:true,stats:true});
+  const[device,setDevice]=useState<'MOBILE'|'TABLET'|'DESKTOP'>('MOBILE');
+  const[notice,setNotice]=useState('Mini App использует демо-данные · Mini App uses mock data');
 
   const toggle=(key:keyof typeof settings)=>setSettings(s=>({...s,[key]:!s[key]}));
 
@@ -38,25 +40,25 @@ export default function MiniAppPage(){
         ['CONTENT','Контент','Content'],
         ['STATS','Статистика','Statistics'],
         ['TEST','Тестирование','Testing']
-      ].map(([key,ru,en],i)=><button key={key} className={preview===key?'active':''} onClick={()=>['HOME','SIGNALS','DETAIL'].includes(key)&&setPreview(key as 'HOME'|'SIGNALS'|'DETAIL')}><span>{['⌂','⌁','▥','◷','♧','♙','◇','⚙','▤','▥','⌬'][i]}</span><b>{ru}<small>{en}</small></b></button>)}
+      ].map(([key,ru,en],i)=><button key={key} className={preview===key?'active':''} onClick={()=>{if(['HOME','SIGNALS','DETAIL'].includes(key))setPreview(key as 'HOME'|'SIGNALS'|'DETAIL');else setNotice(ru+' · '+en+' — следующий этап / coming next')}}><span>{['⌂','⌁','▥','◷','♧','♙','◇','⚙','▤','▥','⌬'][i]}</span><b>{ru}<small>{en}</small></b></button>)}
     </aside>
 
     <section className="miniapp-workspace">
       <header className="miniapp-title">
         <div><h2>ПРЕДПРОСМОТР МИНИ-ПРИЛОЖЕНИЯ <small>MINI APP PREVIEW</small></h2><p>Как это видит пользователь в Telegram · How user sees it in Telegram</p></div>
-        <div className="device-switch"><button className="active">Телефон<small>Mobile</small></button><button>Планшет<small>Tablet</small></button><button>Десктоп<small>Desktop</small></button></div>
+        <div className="device-switch"><button className={device==='MOBILE'?'active':''} onClick={()=>setDevice('MOBILE')}>Телефон<small>Mobile</small></button><button className={device==='TABLET'?'active':''} onClick={()=>{setDevice('TABLET');setNotice("Планшетный preview · Tablet preview (MOCK)")}}>Планшет<small>Tablet</small></button><button className={device==='DESKTOP'?'active':''} onClick={()=>{setDevice('DESKTOP');setNotice("Desktop preview · MOCK")}}>Десктоп<small>Desktop</small></button></div>
       </header>
 
       <section className="miniapp-main">
-        <div className="phone-stage">
+        <div className={"phone-stage device-"+device.toLowerCase()}>
           <div className="phone-shell">
             <div className="phone-notch"></div>
             <div className="phone-screen">
               <div className="phone-top"><b>9:41</b><span>●●● ᯤ</span></div>
-              <div className="phone-brand"><span>A</span><div><strong>ASCEND</strong><small>Trading Signals</small></div><button>⚙</button></div>
+              <div className="phone-brand"><span>A</span><div><strong>ASCEND</strong><small>Trading Signals</small></div><button onClick={()=>setNotice("Настройки профиля · Profile settings (MOCK)")}>⚙</button></div>
 
               {preview==='HOME'&&<>
-                <div className="phone-tabs"><button className="active">Рынок<small>Market</small></button><button onClick={()=>setPreview('SIGNALS')}>Сигналы<small>Signals</small></button><button>Мои сделки<small>My Trades</small></button></div>
+                <div className="phone-tabs"><button className="active">Рынок<small>Market</small></button><button onClick={()=>setPreview('SIGNALS')}>Сигналы<small>Signals</small></button><button onClick={()=>setNotice("Мои сделки · My Trades — MOCK")}>Мои сделки<small>My Trades</small></button></div>
                 <div className="phone-card market-state">
                   <div className="phone-card-head"><b>Текущее состояние рынка<small>Market State</small></b><span className="long-chip">LONG</span></div>
                   <strong>63%</strong>
@@ -108,8 +110,8 @@ export default function MiniAppPage(){
               <div className="phone-bottom">
                 <button className={preview==='HOME'?'active':''} onClick={()=>setPreview('HOME')}><span>⌂</span><small>Главная<br/>Home</small></button>
                 <button className={preview==='SIGNALS'?'active':''} onClick={()=>setPreview('SIGNALS')}><span>⌁</span><small>Сигналы<br/>Signals</small></button>
-                <button><span>▣</span><small>Сделки<br/>Trades</small></button>
-                <button><span>♙</span><small>Профиль<br/>Profile</small></button>
+                <button onClick={()=>setNotice("Сделки · Trades — MOCK")}><span>▣</span><small>Сделки<br/>Trades</small></button>
+                <button onClick={()=>setNotice("Профиль · Profile — MOCK")}><span>♙</span><small>Профиль<br/>Profile</small></button>
               </div>
             </div>
           </div>
@@ -140,7 +142,7 @@ export default function MiniAppPage(){
 
           <section className="mini-control-card">
             <div className="mini-control-title">СТАТУС МИНИ-ПРИЛОЖЕНИЯ <small>MINI APP STATUS</small></div>
-            <div className="mini-stat"><span>●</span><b>Онлайн<small>Online</small></b><em>Uptime: 3д 14ч</em></div>
+            <div className="mini-stat"><span>●</span><b>MOCK ONLINE<small>Demo status</small></b><em>UI preview</em></div>
             <div className="mini-stat"><span>♙</span><b>Пользователей<small>Users</small></b><strong>1,482</strong></div>
             <div className="mini-stat"><span>◉</span><b>Активных сейчас<small>Online now</small></b><strong>237</strong></div>
             <div className="mini-stat"><span>▥</span><b>Всего сигналов 24ч<small>Total signals (24h)</small></b><strong>64</strong></div>
@@ -149,8 +151,8 @@ export default function MiniAppPage(){
 
           <section className="mini-control-card">
             <div className="mini-control-title">ССЫЛКА НА МИНИ-ПРИЛОЖЕНИЕ <small>MINI APP LINK</small></div>
-            <div className="mini-link"><code>https://t.me/ascend_bot/app</code><button>⧉</button></div>
-            <div className="mini-link-actions"><button className="open-tg">➤ Открыть в Telegram<small>Open in Telegram</small></button><div className="qr-placeholder"><span>▦</span><small>QR</small></div></div>
+            <div className="mini-link"><code>https://t.me/ascend_bot/app</code><button onClick={()=>setNotice("Ссылка скопирована · Link copied (MOCK)")}>⧉</button></div>
+            <div className="mini-link-actions"><button className="open-tg" onClick={()=>setNotice("Открытие Telegram · Open Telegram (MOCK)")}>➤ Открыть в Telegram<small>Open in Telegram</small></button><div className="qr-placeholder"><span>▦</span><small>QR</small></div></div>
           </section>
         </aside>
       </section>
@@ -166,6 +168,7 @@ export default function MiniAppPage(){
           <div><strong>{ru}<small>{en}</small></strong>{tierFeatures[key].map(x=><p key={x}>✓ {x}</p>)}</div>
         </button>)}
       </section>
+      <div className="miniapp-notice">{notice}</div>
     </section>
   </main>
 }
