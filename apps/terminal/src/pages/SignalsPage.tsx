@@ -25,8 +25,9 @@ export default function SignalsPage({onNavigate}:{onNavigate:(view:string)=>void
   const[selectedSymbol,setSelectedSymbol]=useState('BTCUSDT');
   const[filter,setFilter]=useState<'ALL'|SignalState>('ALL');
   const[mode,setMode]=useState<'ALL'|'SCALP'|'NORMAL'>('ALL');
+  const[query,setQuery]=useState('');
   const selected=signals.find(s=>s.symbol===selectedSymbol)??signals[0];
-  const filtered=useMemo(()=>signals.filter(s=>(filter==='ALL'||s.state===filter)&&(mode==='ALL'||s.mode===mode)),[filter,mode]);
+  const filtered=useMemo(()=>signals.filter(s=>(filter==='ALL'||s.state===filter)&&(mode==='ALL'||s.mode===mode)&&(!query||s.symbol.toLowerCase().includes(query.toLowerCase()))),[filter,mode,query]);
 
   return <main className="signals-page">
     <aside className="signals-side">
@@ -67,7 +68,7 @@ export default function SignalsPage({onNavigate}:{onNavigate:(view:string)=>void
         <article className="signals-table-card">
           <div className="signals-toolbar">
             <div className="signals-tabs">{['ALL','WATCH','SHIFTING','CONFIRMED','ENTRY','TP','CLOSED'].map(x=><button className={filter===x?'active':''} onClick={()=>setFilter(x as 'ALL'|SignalState)} key={x}>{x}</button>)}</div>
-            <input placeholder="Поиск сигнала / Search signal…" />
+            <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск сигнала / Search signal…" />
           </div>
           <div className="signals-table-head">
             <span>#</span><span>Монета<br/><small>Symbol</small></span><span>ТФ<br/><small>TF</small></span><span>Сессия<br/><small>Session</small></span><span>Тип<br/><small>Side</small></span><span>Уровень<br/><small>Level</small></span><span>Цена<br/><small>Price</small></span><span>Статус<br/><small>Status</small></span><span>R:R</span><span>Время<br/><small>Time</small></span>
