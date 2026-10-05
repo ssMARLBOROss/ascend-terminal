@@ -1,0 +1,137 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { AscendTimeframe, Candle } from '@ascend/contracts';
+
+type Ticker={
+  lastPrice?:number;
+  change24hPct?:number;
+  high24h?:number;
+  low24h?:number;
+  turnover24h?:number;
+};
+
+const intervalMap:Record<string,string>={
+  '1m':'1','3m':'3','5m':'5','10m':'5','15m':'15','30m':'30','45m':'15',
+  '1H':'60','2H':'120','4H':'240','6H':'360','12H':'720','1D':'D','1W':'W','1M':'M'
+};
+
+function normalize(list:any[]):Candle[]{
+  return list.map(row=>({
+    timestamp:Number(row[0]),
+    open:Number(row[1]),
+    high:Number(row[2]),
+    low:Number(row[3]),
+    close:Number(row[4]),
+    volume:Number(row[5])
+  })).filter(c=>Number.isFinite(c.timestamp)&&Number.isFinite(c.close)).sort((a,b)=>a.timestamp-b.timestamp);
+}
+
+async function fetchKlines(symbol:string,interval:string,limit=360){
+  const qs=new URLSearchParams({category:'linear',symbol,interval,limit:String(limit)});
+  const res=await fetch('/market-api/v5/market/kline?'+qs.toString(),{cache:'no-store'});
+  if(!res.ok)throw new Error('REST '+res.status);
+  const json=await res.json();
+  if(json?.retCode!==0||!Array.isArray(json?.result?.list))throw new Error(json?.retMsg||'Invalid kline response');
+  return normalize(json.result.list);
+}
+
+export type LiveMarketState={
+  status:'CONNECTING'|'LIVE'|'RECONNECTING'|'ERROR';
+  source:'BYBIT';
+  symbol:string;
+  timeframe:AscendTimeframe;
+  candles:Candle[];
+  contextCandles:Candle[];
+  ticker:Ticker;
+  lastUpdate?:number;
+  latencyMs?:number;
+  error?:string;
+};
+
+export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMarketState{
+  const[candles,setCandles]=useState<Candle[]>([]);
+  const[contextCandles,setContextCandles]=useState<Candle[]>([]);
+  const[ticker,setTicker]=useState<Ticker>({});
+  const[status,setStatus]=useState<LiveMarketState['status']>('CONNECTING');
+  const[lastUpdate,setLastUpdate]=useState<number>();
+  const[latencyMs,setLatencyMs]=useState<number>();
+  const[error,setError]=useState<string>();
+  const retryRef=useRef<number>();
+  const interval=useMemo(()=>intervalMap[timeframe]??'15',[timeframe]);
+
+  useEffect(()=>{
+    let disposed=false;
+    setStatus('CONNECTING');setError(undefined);
+    Promise.all([fetchKlines(symbol,interval,360),fetchKlines(symbol,'15',360)])
+      .then(([chart,context])=>{if(disposed)return;setCandles(chart);setContextCandles(context)})
+      .catch(err=>{if(disposed)return;setError(String(err?.message??err))});
+    return()=>{disposed=true};
+  },[symbol,interval]);
+
+  useEffect(()=>{
+    let disposed=false;
+    let ws:WebSocket|undefined;
+    let ping:number|undefined;
+    const connect=()=>{
+      if(disposed)return;
+      setStatus(s=>s==='LIVE'?'RECONNECTING':'CONNECTING');
+      ws=new WebSocket('wss://stream.bybit.com/v5/public/linear');
+      ws.onopen=()=>{
+        if(disposed)return;
+        setStatus('LIVE');setError(undefined);
+        ws?.send(JSON.stringify({op:'subscribe',args:[`kline.${interval}.${symbol}`,`tickers.${symbol}`]}));
+        ping=window.setInterval(()=>{if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({op:'ping'}))},20000);
+      };
+      ws.onmessage=(event)=>{
+        if(disposed)return;
+        try{
+          const msg=JSON.parse(event.data);
+          const now=Date.now();
+          if(typeof msg?.ts==='number')setLatencyMs(Math.max(0,now-msg.ts));
+          setLastUpdate(now);
+          if(typeof msg?.topic==='string'&&msg.topic.startsWith('kline.')){
+            const item=Array.isArray(msg.data)?msg.data[0]:undefined;
+            if(!item)return;
+            const next:Candle={timestamp:Number(item.start),open:Number(item.open),high:Number(item.high),low:Number(item.low),close:Number(item.close),volume:Number(item.volume)};
+            setCandles(prev=>{
+              const copy=prev.slice();
+              const i=copy.findIndex(c=>c.timestamp===next.timestamp);
+              if(i>=0)copy[i]=next;else copy.push(next);
+              copy.sort((a,b)=>a.timestamp-b.timestamp);
+              return copy.slice(-500);
+            });
+            if(interval==='15'){
+              setContextCandles(prev=>{
+                const copy=prev.slice();
+                const i=copy.findIndex(c=>c.timestamp===next.timestamp);
+                if(i>=0)copy[i]=next;else copy.push(next);
+                copy.sort((a,b)=>a.timestamp-b.timestamp);
+                return copy.slice(-500);
+              });
+            }
+          }else if(typeof msg?.topic==='string'&&msg.topic.startsWith('tickers.')){
+            const item=Array.isArray(msg.data)?msg.data[0]:msg.data;
+            if(!item)return;
+            setTicker(prev=>({
+              lastPrice:item.lastPrice!==undefined?Number(item.lastPrice):prev.lastPrice,
+              change24hPct:item.price24hPcnt!==undefined?Number(item.price24hPcnt)*100:prev.change24hPct,
+              high24h:item.highPrice24h!==undefined?Number(item.highPrice24h):prev.high24h,
+              low24h:item.lowPrice24h!==undefined?Number(item.lowPrice24h):prev.low24h,
+              turnover24h:item.turnover24h!==undefined?Number(item.turnover24h):prev.turnover24h
+            }));
+          }
+        }catch{}
+      };
+      ws.onerror=()=>{if(!disposed){setStatus('ERROR');setError('WebSocket error')}};
+      ws.onclose=()=>{
+        if(ping)window.clearInterval(ping);
+        if(disposed)return;
+        setStatus('RECONNECTING');
+        retryRef.current=window.setTimeout(connect,1800);
+      };
+    };
+    connect();
+    return()=>{disposed=true;if(ping)window.clearInterval(ping);if(retryRef.current)window.clearTimeout(retryRef.current);ws?.close()};
+  },[symbol,interval]);
+
+  return{status,source:'BYBIT',symbol,timeframe,candles,contextCandles,ticker,lastUpdate,latencyMs,error};
+}
