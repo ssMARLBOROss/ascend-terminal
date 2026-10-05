@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useBybitUniverse } from '../market/useBybitUniverse';
 
 type RadarState='WATCH'|'SHIFTING'|'CONFIRMED';
 type Direction='LONG'|'SHORT'|'NEUTRAL';
@@ -38,10 +39,11 @@ const rows:RadarRow[]=[
   {symbol:'ARBUSDT',price:'1.329',change:'+2.88%',group:'DEX/CEX GAP',level:'DEX/CEX gap +0.7%',distance:'0.70%',session:'NEW YORK',state:'WATCH',direction:'NEUTRAL',used:44,remaining:79,volume:'2.6×',vwap:'ABOVE',lastEvent:'PRICE GAP',tf:'5m',source:'DEX→CEX'}
 ];
 
-const groups=['ALL','HOT NOW','WATCH','SHIFTING','CONFIRMED','RC30 LONG','RC70 SHORT','YH/YL APPROACH','ONH/ONL APPROACH','SESSION TRANSITION','DEX HOT','DEX VOLUME SPIKE','DEX/CEX GAP'];
+const groups=['REAL MARKET','ALL','HOT NOW','WATCH','SHIFTING','CONFIRMED','RC30 LONG','RC70 SHORT','YH/YL APPROACH','ONH/ONL APPROACH','SESSION TRANSITION','DEX HOT','DEX VOLUME SPIKE','DEX/CEX GAP'];
 const stateClass=(s:RadarState)=>s.toLowerCase();
 const stateRu:Record<RadarState,string>={WATCH:'НАБЛЮДЕНИЕ',SHIFTING:'СМЕНА',CONFIRMED:'ПОДТВЕРЖДЕНО'};
 const groupRu:Record<string,string>={
+  'REAL MARKET':'РЕАЛЬНЫЙ РЫНОК',
   'ALL':'ВСЕ',
   'HOT NOW':'ГОРЯЧИЕ',
   'WATCH':'НАБЛЮДЕНИЕ',
@@ -59,14 +61,43 @@ const groupRu:Record<string,string>={
 
 export default function RadarPage({onNavigate,onOpenMarket}:{onNavigate:(view:string)=>void;onOpenMarket?:(symbol:string)=>void}){
   const[selectedSymbol,setSelectedSymbol]=useState('BTCUSDT');
-  const[group,setGroup]=useState('ALL');
+  const[group,setGroup]=useState('REAL MARKET');
   const[direction,setDirection]=useState('ALL');
   const[session,setSession]=useState('ALL');
   const[tf,setTf]=useState('ALL');
   const[query,setQuery]=useState('');
   const[notice,setNotice]=useState('');
+  const universe=useBybitUniverse();
+  const liveRows=useMemo<RadarRow[]>(()=>universe.items
+    .slice()
+    .sort((a,b)=>b.turnover24h-a.turnover24h)
+    .slice(0,120)
+    .map(t=>{
+      const span=Math.max(t.high24h-t.low24h,Math.abs(t.lastPrice)*0.0001);
+      const used=Math.max(0,Math.min(100,((t.lastPrice-t.low24h)/span)*100));
+      const nearest=Math.min(Math.abs(t.high24h-t.lastPrice),Math.abs(t.lastPrice-t.low24h));
+      return{
+        symbol:t.symbol,
+        price:t.lastPrice>=1000?t.lastPrice.toLocaleString('en-US',{maximumFractionDigits:2}):String(Number(t.lastPrice.toPrecision(7))),
+        change:(t.change24hPct>=0?'+':'')+t.change24hPct.toFixed(2)+'%',
+        group:'REAL MARKET',
+        level:used>80?'24H HIGH':used<20?'24H LOW':'24H RANGE',
+        distance:(nearest/Math.max(t.lastPrice,1e-12)*100).toFixed(2)+'%',
+        session:'LIVE',
+        state:'WATCH',
+        direction:t.change24hPct>0.25?'LONG':t.change24hPct<-0.25?'SHORT':'NEUTRAL',
+        used:Math.round(used),
+        remaining:Math.round(100-used),
+        volume:t.turnover24h>=1e9?(t.turnover24h/1e9).toFixed(1)+'B':t.turnover24h>=1e6?(t.turnover24h/1e6).toFixed(1)+'M':(t.turnover24h/1e3).toFixed(0)+'K',
+        vwap:'—',
+        lastEvent:Math.abs(t.change24hPct)>=3?'24H EXPANSION':'REAL TICKER',
+        tf:'LIVE',
+        source:'CEX'
+      };
+    }),[universe.items]);
 
-  const filtered=useMemo(()=>rows.filter(r=>{
+  const baseRows=group==='REAL MARKET'?liveRows:rows;
+  const filtered=useMemo(()=>baseRows.filter(r=>{
     if(query&& !r.symbol.toLowerCase().includes(query.toLowerCase()))return false;
     if(group==='WATCH'||group==='SHIFTING'||group==='CONFIRMED'){
       if(r.state!==group)return false;
@@ -75,9 +106,9 @@ export default function RadarPage({onNavigate,onOpenMarket}:{onNavigate:(view:st
     if(session!=='ALL'&&r.session!==session)return false;
     if(tf!=='ALL'&&r.tf!==tf)return false;
     return true;
-  }),[group,direction,session,tf,query]);
+  }),[baseRows,group,direction,session,tf,query]);
 
-  const selected=rows.find(r=>r.symbol===selectedSymbol)??rows[0];
+  const selected=baseRows.find(r=>r.symbol===selectedSymbol)??baseRows[0]??rows[0];
 
   return <main className="radar-page">
     <section className="radar-head">
@@ -85,7 +116,7 @@ export default function RadarPage({onNavigate,onOpenMarket}:{onNavigate:(view:st
         <h2>УМНЫЙ РАДАР <small>SMART RADAR</small></h2>
         <p>Весь фьючерсный рынок · Futures universe → быстрый математический фильтр → глубокий расчёт только для кандидатов</p>
       </div>
-      <div className="radar-health"><span>● MOCK / PAPER</span><b>СКАНЕР ONLINE · SCANNER ONLINE</b></div>
+      <div className="radar-health"><span className={universe.status==='LIVE'?'positive':'warning'}>● {universe.status} · BYBIT PUBLIC</span><b>{universe.items.length||'—'} USDT FUTURES · 5s SNAPSHOT</b></div>
     </section>
 
     <section className="radar-kpis">
@@ -93,7 +124,7 @@ export default function RadarPage({onNavigate,onOpenMarket}:{onNavigate:(view:st
       <button onClick={()=>setGroup('WATCH')} className={group==='WATCH'?'active':''}><small>НАБЛЮДЕНИЕ <em>WATCH</em></small><b>64</b><span>ждём реакцию · waiting reaction</span></button>
       <button onClick={()=>setGroup('SHIFTING')} className={group==='SHIFTING'?'active':''}><small>СМЕНА <em>SHIFTING</em></small><b>21</b><span>структура меняется · structure shifting</span></button>
       <button onClick={()=>setGroup('CONFIRMED')} className={group==='CONFIRMED'?'active':''}><small>ПОДТВЕРЖДЕНО <em>CONFIRMED</em></small><b>9</b><span>кандидаты на вход · entry-ready</span></button>
-      <div><small>РЫНОК <em>UNIVERSE</em></small><b>412</b><span>фьючерсные пары · futures symbols</span></div>
+      <button onClick={()=>setGroup('REAL MARKET')} className={group==='REAL MARKET'?'active':''}><small>РЫНОК <em>LIVE UNIVERSE</em></small><b>{universe.items.length||'—'}</b><span>Bybit USDT futures · public</span></button>
       <button onClick={()=>setGroup('DEX HOT')} className={group==='DEX HOT'?'active':''}><small>DEX РАННИЕ <em>EARLY WARNING</em></small><b>7</b><span>discovery only · без CONFIRMED</span></button>
     </section>
 
@@ -101,8 +132,8 @@ export default function RadarPage({onNavigate,onOpenMarket}:{onNavigate:(view:st
       <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск монеты / Search symbol…" />
       <div className="radar-group-tabs">{groups.map(g=><button key={g} className={group===g?'active':''} onClick={()=>setGroup(g)}><span>{groupRu[g]}</span><small>{g}</small></button>)}</div>
       <select value={direction} onChange={e=>setDirection(e.target.value)}><option value="ALL">Все направления / All</option><option>LONG</option><option>SHORT</option><option>NEUTRAL</option></select>
-      <select value={session} onChange={e=>setSession(e.target.value)}><option value="ALL">Все сессии / All</option><option>ASIA</option><option>LONDON</option><option>NEW YORK</option></select>
-      <select value={tf} onChange={e=>setTf(e.target.value)}><option value="ALL">Все ТФ / All TF</option><option>3m</option><option>5m</option><option>10m</option><option>15m</option></select>
+      <select value={session} onChange={e=>setSession(e.target.value)}><option value="ALL">Все сессии / All</option><option>LIVE</option><option>ASIA</option><option>LONDON</option><option>NEW YORK</option></select>
+      <select value={tf} onChange={e=>setTf(e.target.value)}><option value="ALL">Все ТФ / All TF</option><option>LIVE</option><option>3m</option><option>5m</option><option>10m</option><option>15m</option></select>
     </section>
 
     <section className="radar-body">
@@ -117,7 +148,7 @@ export default function RadarPage({onNavigate,onOpenMarket}:{onNavigate:(view:st
             <span className={r.direction==='LONG'?'positive':r.direction==='SHORT'?'negative':''}>{r.direction}</span><span className={r.source==='DEX→CEX'?'dex-source':''}>{r.source}</span><span>{r.used}%</span><span>{r.remaining}%</span><span>{r.volume}</span><span>{r.vwap}</span><span>{r.lastEvent}</span>
           </button>)}
         </div>
-        <div className="radar-table-foot"><span>Показано {filtered.length} из {rows.length} mock-кандидатов / candidates</span><span>Сортировка / Sort: активность → близость к уровню → стадия Core</span></div>
+        <div className="radar-table-foot"><span>Показано {filtered.length} из {group==='REAL MARKET'?liveRows.length:rows.length} · {group==='REAL MARKET'?'REAL BYBIT':'ASCEND MOCK'}</span><span>{group==='REAL MARKET'?'Сортировка: 24h turnover · обновление ~5 сек':'Сортировка: активность → близость → Core'}</span></div>
       </article>
 
       <aside className="radar-preview">
