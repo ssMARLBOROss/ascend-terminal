@@ -9,6 +9,7 @@ import RadarPage from './pages/RadarPage';
 import SignalsPage from './pages/SignalsPage';
 import MiniAppPage from './pages/MiniAppPage';
 import SettingsPage from './pages/SettingsPage';
+import DevPage from './pages/DevPage';
 
 const fmtPrice=(v?:number)=>typeof v==='number'?v.toLocaleString('en-US'):'—';
 function payloadValue(event:AscendEvent,key:string,fallback='—'){const value=(event.payload as Record<string,unknown>)[key];return value===undefined||value===null?fallback:String(value)}
@@ -61,11 +62,7 @@ export default function App(){
    currentView==='SIGNALS' ? <div className="standalone-view"><SignalsPage onNavigate={setCurrentView}/></div> :
    currentView==='MINIAPP' ? <div className="standalone-view"><MiniAppPage/></div> :
    currentView==='SETTINGS' ? <div className="standalone-view"><SettingsPage/></div> :
-   ['DEV'].includes(currentView) ? <PlaceholderPage
-      title={{DEV:'РАЗРАБОТКА / ИНФРАСТРУКТУРА · DEV / INFRASTRUCTURE'}[currentView] || currentView}
-      subtitle="Раздел подключён. Section connected. Следующим шагом оформим его как полноценный рабочий экран."
-      onBack={()=>setCurrentView('OVERVIEW')}
-    /> :
+   currentView==='DEV' ? <div className="standalone-view"><DevPage/></div> :
   <div className={'terminal-grid '+(currentView==='MARKET'?'market-view':'')}>
    <nav className="nav-rail">{[
      ['OVERVIEW','Обзор / Overview'],['MARKET','Рынок / Market'],['RADAR','Радар / Radar'],['SIGNALS','Сигналы / Signals'],['TELEGRAM','TG-Бот / Telegram'],['MINIAPP','Мини / Mini App'],['ANALYTICS','Аналитика / Analytics'],['SETTINGS','Настройки / Settings'],['DEV','Разработка / Dev']
