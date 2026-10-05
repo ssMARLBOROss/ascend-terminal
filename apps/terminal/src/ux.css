@@ -1,0 +1,160 @@
+/* ASCEND UX CLEANUP V1 — 1366x768 control pass */
+:root{--en:#4e7083;--ru:#d7e5ed}
+body{overflow-x:hidden}
+button{transition:border-color .14s ease,background .14s ease,color .14s ease,opacity .14s ease}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:1px solid #37bde7;outline-offset:2px}
+button small,.top-nav small,.section-title small,.settings-card-title small,.dev-card-title small{color:var(--en)!important;opacity:.82}
+
+/* Top bar: Russian leads, English teaches without competing */
+.global-bar.app-nav{height:58px;grid-template-columns:235px minmax(0,1fr) auto;padding:0 9px;gap:8px}
+.brand-block strong{font-size:13px}.brand-block small{font-size:6px;letter-spacing:.08em;color:#58788b}
+.top-nav{gap:2px;overflow:visible}
+.top-nav button{min-width:62px;padding:6px 6px}
+.top-nav button span{font-size:8px;line-height:1.05}
+.top-nav button small{font-size:5px;margin-top:3px;letter-spacing:.03em}
+.top-nav button.active{box-shadow:none}
+.global-actions{gap:5px}
+.global-actions button,.live-status{font-size:7px;padding:6px 7px}
+.mock-status{color:#d6b25f!important;border-color:#5f4c27!important;background:#171209!important}
+.system-bar{height:28px;font-size:7.5px;gap:11px}
+.mock-footer{color:#d0ab5f}
+
+/* Global bilingual hierarchy */
+.analytics-card-head strong,.panel-title strong,.settings-card-title,.dev-card-title,.mini-control-title,.tg-panel-head strong{color:var(--ru)}
+.analytics-card-head small,.panel-title small,.settings-card-title small,.dev-card-title small,.mini-control-title small,.tg-panel-head small{font-size:5px!important;color:var(--en)!important}
+.kv span small,.signal-math span small,.preview-meter span small,.settings-field span small,.session-setting span small,.api-row span small{font-size:5px!important;color:var(--en)!important}
+
+/* Overview: breathe at 1366 without wasting space */
+.overview-page{grid-template-columns:215px minmax(500px,1fr) 230px;gap:10px;padding:10px;min-height:calc(100vh - 86px)}
+.overview-left,.overview-right{gap:9px}
+.overview-card{padding:10px}
+.overview-title h1{font-size:24px}
+.orchestrator{height:455px}
+.orbit-one{width:245px;height:245px}.orbit-two{width:350px;height:350px}.orbit-three{width:455px;height:455px}
+.ai-core{width:130px;height:130px}
+.orbit-node{width:72px;height:72px}
+.overview-quick{gap:7px;margin-top:8px}.overview-quick button{min-height:60px;padding:8px}
+.ov-head strong{font-size:7px}
+
+/* Market: keep chart dominant, mute secondary annotation */
+.market-workspace{padding:6px}
+.terminal-grid{grid-template-columns:54px 228px minmax(520px,1fr) 286px}
+.radar-panel,.decision-panel{padding:6px}
+.panel-title{margin-bottom:6px}
+.panel-title strong{font-size:9px}
+.instrument-bar{min-height:40px;padding:5px 7px}
+.session-card{padding:6px 7px}
+.lifecycle{padding:4px;margin-top:5px}
+.lifecycle button{font-size:6px;padding:3px 5px}
+.chart-shell{margin-top:5px}
+.chart-toolbar{height:36px}
+.mock-chart{height:455px}
+.price-path{height:425px}
+.level{font-size:6px;opacity:.78}
+.level b{font-size:6px}
+.balance,.upper-wall,.lower-wall{opacity:1}
+.event-popover{width:min(320px,38%);padding:8px}
+.event-popover p{font-size:7px}
+.analytics-strip{gap:4px}.analytics-strip>div{padding:6px}.analytics-strip span{font-size:5px}
+.decision-panel section{padding:7px}.decision-panel p{font-size:7px}
+
+/* Radar: show decision columns in table, move metrics to preview */
+.radar-page{padding:7px}
+.radar-head{margin-bottom:6px}.radar-head h2{font-size:15px}
+.radar-kpis{gap:5px}.radar-kpis>button,.radar-kpis>div{padding:7px}.radar-kpis b{font-size:15px}
+.radar-controls{margin-top:5px;padding:5px;grid-template-columns:160px minmax(0,1fr) 105px 115px 90px}
+.radar-body{grid-template-columns:minmax(0,1fr) 270px;gap:6px;margin-top:5px}
+.radar-table-head,.radar-table-row{grid-template-columns:24px 76px 67px 53px 1.2fr 58px 68px 76px 68px 84px}
+.radar-table-head>span:nth-child(10),.radar-table-head>span:nth-child(11),.radar-table-head>span:nth-child(12),.radar-table-head>span:nth-child(13),
+.radar-table-row>span:nth-child(10),.radar-table-row>span:nth-child(11),.radar-table-row>span:nth-child(12),.radar-table-row>span:nth-child(13){display:none}
+.radar-table-head{padding:6px;font-size:6px}.radar-table-row{padding:7px 6px;font-size:7px}
+.radar-table-body{max-height:510px}
+.radar-preview{padding:7px}
+.radar-preview section{padding:7px;margin-bottom:5px}
+
+/* Signals: preserve readable decision density */
+.signals-page{grid-template-columns:155px minmax(0,1fr)}
+.signals-side{padding:8px 6px}
+.signals-side>button{min-height:37px}
+.signals-workspace{padding:7px}
+.signals-kpis{gap:5px}.signals-kpis>div{padding:7px}.signals-kpis b{font-size:15px}
+.signals-main{grid-template-columns:minmax(0,1fr) 290px;gap:6px}
+.signals-table-head,.signals-row{grid-template-columns:24px 80px 43px 68px 52px 1fr 62px 82px 48px 48px}
+.signal-detail{padding:7px}
+
+/* Telegram: denser vertically, preserve action area above fold */
+.tg-page{grid-template-columns:135px minmax(0,1fr)}
+.tg-sidebar{padding:8px 6px}
+.tg-sidebar>button{height:34px}
+.tg-workspace{padding:7px}
+.tg-title{margin-bottom:6px}
+.tg-grid{gap:6px}
+.tg-panel{padding:7px}
+.tg-signal{padding:6px}
+.tg-signals{gap:4px}
+.queue-head,.queue-row{padding:6px}
+.message-preview,.signal-life{padding:8px}
+.actions button{min-height:32px}
+.button-states button{height:27px}
+
+/* Mini App: keep phone useful, shrink admin chrome */
+.miniapp-page{grid-template-columns:185px minmax(0,1fr)}
+.miniapp-side{padding:8px 6px}
+.miniapp-side>button{min-height:38px}
+.miniapp-workspace{padding:7px}
+.miniapp-title{margin-bottom:6px}
+.miniapp-main{grid-template-columns:minmax(480px,1fr) 300px;gap:6px}
+.phone-stage{min-height:590px;padding:10px}
+.phone-shell{transform:scale(.9);transform-origin:center}
+.miniapp-control{gap:5px}
+.mini-control-card{padding:7px}
+.access-preview{gap:5px;margin-top:6px}
+
+/* Settings: stronger hierarchy, shorter scan path */
+.settings-page{grid-template-columns:205px minmax(0,1fr)}
+.settings-side{padding:8px 6px}
+.settings-side>button{min-height:38px}
+.settings-workspace{padding:7px}
+.settings-title{margin-bottom:6px}
+.settings-summary{grid-template-columns:repeat(4,1fr);gap:5px}
+.settings-summary>div{padding:7px}
+.settings-grid{grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.settings-card{padding:7px}
+.settings-card-title{padding-bottom:6px}
+.settings-field{padding:5px 0}
+.session-setting{padding:6px 0}
+.settings-interface{grid-column:span 1}
+.settings-management{min-height:170px}
+
+/* DEV: never look like verified live infrastructure */
+.dev-page{grid-template-columns:195px minmax(0,1fr)}
+.dev-side{padding:8px 6px}
+.dev-side>button{min-height:37px}
+.dev-workspace{padding:7px}
+.dev-title{margin-bottom:6px}
+.dev-kpis{grid-template-columns:repeat(6,1fr);gap:5px}
+.dev-kpis>div{padding:7px}
+.dev-kpis b{font-size:15px}
+.dev-main-grid{gap:6px;margin-top:6px}
+.dev-card{padding:7px}
+.service-row{padding:6px 4px}
+.logs-body{max-height:275px}
+.management-actions button{min-height:42px}
+.dev-notice{border-color:#665125;background:#171208;color:#d3af63}
+
+/* 1366-class viewport specifically */
+@media(max-width:1400px){
+ .global-bar.app-nav{grid-template-columns:205px minmax(0,1fr) 160px}
+ .brand-block small{max-width:155px}
+ .top-nav button{min-width:56px;padding-left:4px;padding-right:4px}
+ .top-nav button span{font-size:7px}
+ .global-actions button{max-width:78px;white-space:normal;line-height:1.05}
+ .overview-page{grid-template-columns:205px minmax(470px,1fr) 220px}
+ .terminal-grid{grid-template-columns:52px 215px minmax(500px,1fr) 270px}
+ .chart-toggles button{padding:4px 5px;font-size:6px}
+ .settings-summary{grid-template-columns:repeat(4,1fr)}
+ .dev-kpis{grid-template-columns:repeat(3,1fr)}
+}
+
+/* English remains visible for learning, but never visually louder than Russian */
+small,em{font-weight:500}
