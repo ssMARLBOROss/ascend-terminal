@@ -43,12 +43,12 @@ export default function DevPage(){
 
   <section className="dev-workspace">
    <header className="dev-title">
-    <div><h2>ИНФРАСТРУКТУРА · DEV <small>INFRASTRUCTURE</small></h2><p>Статус сервисов, деплой, логи, мониторинг и управление системой · System status, deploy, logs and management</p></div>
-    <div className="dev-title-actions"><button>Открыть PROD<small>Open Production</small></button><button>Открыть DEV<small>Open Development</small></button><button>Репозиторий<small>Repository</small></button></div>
+    <div><h2>ИНФРАСТРУКТУРА · DEV <small>INFRASTRUCTURE</small></h2><p>Статус сервисов, деплой, логи, мониторинг и управление системой · System status, deploy, logs and management</p><div className="dev-mock-badge">ДЕМО-ДАННЫЕ · MOCK DATA — реальные сервисы пока не управляются</div></div>
+    <div className="dev-title-actions"><button onClick={()=>mockAction("Открыть PROD · Open Production")}>Открыть PROD<small>Open Production · MOCK</small></button><button onClick={()=>mockAction("Открыть DEV · Open Development")}>Открыть DEV<small>Open Development · MOCK</small></button><button onClick={()=>mockAction("Репозиторий · Repository")}>Репозиторий<small>Repository · MOCK</small></button></div>
    </header>
 
    <section className="dev-kpis">
-    <div><small>Статус системы<em>System status</em></small><b className="positive">● Онлайн</b><span>Online</span></div>
+    <div><small>Статус системы<em>System status</em></small><b className="warning">● MOCK ONLINE</b><span>Демо-статус · Demo status</span></div>
     <div><small>Текущая версия<em>Current version</em></small><b>3.5.3</b><span>Production</span></div>
     <div><small>Последний деплой<em>Last deploy</em></small><b>05.10.2026 15:24</b><span>Успешно · Success</span></div>
     <div><small>Аптайм 24ч<em>Uptime (24h)</em></small><b className="positive">99.9%</b><span>stable</span></div>
@@ -60,7 +60,7 @@ export default function DevPage(){
     <article className="dev-card services-card">
      <div className="dev-card-title">СЕРВИСЫ СИСТЕМЫ <small>SYSTEM SERVICES</small></div>
      <div className="services-head"><span>Сервис<small>Service</small></span><span>Статус<small>Status</small></span><span>Версия<small>Version</small></span><span>Аптайм<small>Uptime</small></span><span>CPU</span><span>Память<small>Memory</small></span></div>
-     {services.map(([ru,en,version,uptime,cpu,mem,status])=><div className="service-row" key={en}><span><b>{ru}</b><small>{en}</small></span><span className={status==='ONLINE'?'positive':'warning'}>● {status==='ONLINE'?'Онлайн · Online':'Внимание · Warn'}</span><span>{version}</span><span>{uptime}</span><span><i className="usage-bar"><em style={{width:cpu}}></em></i>{cpu}</span><span><i className="usage-bar blue"><em style={{width:mem}}></em></i>{mem}</span></div>)}
+     {services.map(([ru,en,version,uptime,cpu,mem,status])=><div className="service-row" key={en}><span><b>{ru}</b><small>{en}</small></span><span className={status==='ONLINE'?'positive':'warning'}>● {status==='ONLINE'?'MOCK ONLINE':'Внимание · Warn'}</span><span>{version}</span><span>{uptime}</span><span><i className="usage-bar"><em style={{width:cpu}}></em></i>{cpu}</span><span><i className="usage-bar blue"><em style={{width:mem}}></em></i>{mem}</span></div>)}
     </article>
 
     <article className="dev-card logs-card">
