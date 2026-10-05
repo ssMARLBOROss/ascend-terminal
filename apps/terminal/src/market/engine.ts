@@ -69,7 +69,9 @@ function makeEvent(
 }
 
 export function deriveLiveMarketContext(instrument:string,context:Candle[],chart:Candle[],now=Date.now()):LiveMarketContext{
-  if(!context.length)return{sessions:[],levels:[],chronology:[]};
+  // Do not fabricate levels from a single websocket candle when historical REST is unavailable.
+  // We need roughly two days of 15m context before YH/YL, session and ON/RTH/IB levels are trusted.
+  if(context.length<192)return{sessions:[],levels:[],chronology:[]};
   const todayStart=utcDayStart(now);
   const yesterdayStart=todayStart-86400000;
   const yesterdayEnd=todayStart;
