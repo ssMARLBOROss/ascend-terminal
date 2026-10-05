@@ -204,6 +204,9 @@ export function deriveLiveMarketContext(instrument:string,context:Candle[],chart
   chronology.sort((a,b)=>a.timestamp-b.timestamp);
   const deduped=chronology.filter((e,i,arr)=>i===0||!(e.timestamp===arr[i-1].timestamp&&e.type===arr[i-1].type&&e.level===arr[i-1].level)).slice(-30);
 
+  const levelPriority=['ONH','ONL','RTH_HIGH','RTH_LOW','IBH','IBL','YH','YL','VWAP','OPEN'];
+  levels.sort((a,b)=>{const ai=levelPriority.indexOf(a.id),bi=levelPriority.indexOf(b.id);return(ai<0?99:ai)-(bi<0?99:bi)});
+
   const recent=chart.slice(-21);
   const avg=recent.slice(0,-1).reduce((s,c)=>s+c.volume,0)/Math.max(1,recent.length-1);
   const volumeRatio=avg>0&&recent.length?recent[recent.length-1].volume/avg:undefined;
