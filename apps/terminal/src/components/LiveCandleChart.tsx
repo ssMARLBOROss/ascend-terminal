@@ -9,7 +9,7 @@ export default function LiveCandleChart({
   const end=Math.max(0,candles.length-offset);
   const start=Math.max(0,end-windowSize);
   const data=candles.slice(start,end);
-  if(!data.length)return <div className="live-candle-root loading"><b>ЗАГРУЖАЕМ РЕАЛЬНЫЕ СВЕЧИ · LOADING LIVE CANDLES</b><small>{source} PUBLIC MARKET DATA</small></div>;
+  if(data.length<20)return <div className="live-candle-root loading"><b>ЗАГРУЖАЕМ ИСТОРИЮ СВЕЧЕЙ · LOADING CANDLE HISTORY</b><small>{source} WebSocket уже может быть LIVE, но график ждёт REST-историю · candles: {data.length}</small></div>;
 
   const high=Math.max(...data.map(c=>c.high),...levels.map(l=>l.price));
   const low=Math.min(...data.map(c=>c.low),...levels.map(l=>l.price));
