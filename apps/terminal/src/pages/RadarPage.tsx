@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-type RadarState='WATCH'|'SHIFTING'|'CONFIRMED';
+type RadarState='НАБЛЮДЕНИЕ · WATCH'|'СМЕНА · SHIFTING'|'ПОДТВЕРЖДЕНО · CONFIRMED';
 type Direction='LONG'|'SHORT'|'NEUTRAL';
 
 type RadarRow={
@@ -22,19 +22,19 @@ type RadarRow={
 };
 
 const rows:RadarRow[]=[
-  {symbol:'BTCUSDT',price:'86,140',change:'+0.42%',group:'HOT NOW',level:'ONH / UPPER WALL',distance:'0.21%',session:'NEW YORK',state:'SHIFTING',direction:'SHORT',used:82,remaining:69,volume:'1.8×',vwap:'ABOVE',lastEvent:'10m CHOCH↓',tf:'15m'},
-  {symbol:'ETHUSDT',price:'3,241',change:'+1.12%',group:'RC30 LONG',level:'RC30 / RTH LOW',distance:'0.34%',session:'NEW YORK',state:'CONFIRMED',direction:'LONG',used:61,remaining:58,volume:'2.1×',vwap:'ABOVE',lastEvent:'1m BOS↑',tf:'5m'},
-  {symbol:'SOLUSDT',price:'186.40',change:'-0.28%',group:'RC70 SHORT',level:'RC70 / YH',distance:'0.18%',session:'LONDON',state:'WATCH',direction:'SHORT',used:74,remaining:43,volume:'1.4×',vwap:'BELOW',lastEvent:'TOUCH',tf:'10m'},
-  {symbol:'INJUSDT',price:'17.42',change:'+3.21%',group:'YH/YL APPROACH',level:'YH',distance:'0.12%',session:'NEW YORK',state:'SHIFTING',direction:'LONG',used:68,remaining:62,volume:'2.4×',vwap:'ABOVE',lastEvent:'5m MSS↑',tf:'5m'},
-  {symbol:'LINKUSDT',price:'11.86',change:'-1.32%',group:'ONH/ONL APPROACH',level:'ONL',distance:'0.09%',session:'ASIA',state:'WATCH',direction:'LONG',used:57,remaining:71,volume:'1.2×',vwap:'BELOW',lastEvent:'APPROACH',tf:'15m'},
-  {symbol:'CYBERUSDT',price:'5.684',change:'+4.12%',group:'SESSION TRANSITION',level:'London High',distance:'0.27%',session:'NEW YORK',state:'CONFIRMED',direction:'LONG',used:66,remaining:55,volume:'2.8×',vwap:'ABOVE',lastEvent:'CONFIRMED',tf:'3m'},
-  {symbol:'OPUSDT',price:'1.832',change:'-0.48%',group:'HOT NOW',level:'RTH LOW',distance:'0.31%',session:'NEW YORK',state:'WATCH',direction:'SHORT',used:49,remaining:76,volume:'1.1×',vwap:'BELOW',lastEvent:'PROBE',tf:'15m'},
-  {symbol:'ARBUSDT',price:'1.321',change:'+2.43%',group:'YH/YL APPROACH',level:'YL reclaimed',distance:'0.22%',session:'LONDON',state:'SHIFTING',direction:'LONG',used:63,remaining:64,volume:'1.9×',vwap:'ABOVE',lastEvent:'RECLAIM',tf:'10m'},
-  {symbol:'SUIUSDT',price:'0.6451',change:'-1.21%',group:'ONH/ONL APPROACH',level:'ONH',distance:'0.16%',session:'ASIA',state:'WATCH',direction:'SHORT',used:77,remaining:39,volume:'1.6×',vwap:'BELOW',lastEvent:'SWEEP',tf:'5m'},
-  {symbol:'APTUSDT',price:'8.421',change:'+3.58%',group:'RC30 LONG',level:'Balance Low',distance:'0.41%',session:'NEW YORK',state:'CONFIRMED',direction:'LONG',used:54,remaining:73,volume:'2.3×',vwap:'ABOVE',lastEvent:'1m BOS↑',tf:'3m'}
+  {symbol:'BTCUSDT',price:'86,140',change:'+0.42%',group:'ГОРЯЧИЕ · HOT NOW',level:'ONH / UPPER WALL',distance:'0.21%',session:'NEW YORK',state:'СМЕНА · SHIFTING',direction:'SHORT',used:82,remaining:69,volume:'1.8×',vwap:'ABOVE',lastEvent:'10m CHOCH↓',tf:'15m'},
+  {symbol:'ETHUSDT',price:'3,241',change:'+1.12%',group:'RC30 LONG',level:'RC30 / RTH LOW',distance:'0.34%',session:'NEW YORK',state:'ПОДТВЕРЖДЕНО · CONFIRMED',direction:'LONG',used:61,remaining:58,volume:'2.1×',vwap:'ABOVE',lastEvent:'1m BOS↑',tf:'5m'},
+  {symbol:'SOLUSDT',price:'186.40',change:'-0.28%',group:'RC70 SHORT',level:'RC70 / YH',distance:'0.18%',session:'LONDON',state:'НАБЛЮДЕНИЕ · WATCH',direction:'SHORT',used:74,remaining:43,volume:'1.4×',vwap:'BELOW',lastEvent:'TOUCH',tf:'10m'},
+  {symbol:'INJUSDT',price:'17.42',change:'+3.21%',group:'YH/YL APPROACH',level:'YH',distance:'0.12%',session:'NEW YORK',state:'СМЕНА · SHIFTING',direction:'LONG',used:68,remaining:62,volume:'2.4×',vwap:'ABOVE',lastEvent:'5m MSS↑',tf:'5m'},
+  {symbol:'LINKUSDT',price:'11.86',change:'-1.32%',group:'ONH/ONL APPROACH',level:'ONL',distance:'0.09%',session:'ASIA',state:'НАБЛЮДЕНИЕ · WATCH',direction:'LONG',used:57,remaining:71,volume:'1.2×',vwap:'BELOW',lastEvent:'APPROACH',tf:'15m'},
+  {symbol:'CYBERUSDT',price:'5.684',change:'+4.12%',group:'SESSION TRANSITION',level:'London High',distance:'0.27%',session:'NEW YORK',state:'ПОДТВЕРЖДЕНО · CONFIRMED',direction:'LONG',used:66,remaining:55,volume:'2.8×',vwap:'ABOVE',lastEvent:'ПОДТВЕРЖДЕНО · CONFIRMED',tf:'3m'},
+  {symbol:'OPUSDT',price:'1.832',change:'-0.48%',group:'ГОРЯЧИЕ · HOT NOW',level:'RTH LOW',distance:'0.31%',session:'NEW YORK',state:'НАБЛЮДЕНИЕ · WATCH',direction:'SHORT',used:49,remaining:76,volume:'1.1×',vwap:'BELOW',lastEvent:'PROBE',tf:'15m'},
+  {symbol:'ARBUSDT',price:'1.321',change:'+2.43%',group:'YH/YL APPROACH',level:'YL reclaimed',distance:'0.22%',session:'LONDON',state:'СМЕНА · SHIFTING',direction:'LONG',used:63,remaining:64,volume:'1.9×',vwap:'ABOVE',lastEvent:'RECLAIM',tf:'10m'},
+  {symbol:'SUIUSDT',price:'0.6451',change:'-1.21%',group:'ONH/ONL APPROACH',level:'ONH',distance:'0.16%',session:'ASIA',state:'НАБЛЮДЕНИЕ · WATCH',direction:'SHORT',used:77,remaining:39,volume:'1.6×',vwap:'BELOW',lastEvent:'SWEEP',tf:'5m'},
+  {symbol:'APTUSDT',price:'8.421',change:'+3.58%',group:'RC30 LONG',level:'Balance Low',distance:'0.41%',session:'NEW YORK',state:'ПОДТВЕРЖДЕНО · CONFIRMED',direction:'LONG',used:54,remaining:73,volume:'2.3×',vwap:'ABOVE',lastEvent:'1m BOS↑',tf:'3m'}
 ];
 
-const groups=['ALL','HOT NOW','WATCH','SHIFTING','CONFIRMED','RC30 LONG','RC70 SHORT','YH/YL APPROACH','ONH/ONL APPROACH','SESSION TRANSITION'];
+const groups=['ALL','ГОРЯЧИЕ · HOT NOW','НАБЛЮДЕНИЕ · WATCH','СМЕНА · SHIFTING','ПОДТВЕРЖДЕНО · CONFIRMED','RC30 LONG','RC70 SHORT','YH/YL APPROACH','ONH/ONL APPROACH','SESSION TRANSITION'];
 
 const stateClass=(s:RadarState)=>s.toLowerCase();
 
@@ -46,7 +46,7 @@ export default function RadarPage(){
   const[tf,setTf]=useState('ALL');
 
   const filtered=useMemo(()=>rows.filter(r=>{
-    if(group==='WATCH'||group==='SHIFTING'||group==='CONFIRMED'){
+    if(group==='НАБЛЮДЕНИЕ · WATCH'||group==='СМЕНА · SHIFTING'||group==='ПОДТВЕРЖДЕНО · CONFIRMED'){
       if(r.state!==group)return false;
     }else if(group!=='ALL'&&r.group!==group)return false;
     if(direction!=='ALL'&&r.direction!==direction)return false;
@@ -60,23 +60,23 @@ export default function RadarPage(){
   return <main className="radar-page">
     <section className="radar-head">
       <div>
-        <h2>SMART RADAR</h2>
-        <p>Весь futures universe → быстрый математический фильтр → глубокий расчёт только для кандидатов</p>
+        <h2>УМНЫЙ РАДАР <small>SMART RADAR</small></h2>
+        <p>Весь фьючерсный рынок · Futures universe → быстрый математический фильтр → глубокий расчёт только для кандидатов</p>
       </div>
-      <div className="radar-health"><span>● MOCK/PAPER</span><b>SCANNER ONLINE</b></div>
+      <div className="radar-health"><span>● MOCK/PAPER</span><b>СКАНЕР ONLINE · SCANNER ONLINE</b></div>
     </section>
 
     <section className="radar-kpis">
-      <button onClick={()=>setGroup('HOT NOW')} className={group==='HOT NOW'?'active':''}><small>HOT NOW</small><b>18</b><span>активное движение</span></button>
-      <button onClick={()=>setGroup('WATCH')} className={group==='WATCH'?'active':''}><small>WATCH</small><b>64</b><span>ждём реакцию</span></button>
-      <button onClick={()=>setGroup('SHIFTING')} className={group==='SHIFTING'?'active':''}><small>SHIFTING</small><b>21</b><span>структура меняется</span></button>
-      <button onClick={()=>setGroup('CONFIRMED')} className={group==='CONFIRMED'?'active':''}><small>CONFIRMED</small><b>9</b><span>entry ready candidates</span></button>
-      <div><small>UNIVERSE</small><b>412</b><span>futures symbols</span></div>
-      <div><small>DEEP SCAN</small><b>37</b><span>current candidates</span></div>
+      <button onClick={()=>setGroup('ГОРЯЧИЕ · HOT NOW')} className={group==='ГОРЯЧИЕ · HOT NOW'?'active':''}><small>ГОРЯЧИЕ · HOT NOW</small><b>18</b><span>активное движение · active move</span></button>
+      <button onClick={()=>setGroup('НАБЛЮДЕНИЕ · WATCH')} className={group==='НАБЛЮДЕНИЕ · WATCH'?'active':''}><small>НАБЛЮДЕНИЕ · WATCH</small><b>64</b><span>ждём реакцию · waiting reaction</span></button>
+      <button onClick={()=>setGroup('СМЕНА · SHIFTING')} className={group==='СМЕНА · SHIFTING'?'active':''}><small>СМЕНА · SHIFTING</small><b>21</b><span>структура меняется · structure shifting</span></button>
+      <button onClick={()=>setGroup('ПОДТВЕРЖДЕНО · CONFIRMED')} className={group==='ПОДТВЕРЖДЕНО · CONFIRMED'?'active':''}><small>ПОДТВЕРЖДЕНО · CONFIRMED</small><b>9</b><span>кандидаты на вход · entry-ready</span></button>
+      <div><small>РЫНОК · UNIVERSE</small><b>412</b><span>фьючерсные пары · futures symbols</span></div>
+      <div><small>ГЛУБОКИЙ СКАН · DEEP SCAN</small><b>37</b><span>текущие кандидаты · current candidates</span></div>
     </section>
 
     <section className="radar-controls">
-      <input placeholder="Поиск монеты…" />
+      <input placeholder="Поиск монеты / Search symbol…" />
       <div className="radar-group-tabs">{groups.map(g=><button key={g} className={group===g?'active':''} onClick={()=>setGroup(g)}>{g}</button>)}</div>
       <select value={direction} onChange={e=>setDirection(e.target.value)}><option>ALL</option><option>LONG</option><option>SHORT</option><option>NEUTRAL</option></select>
       <select value={session} onChange={e=>setSession(e.target.value)}><option>ALL</option><option>ASIA</option><option>LONDON</option><option>NEW YORK</option></select>
@@ -86,7 +86,7 @@ export default function RadarPage(){
     <section className="radar-body">
       <article className="radar-table-card">
         <div className="radar-table-head">
-          <span>#</span><span>Монета</span><span>Цена</span><span>24H</span><span>Активный уровень</span><span>Дистанция</span><span>Сессия</span><span>State</span><span>Направление</span><span>Used</span><span>Remaining</span><span>Volume</span><span>VWAP</span><span>Last event</span>
+          <span>#</span><span>Монета<br/><small>Symbol</small></span><span>Цена<br/><small>Price</small></span><span>24H</span><span>Активный уровень<br/><small>Активный уровень · Active level</small></span><span>Дистанция<br/><small>Дистанция · Distance</small></span><span>Сессия<br/><small>Session</small></span><span>Состояние<br/><small>State</small></span><span>Направление<br/><small>Direction</small></span><span>Использовано<br/><small>Used</small></span><span>Осталось<br/><small>Remaining</small></span><span>Объём<br/><small>Объём · Volume</small></span><span>VWAP</span><span>Последнее событие<br/><small>Последнее событие · Last event</small></span>
         </div>
         <div className="radar-table-body">
           {filtered.map((r,index)=><button className={'radar-table-row '+(selected.symbol===r.symbol?'selected':'')} key={r.symbol} onClick={()=>setSelectedSymbol(r.symbol)}>
@@ -106,7 +106,7 @@ export default function RadarPage(){
             <span>{r.lastEvent}</span>
           </button>)}
         </div>
-        <div className="radar-table-foot"><span>Показано {filtered.length} из {rows.length} mock-кандидатов</span><span>Сортировка: активность → близость к уровню → стадия Core</span></div>
+        <div className="radar-table-foot"><span>Показано {filtered.length} из {rows.length} mock-кандидатов / candidates</span><span>Сортировка / Sort: активность → близость к уровню → стадия Core</span></div>
       </article>
 
       <aside className="radar-preview">
@@ -118,37 +118,37 @@ export default function RadarPage(){
         <div className="preview-price"><b>{selected.price}</b><span className={selected.change.startsWith('+')?'positive':'negative'}>{selected.change}</span></div>
 
         <section>
-          <div className="section-title">DECISION PREVIEW</div>
-          <div className="kv"><span>Direction candidate</span><b className={selected.direction==='LONG'?'positive':'negative'}>{selected.direction}</b></div>
-          <div className="kv"><span>Active level</span><b>{selected.level}</b></div>
-          <div className="kv"><span>Distance</span><b>{selected.distance}</b></div>
-          <div className="kv"><span>Last event</span><b>{selected.lastEvent}</b></div>
+          <div className="section-title">ПРЕДПРОСМОТР РЕШЕНИЯ · DECISION PREVIEW</div>
+          <div className="kv"><span>Кандидат направления · Direction candidate</span><b className={selected.direction==='LONG'?'positive':'negative'}>{selected.direction}</b></div>
+          <div className="kv"><span>Активный уровень · Active level</span><b>{selected.level}</b></div>
+          <div className="kv"><span>Дистанция · Distance</span><b>{selected.distance}</b></div>
+          <div className="kv"><span>Последнее событие<br/><small>Последнее событие · Last event</small></span><b>{selected.lastEvent}</b></div>
         </section>
 
         <section>
-          <div className="section-title">MATH GATE</div>
-          <div className="preview-meter"><div><span>Used Range</span><b>{selected.used}%</b></div><progress value={selected.used} max="100"/></div>
-          <div className="preview-meter"><div><span>Remaining Move</span><b>{selected.remaining}%</b></div><progress value={selected.remaining} max="100"/></div>
-          <div className="kv"><span>Volume</span><b>{selected.volume}</b></div>
+          <div className="section-title">МАТЕМАТИЧЕСКИЙ ФИЛЬТР · MATH GATE</div>
+          <div className="preview-meter"><div><span>Использовано диапазона · Used Range</span><b>{selected.used}%</b></div><progress value={selected.used} max="100"/></div>
+          <div className="preview-meter"><div><span>Осталось движения · Remaining Move</span><b>{selected.remaining}%</b></div><progress value={selected.remaining} max="100"/></div>
+          <div className="kv"><span>Объём<br/><small>Объём · Volume</small></span><b>{selected.volume}</b></div>
           <div className="kv"><span>VWAP</span><b>{selected.vwap}</b></div>
         </section>
 
         <section>
-          <div className="section-title">CORE ROUTE</div>
+          <div className="section-title">МАРШРУТ CORE · CORE ROUTE</div>
           {[
-            ['Balance / level','done'],
-            ['Touch / Sweep',selected.lastEvent.includes('TOUCH')||selected.lastEvent.includes('SWEEP')||selected.state!=='WATCH'?'done':''],
-            ['Reclaim / Accept',selected.state!=='WATCH'?'done':''],
-            ['10m CHOCH',selected.state==='SHIFTING'||selected.state==='CONFIRMED'?'done':''],
-            ['5m MSS',selected.state==='CONFIRMED'?'done':''],
-            ['3m Retest',''],
-            ['1m Micro-BOS',selected.state==='CONFIRMED'?'done':'']
+            ['Баланс / уровень · Balance / level','done'],
+            ['Касание / снятие · Touch / Sweep',selected.lastEvent.includes('TOUCH')||selected.lastEvent.includes('SWEEP')||selected.state!=='НАБЛЮДЕНИЕ · WATCH'?'done':''],
+            ['Возврат / принятие · Reclaim / Accept',selected.state!=='НАБЛЮДЕНИЕ · WATCH'?'done':''],
+            ['10m CHOCH',selected.state==='СМЕНА · SHIFTING'||selected.state==='ПОДТВЕРЖДЕНО · CONFIRMED'?'done':''],
+            ['5m MSS',selected.state==='ПОДТВЕРЖДЕНО · CONFIRMED'?'done':''],
+            ['Ретест 3m · Retest',''],
+            ['Micro-BOS 1m · Trigger',selected.state==='ПОДТВЕРЖДЕНО · CONFIRMED'?'done':'']
           ].map(([label,cls])=><div className={'preview-step '+cls} key={label}><span>{cls?'✓':'○'}</span><b>{label}</b></div>)}
         </section>
 
         <div className="radar-preview-actions">
-          <button>OPEN MARKET</button>
-          <button className="primary">PIN TO WATCH</button>
+          <button>ОТКРЫТЬ РЫНОК · OPEN MARKET</button>
+          <button className="primary">PIN TO НАБЛЮДЕНИЕ · WATCH</button>
         </div>
       </aside>
     </section>
