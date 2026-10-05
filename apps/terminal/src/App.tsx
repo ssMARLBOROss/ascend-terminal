@@ -37,7 +37,8 @@ export default function App(){
  const[marketMode,setMarketMode]=useState<'LIVE'|'REPLAY'>('LIVE');
  const[loadedCandles,setLoadedCandles]=useState(2000);
  const[historyRange,setHistoryRange]=useState('250');
- const[historyOffset,setHistoryOffset]=useState(0);
+ const[chartFocusTime,setChartFocusTime]=useState<number>();
+ const[chartFocusNonce,setChartFocusNonce]=useState(0);
  const[sourceFilter,setSourceFilter]=useState<'ALL'|'DEX'|'CEX'|'CORE'>('ALL');
 
  const live=useBybitMarket(marketSymbol,chartTf);
@@ -45,7 +46,6 @@ export default function App(){
  const liveContext=useMemo(()=>deriveLiveMarketContext(marketSymbol,live.contextCandles,live.candles),[marketSymbol,live.contextCandles,live.candles]);
  useEffect(()=>{if(!playing||marketMode!=='REPLAY')return;if(visibleCount>=events.length){setPlaying(false);return}const timer=window.setTimeout(()=>{const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])},950);return()=>window.clearTimeout(timer)},[playing,visibleCount,marketMode]);
  useEffect(()=>{if(marketMode==='LIVE'&&liveContext.chronology.length){setSelected(liveContext.chronology[liveContext.chronology.length-1])}},[marketMode,liveContext.chronology.length]);
- useEffect(()=>{setHistoryOffset(0)},[marketSymbol,chartTf]);
  const visibleEvents=events.slice(0,visibleCount);
  const chain=useMemo(()=>events.filter(e=>e.sequenceId<=selected.sequenceId),[selected]);
  const chronologyEvents=useMemo(()=>{
@@ -65,6 +65,7 @@ export default function App(){
  const effectiveSessions=marketMode==='LIVE'&&liveContext.sessions.length?liveContext.sessions:sessions;
  const currentPrice=marketMode==='LIVE'?(live.ticker.lastPrice??live.candles.at(-1)?.close):86640;
  const reset=()=>{setPlaying(false);setVisibleCount(1);setSelected(events[0])};
+ const focusChart=(timestamp:number)=>{setChartFocusTime(timestamp);setChartFocusNonce(v=>v+1)};
 
  return <div className={'app '+density+(radarOpen?'':' radar-closed')+(decisionOpen?'':' decision-closed')}>
   <header className="global-bar app-nav">
@@ -124,16 +125,14 @@ export default function App(){
      <div className="chart-toolbar"><div><b>{marketSymbol} · {chartTf}</b><small>СЕССИИ / СТЕНКИ / БАЛАНС / ЛИКВИДНОСТЬ · SESSION FLOW / WALLS / BALANCE / LIQUIDITY</small></div><div className="chart-toggles"><button>УРОВНИ · LEVELS</button><button>КЛАСТЕРЫ · CLUSTERS</button><button>СТРУКТУРА · STRUCTURE</button><button>СОБЫТИЯ · EVENTS</button></div></div>
      <div className="history-toolbar">
       <div className="history-summary"><strong>ИСТОРИЯ СВЕЧЕЙ · HISTORICAL CANDLES</strong><span>{marketMode==='LIVE'?live.candles.length.toLocaleString('ru-RU'):loadedCandles.toLocaleString('ru-RU')} загружено / loaded</span><small>{marketMode==='LIVE'?(live.historyReady?'реальные Bybit candles · REST + WebSocket live':'ждём REST-историю · WebSocket '+live.status+(live.error?' · '+live.error:'')):'≈ '+historyMeta.estimatedCandles.toLocaleString('ru-RU')+' доступно · replay store'}</small></div>
-      <div className="history-ranges">{['100','250','500','1000'].map(r=><button key={r} className={historyRange===r?'active':''} onClick={()=>setHistoryRange(r)}>{r} свечей</button>)}</div>
+      <div className="history-ranges compact-presets">{['100','250','500','1000'].map(r=><button key={r} className={historyRange===r?'active':''} onClick={()=>setHistoryRange(r)}>{r}</button>)}</div>
       <div className="history-actions">
-       {marketMode==='LIVE'&&<button onClick={async()=>{if(historyOffset+historyWindow>=live.candles.length-20&&live.hasOlder)await live.loadOlder();setHistoryOffset(v=>Math.min(v+Math.max(25,Math.floor(historyWindow/2)),Math.max(0,live.candles.length-historyWindow)))}}>← РАНЬШЕ · EARLIER</button>}
-       {marketMode==='LIVE'&&<button disabled={historyOffset===0} onClick={()=>setHistoryOffset(v=>Math.max(0,v-Math.max(25,Math.floor(historyWindow/2))))}>ПОЗЖЕ · LATER →</button>}
+       <span className="history-gesture">DRAG ←→ · WHEEL ZOOM · CROSSHAIR</span>
        <button disabled={marketMode==='LIVE'&&(!live.hasOlder||live.loadingOlder)} onClick={()=>marketMode==='LIVE'?live.loadOlder():setLoadedCandles(v=>Math.min(v+1000,historyMeta.estimatedCandles))}>{marketMode==='LIVE'&&live.loadingOlder?'ЗАГРУЗКА…':'+ ИСТОРИЯ · LOAD OLDER'}</button>
-       <button onClick={()=>{setHistoryOffset(0);if(marketMode==='LIVE'&&liveContext.chronology.length)setSelected(liveContext.chronology[liveContext.chronology.length-1]);else setSelected(events[visibleCount-1]??events[0])}}>К ПОСЛЕДНЕЙ · LATEST →</button>
       </div>
      </div>
      <div className={'mock-chart '+(marketMode==='LIVE'?'live-chart-mode':'')}>
-      {marketMode==='LIVE'&&<LiveCandleChart candles={live.candles} levels={liveContext.levels} lastPrice={currentPrice} status={live.status} source={live.source} latencyMs={live.latencyMs} offset={historyOffset} windowSize={historyWindow}/>} 
+      {marketMode==='LIVE'&&<LiveCandleChart candles={live.candles} levels={liveContext.levels} lastPrice={currentPrice} status={live.status} source={live.source} latencyMs={live.latencyMs} symbol={marketSymbol} timeframe={chartTf} windowSize={historyWindow} onLoadOlder={live.loadOlder} loadingOlder={live.loadingOlder} hasOlder={live.hasOlder} focusTimestamp={chartFocusTime} focusNonce={chartFocusNonce}/>} 
       <div className="session-band asia"><span>ASIA · FROZEN</span></div><div className="session-band london"><span>LONDON · FROZEN</span></div><div className="session-band ny"><span>NEW YORK · LIVE</span></div><div className="session-band next"><span>NEXT ASIA · EXPECTED</span></div>
       <div className="level wall upper-wall"><b>ВЕРХНЯЯ СТЕНКА · UPPER WALL</b><span>ONH 86,978 · CONFIRMED</span></div>
       <div className="level cluster high-cluster"><b>ВЕРХНИЙ КЛАСТЕР LONDON / NY · HIGH CLUSTER</b><span>86,900–86,990 · UNDER ATTACK</span></div>
@@ -153,7 +152,7 @@ export default function App(){
        <div className="chronology-source">{(['ALL','DEX','CEX','CORE'] as const).map(s=><button key={s} className={sourceFilter===s?'active':''} onClick={()=>setSourceFilter(s)}>{s}</button>)}</div>
       </div>
       <div className="chronology-scroll">
-       {chronologyEvents.map(event=><button key={event.eventId} className={'chronology-event '+(selected.eventId===event.eventId?'active ':'')+(event.source==='DEX_SCANNER'?'dex ':'')+(event.type==='BREAK'?'break ':'')+(event.type==='SWEEP'?'sweep ':'')+(event.type==='CONFIRMED'?'confirmed ':'')} onClick={()=>setSelected(event)}>
+       {chronologyEvents.map(event=><button key={event.eventId} className={'chronology-event '+(selected.eventId===event.eventId?'active ':'')+(event.source==='DEX_SCANNER'?'dex ':'')+(event.type==='BREAK'?'break ':'')+(event.type==='SWEEP'?'sweep ':'')+(event.type==='CONFIRMED'?'confirmed ':'')} onClick={()=>{setSelected(event);focusChart(event.timestamp)}}>
         <span>{new Date(event.timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</span>
         <b>{event.type}</b>
         <small>{event.level}</small>
