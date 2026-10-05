@@ -1,0 +1,359 @@
+/* ASCEND VISUAL CLARITY V1
+   Goal: crisp Windows/Chrome rendering first. Never squeeze text below readable sizes.
+   Layout may scroll vertically; readability wins over fitting everything in one viewport. */
+
+:root{
+  --clarity-text:#e4edf3;
+  --clarity-main:#cbdbe4;
+  --clarity-muted:#8ba3b2;
+  --clarity-dim:#6f899a;
+  --clarity-line:#1b4560;
+  --clarity-line-soft:#153247;
+  --clarity-panel:#07141d;
+  --clarity-panel-2:#081923;
+}
+
+html,body,#root,.app,
+button,input,select,textarea{
+  font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",Inter,system-ui,-apple-system,sans-serif!important;
+  -webkit-font-smoothing:auto!important;
+  -moz-osx-font-smoothing:auto!important;
+  text-rendering:geometricPrecision;
+}
+
+body{font-size:13px!important;color:var(--clarity-text)}
+small{line-height:1.35!important}
+button{font-weight:600}
+input,select{color:var(--clarity-text)!important}
+
+/* Crisp text: glow stays on state indicators, never on reading text. */
+.overview-title h1,.ai-core span,.brand-block strong,
+.panel-title strong,.section-title,.analytics-card-head strong,
+.settings-card-title,.dev-card-title,.tg-panel-head strong{
+  text-shadow:none!important;
+}
+.orbit-node,.ai-core,.overview-card,.settings-card,.dev-card,.tg-panel,
+.analytics-card,.radar-preview,.signal-detail{
+  box-shadow:none!important;
+}
+
+/* Global hierarchy */
+.brand-block strong{font-size:16px!important;font-weight:800;letter-spacing:.08em!important;color:#eef6fa}
+.brand-block small{font-size:9px!important;letter-spacing:.055em!important;color:#89a4b4!important;font-weight:600}
+.mark{width:34px!important;height:34px!important;font-size:17px}
+
+.top-nav button{min-height:48px!important}
+.top-nav button span{font-size:10px!important;font-weight:750!important;letter-spacing:.015em!important;color:#c7dae4}
+.top-nav button small{font-size:8px!important;font-weight:600!important;letter-spacing:.025em!important;color:#7895a5!important}
+.top-nav button.active span{color:#f1f8fb!important}
+.top-nav button.active small{color:#9bc7d9!important}
+.global-actions button,.live-status{font-size:9px!important;font-weight:700!important;letter-spacing:0!important}
+
+/* Shared headings and body text */
+.panel-title strong,.analytics-card-head strong,.tg-panel-head strong,
+.settings-card-title,.dev-card-title,.mini-control-title,.section-title{
+  font-size:11px!important;
+  font-weight:750!important;
+  letter-spacing:.025em!important;
+  color:#d6e5ec!important;
+}
+.panel-title small,.analytics-card-head small,.tg-panel-head small,
+.settings-card-title small,.dev-card-title small,.mini-control-title small{
+  font-size:9px!important;
+  color:#829eae!important;
+  font-weight:600!important;
+  letter-spacing:.01em!important;
+}
+.kv{font-size:10px!important;padding:6px 0!important}
+.kv span,.kv b{font-size:10px!important}
+.kv span{color:#8ea6b5!important}
+.kv b{color:#d6e3e9!important;font-weight:700!important}
+.kv span small{font-size:8px!important;color:#7894a4!important}
+.section-title{margin-bottom:8px!important}
+
+/* OVERVIEW — match the crisp reference, not the dense prototype. */
+.overview-page{
+  grid-template-columns:255px minmax(590px,1fr) 280px!important;
+  gap:12px!important;
+  padding:12px!important;
+}
+.overview-left,.overview-right{gap:10px!important}
+.overview-card{
+  border-color:#1b5b7d!important;
+  border-radius:8px!important;
+  background:linear-gradient(180deg,#081824,#06121b)!important;
+  padding:13px!important;
+}
+.ov-head{font-size:11px!important;letter-spacing:.025em!important;color:#d3e3ea!important}
+.ov-head strong{font-weight:750}
+.ov-big{font-size:30px!important;font-weight:800!important;letter-spacing:0!important}
+.overview-card>em{font-size:13px!important}
+.overview-card>small{font-size:9px!important;color:#8ba2b1!important}
+.ov-row{padding:8px 0!important;font-size:10px!important;gap:9px!important}
+.ov-row span{font-size:10px!important;color:#91a7b5!important}
+.ov-row b,.ov-row em{font-size:10px!important;font-weight:700}
+.ov-donut-wrap{grid-template-columns:112px 1fr!important}
+.ov-donut{width:104px!important;height:104px!important}
+.ov-donut:after{width:65px!important;height:65px!important}
+.ov-donut b{font-size:20px!important}
+.ov-donut small{font-size:8px!important;color:#8ba4b3!important}
+.ov-legend{gap:9px!important}
+.ov-legend span,.ov-legend b{font-size:9px!important}
+.ov-foot span{font-size:9px!important;color:#839baa!important}
+.ov-foot b{font-size:13px!important}
+
+.overview-title{padding-top:8px!important}
+.overview-title h1{
+  font-size:30px!important;
+  letter-spacing:.055em!important;
+  color:#43d8ec!important;
+  font-weight:800!important;
+}
+.overview-title p{
+  margin-top:7px!important;
+  font-size:10px!important;
+  letter-spacing:.035em!important;
+  color:#91a8b6!important;
+  font-weight:600!important;
+}
+.orchestrator{height:510px!important}
+.orbit{border-color:rgba(33,129,184,.48)!important}
+.ai-core{
+  width:150px!important;height:150px!important;
+  border-color:#1b86b7!important;
+  background:radial-gradient(circle,#0c4e70,#071a27 67%)!important;
+}
+.ai-core span{font-size:43px!important;color:#32d8ef!important}
+.ai-core small{font-size:9px!important;letter-spacing:.015em!important;color:#d4eaf2!important}
+
+.orbit-node{
+  width:88px!important;height:88px!important;
+  border-color:#1b73a0!important;
+  background:#071b28!important;
+  padding:8px!important;
+}
+.orbit-node:hover{background:#0a2536!important;border-color:#2696c7!important}
+.orbit-node span{font-size:21px!important}
+.orbit-node b{font-size:9px!important;line-height:1.23!important;font-weight:700!important;letter-spacing:0!important}
+.node-1{left:calc(50% - 44px)!important;transform:none!important}
+.node-6{left:calc(50% - 44px)!important;transform:none!important}
+.system-protected{
+  font-size:9px!important;
+  color:#809cad!important;
+  letter-spacing:0!important;
+  padding:8px 14px!important;
+}
+.system-protected b{font-size:9px!important}
+
+.overview-quick{gap:8px!important;margin-top:10px!important}
+.overview-quick button{min-height:78px!important;padding:10px!important;border-color:#195476!important}
+.overview-quick b{font-size:9px!important;line-height:1.25!important}
+.overview-quick small{font-size:8px!important;color:#829cac!important;line-height:1.25!important}
+.overview-quick span{font-size:21px!important}
+
+.risk-gauge small{font-size:8px!important}
+.decision-feed-row{padding:9px 0!important}
+.decision-feed-row span b{font-size:10px!important;color:#b9dce8!important}
+.decision-feed-row small{font-size:9px!important;color:#829cab!important}
+.notice-row{padding:8px 0!important;font-size:9px!important}
+.notice-row b,.notice-row small{font-size:9px!important}
+
+/* MARKET */
+.nav-rail button small{font-size:8px!important;letter-spacing:0!important}
+.radar-row b{font-size:11px!important}
+.radar-row small,.radar-row span,.radar-row em{font-size:9px!important}
+.radar-foot{font-size:9px!important;color:#7f98a8!important}
+.instrument-bar strong{font-size:14px!important}
+.instrument-bar small{font-size:9px!important;color:#819cab!important}
+.timeframes button,.instrument-actions button,.chart-toggles button,.scenario-controls button{
+  font-size:9px!important;
+  min-height:31px!important;
+  font-weight:700!important;
+}
+.session-card b{font-size:10px!important}
+.session-card span{font-size:8px!important}
+.session-card small,.session-card em{font-size:9px!important}
+.lifecycle button{font-size:9px!important;min-height:29px!important}
+.live-market-flow b,.live-market-flow span,.live-market-flow em{font-size:9px!important}
+
+.chart-toolbar{height:46px!important}
+.chart-toolbar b{font-size:11px!important}
+.chart-toolbar small{font-size:9px!important;color:#7e99a8!important}
+.history-summary strong{font-size:10px!important}
+.history-summary span{font-size:9px!important}
+.history-summary small{font-size:8px!important;color:#7895a5!important}
+.history-ranges button,.history-actions button,.chronology-source button{
+  font-size:9px!important;
+  min-height:31px!important;
+}
+.history-gesture{font-size:8px!important;color:#7693a4!important}
+.live-feed-controls span{font-size:9px!important}
+.live-feed-controls b{font-size:13px!important}
+
+.analytics-strip small{font-size:8px!important;letter-spacing:.02em!important;color:#7893a3!important}
+.analytics-strip b{font-size:12px!important}
+.analytics-strip span{font-size:8px!important;color:#7b93a2!important}
+
+.price-card small{font-size:9px!important}
+.price-card b{font-size:19px!important}
+.price-card span{font-size:9px!important}
+.decision-panel h3{font-size:13px!important}
+.decision-panel p{font-size:10px!important;line-height:1.5!important}
+.chain-row{padding:6px 0!important}
+.chain-row b{font-size:10px!important}
+.chain-row small{font-size:8px!important}
+.gate,.paper,.safety{font-size:9px!important}
+.live-core-warning{font-size:9px!important}
+
+/* Interactive chart: make controls readable without covering candles. */
+.tv-chart-actions button{font-size:9px!important;height:30px!important;font-weight:700!important}
+.tv-chart-actions button:first-child,.tv-chart-actions button:nth-child(2){font-size:15px!important}
+.tv-chart-hint{font-size:8px!important;color:#7895a6!important}
+.tv-ohlcv{padding:8px 10px!important;min-width:315px!important}
+.tv-ohlcv>div:first-child b{font-size:10px!important}
+.tv-ohlcv>div:first-child span{font-size:8px!important}
+.tv-ohlcv>div:last-child span{font-size:9px!important}
+.tv-ohlcv>div:last-child b{font-size:10px!important}
+.tv-history-loading{font-size:9px!important}
+.live-chart-status{font-size:9px!important}
+.live-chart-status b,.live-chart-status small{font-size:9px!important}
+
+/* Chronology */
+.chronology-head strong{font-size:10px!important}
+.chronology-head small{font-size:8px!important;color:#7894a4!important}
+.chronology-event{min-height:72px!important;padding:8px!important}
+.chronology-event>span,.chronology-event>b{font-size:9px!important}
+.chronology-event>small{font-size:9px!important}
+.chronology-event>em{font-size:8px!important}
+.chronology-legend{font-size:8px!important;color:#718d9e!important}
+
+/* RADAR */
+.radar-head h2{font-size:19px!important}
+.radar-head p{font-size:10px!important}
+.radar-health span,.radar-health b{font-size:9px!important}
+.radar-kpis small{font-size:9px!important}
+.radar-kpis b{font-size:19px!important}
+.radar-kpis span{font-size:9px!important}
+.radar-controls input,.radar-controls select{font-size:10px!important}
+.radar-group-tabs button span{font-size:9px!important}
+.radar-group-tabs button small{font-size:8px!important}
+.radar-table-head{font-size:9px!important}
+.radar-table-head small{font-size:8px!important}
+.radar-table-row{font-size:10px!important;min-height:45px!important}
+.radar-table-row small{font-size:8px!important}
+.radar-preview-head strong{font-size:13px!important}
+.radar-preview-head small{font-size:9px!important}
+.preview-price b{font-size:22px!important}
+.preview-price span{font-size:10px!important}
+.preview-step b{font-size:10px!important}
+.preview-step small{font-size:8px!important}
+.radar-action-notice,.dex-safety{font-size:9px!important}
+
+/* SIGNALS */
+.signals-side-title strong{font-size:13px!important}
+.signals-side-title small{font-size:9px!important}
+.signals-side>button span{font-size:10px!important}
+.signals-side>button small{font-size:8px!important}
+.signals-title h2{font-size:19px!important}
+.signals-title p{font-size:10px!important}
+.signals-kpis small{font-size:9px!important}
+.signals-kpis b{font-size:19px!important}
+.signals-toolbar input,.signals-tabs button{font-size:10px!important}
+.signals-table-head{font-size:9px!important}
+.signals-table-head small{font-size:8px!important}
+.signals-row{font-size:10px!important;min-height:44px!important}
+.signal-detail-head strong{font-size:13px!important}
+.signal-detail-head small{font-size:9px!important}
+.signal-detail-price b{font-size:23px!important}
+
+/* TELEGRAM */
+.tg-side-title strong{font-size:13px!important}
+.tg-side-title small{font-size:9px!important}
+.tg-sidebar>button b{font-size:10px!important}
+.tg-sidebar>button small{font-size:8px!important}
+.tg-title h2{font-size:18px!important}
+.tg-title p{font-size:10px!important}
+.tg-symbol b{font-size:11px!important}
+.tg-signal-meta span,.queue-head,.queue-row{font-size:9px!important}
+.message-preview p{font-size:10px!important}
+.tg-notice{font-size:9px!important}
+
+/* MINI APP */
+.phone-shell{transform:none!important}
+.phone-brand strong{font-size:13px!important}
+.phone-card-head b{font-size:10px!important}
+.phone-card-head b small{font-size:8px!important}
+.trade-row span,.targets small,.detail-metrics span{font-size:8px!important}
+.trade-row b,.targets b,.detail-metrics b{font-size:10px!important}
+.mini-toggle-row b,.mini-stat b{font-size:10px!important}
+.mini-toggle-row small,.mini-stat b small{font-size:8px!important}
+.miniapp-notice{font-size:9px!important}
+
+/* SETTINGS */
+.settings-side-title strong{font-size:14px!important}
+.settings-side-title small{font-size:9px!important}
+.settings-side>button b{font-size:10px!important}
+.settings-side>button small{font-size:8px!important}
+.settings-title h2{font-size:19px!important}
+.settings-title p{font-size:10px!important}
+.settings-summary small{font-size:9px!important}
+.settings-summary small em{font-size:8px!important}
+.settings-summary b{font-size:17px!important}
+.settings-summary span,.settings-summary button{font-size:9px!important}
+.settings-field>span,.session-setting>span,.api-row span{font-size:10px!important}
+.settings-field>span small,.session-setting>span small,.api-row span small{font-size:8px!important}
+.settings-field input,.settings-field select,.api-row button,.check-row{font-size:10px!important}
+.settings-mock-badge,.settings-notice{font-size:9px!important}
+
+/* DEV */
+.dev-side-title strong{font-size:14px!important}
+.dev-side-title small,.dev-side-title p{font-size:9px!important}
+.dev-side>button b{font-size:10px!important}
+.dev-side>button small{font-size:8px!important}
+.dev-title h2{font-size:20px!important}
+.dev-title p{font-size:10px!important}
+.dev-title-actions button{font-size:10px!important}
+.dev-title-actions small{font-size:8px!important}
+.dev-kpis small{font-size:9px!important}
+.dev-kpis small em{font-size:8px!important}
+.dev-kpis b{font-size:18px!important}
+.dev-kpis span{font-size:9px!important}
+.services-head,.log-row,.logs-head{font-size:9px!important}
+.services-head small{font-size:8px!important}
+.service-row{font-size:10px!important}
+.service-row>span:first-child b{font-size:10px!important}
+.service-row>span:first-child small{font-size:8px!important}
+.management-actions button b{font-size:10px!important}
+.management-actions button small{font-size:8px!important}
+.dev-mock-badge,.dev-notice{font-size:9px!important}
+
+/* Higher contrast on low-priority English text without competing with Russian. */
+small,em{font-weight:600!important}
+small{color:var(--clarity-muted)}
+
+/* 1366 class: keep clarity, accept vertical scroll. */
+@media(max-width:1400px){
+  .global-bar.app-nav{grid-template-columns:205px minmax(0,1fr) 150px!important}
+  .top-nav button{min-width:0!important;padding:5px 3px!important}
+  .top-nav button span{font-size:9px!important}
+  .top-nav button small{font-size:7px!important}
+  .overview-page{grid-template-columns:230px minmax(500px,1fr) 245px!important}
+  .overview-title h1{font-size:25px!important}
+  .overview-title p{font-size:9px!important}
+  .orbit-node{width:82px!important;height:82px!important}
+  .orbit-node b{font-size:8px!important}
+  .node-1{left:calc(50% - 41px)!important}
+  .node-6{left:calc(50% - 41px)!important}
+  .overview-quick button{min-height:74px!important}
+  .overview-quick b{font-size:8px!important}
+  .overview-quick small{font-size:7px!important}
+  .terminal-grid{grid-template-columns:54px 225px minmax(485px,1fr) 292px!important}
+  .tv-chart-actions button{font-size:8px!important}
+  .tv-ohlcv{min-width:285px!important}
+}
+
+/* Avoid fractional visual scaling on all major workspaces. */
+.overview-page,.terminal-grid,.analytics-page,.radar-page,.signals-page,.tg-page,
+.miniapp-page,.settings-page,.dev-page,.chart-shell,.tv-chart-root{
+  transform:none!important;
+}
