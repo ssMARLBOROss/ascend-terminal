@@ -85,7 +85,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
 
   useEffect(()=>{
     let disposed=false;
-    setStatus('CONNECTING');setError(undefined);setHasOlder(true);setRawCandles([]);setCandles([]);
+    setStatus('CONNECTING');setError(undefined);setHasOlder(true);setRawCandles([]);setCandles([]);setContextCandles([]);setTicker({});setLastUpdate(undefined);setLatencyMs(undefined);
     Promise.all([fetchKlines(symbol,interval,timeframe==='10m'||timeframe==='45m'?720:360),fetchKlines(symbol,'15',360)])
       .then(([chart,context])=>{if(disposed)return;setRawCandles(chart);setCandles(aggregate(chart,timeframe).slice(-500));setContextCandles(context)})
       .catch(err=>{if(disposed)return;setError(String(err?.message??err))});
