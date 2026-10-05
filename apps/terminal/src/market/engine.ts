@@ -106,7 +106,9 @@ export function deriveLiveMarketContext(instrument:string,context:Candle[],chart
   const nextAsiaStart=todayStart+(hour<24?24:48)*3600000;
   sessions.push({name:'ASIA',status:'UPCOMING',startsIn:formatCountdown(nextAsiaStart-now)});
 
-  const closed=chart.slice(-160,-1);
+  // Market-level chronology is intentionally evaluated on closed 15m context candles.
+  // Lower-TF structure will be a separate Core layer so raw breaks do not masquerade as entries.
+  const closed=context.slice(-160,-1);
   const eventLevels=levels.filter(l=>l.status==='FROZEN');
   const chronology:AscendEvent[]=[];
   let seq=1;
