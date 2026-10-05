@@ -57,7 +57,7 @@ const groupRu:Record<string,string>={
   'DEX/CEX GAP':'DEX/CEX РАЗРЫВ'
 };
 
-export default function RadarPage({onNavigate}:{onNavigate:(view:string)=>void}){
+export default function RadarPage({onNavigate,onOpenMarket}:{onNavigate:(view:string)=>void;onOpenMarket?:(symbol:string)=>void}){
   const[selectedSymbol,setSelectedSymbol]=useState('BTCUSDT');
   const[group,setGroup]=useState('ALL');
   const[direction,setDirection]=useState('ALL');
@@ -158,7 +158,7 @@ export default function RadarPage({onNavigate}:{onNavigate:(view:string)=>void})
         </section>
 
         <div className="radar-preview-actions">
-          <button onClick={()=>onNavigate('MARKET')}>ОТКРЫТЬ РЫНОК<small>OPEN MARKET</small></button>
+          <button onClick={()=>onOpenMarket?onOpenMarket(selected.symbol):onNavigate('MARKET')}>ОТКРЫТЬ РЫНОК<small>OPEN MARKET</small></button>
           <button className="primary" onClick={()=>setNotice(selected.symbol+' добавлен в наблюдение · pinned (MOCK)')}>В НАБЛЮДЕНИЕ<small>PIN TO WATCH</small></button>
         </div>
         {notice&&<div className="radar-action-notice">{notice}</div>}
