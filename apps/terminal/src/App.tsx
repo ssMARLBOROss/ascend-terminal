@@ -5,6 +5,7 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import OverviewPage from './pages/OverviewPage';
 import TelegramPage from './pages/TelegramPage';
 import PlaceholderPage from './pages/PlaceholderPage';
+import RadarPage from './pages/RadarPage';
 
 const fmtPrice=(v?:number)=>typeof v==='number'?v.toLocaleString('en-US'):'—';
 function payloadValue(event:AscendEvent,key:string,fallback='—'){const value=(event.payload as Record<string,unknown>)[key];return value===undefined||value===null?fallback:String(value)}
@@ -53,8 +54,9 @@ export default function App(){
   {currentView==='OVERVIEW' ? <OverviewPage onNavigate={setCurrentView}/> :
    currentView==='ANALYTICS' ? <div className="standalone-view"><AnalyticsPage/></div> :
    currentView==='TELEGRAM' ? <div className="standalone-view"><TelegramPage onNavigate={setCurrentView}/></div> :
-   ['RADAR','SIGNALS','MINIAPP','SETTINGS','DEV'].includes(currentView) ? <PlaceholderPage
-      title={{RADAR:'РАДАР',SIGNALS:'СИГНАЛЫ',MINIAPP:'MINI APP',SETTINGS:'НАСТРОЙКИ',DEV:'DEV / ИНФРАСТРУКТУРА'}[currentView] || currentView}
+   currentView==='RADAR' ? <div className="standalone-view"><RadarPage/></div> :
+   ['SIGNALS','MINIAPP','SETTINGS','DEV'].includes(currentView) ? <PlaceholderPage
+      title={{SIGNALS:'СИГНАЛЫ',MINIAPP:'MINI APP',SETTINGS:'НАСТРОЙКИ',DEV:'DEV / ИНФРАСТРУКТУРА'}[currentView] || currentView}
       subtitle="Кнопка уже работает. Эту страницу оформляем следующей по нашему порядку."
       onBack={()=>setCurrentView('OVERVIEW')}
     /> :
