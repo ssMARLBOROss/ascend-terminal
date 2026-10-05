@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ascend_owner
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ascend_terminal_db
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    networks: [ascend-private]
+    restart: always
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes: ["redisdata:/data"]
+    networks: [ascend-private]
+    restart: always
+networks: { ascend-private: { driver: bridge } }
+volumes: { pgdata: {}, redisdata: {} }
