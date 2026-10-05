@@ -222,3 +222,96 @@
   .radar-controls{grid-template-columns:1fr}
   .radar-group-tabs{grid-column:1}
 }
+
+
+/* Bilingual UI language layer */
+.top-nav button{display:grid;place-items:center;line-height:1.05;min-width:70px;padding:6px 8px}
+.top-nav button span{font-size:7px;font-weight:900;letter-spacing:.03em}
+.top-nav button small{display:block;margin-top:2px;color:#557387;font-size:5px;font-weight:600;letter-spacing:.04em}
+.top-nav button.active small{color:#82bdd4}
+.brand-block small{max-width:180px;line-height:1.2}
+.section-title small,.analytics-card-head small,.tg-panel-head small,.signals-title small,.radar-head h2 small{color:#5f8195;font-weight:600;font-size:.75em;letter-spacing:.04em}
+.kv span small,.signal-math span small,.preview-meter span small{display:block;margin-top:1px;color:#516f82;font-size:5px}
+.radar-kpis small em{display:block;margin-top:2px;color:#557587;font-style:normal;font-size:5px}
+.radar-group-tabs button{height:34px;display:grid;place-items:center;line-height:1.05}
+.radar-group-tabs button small{font-size:5px;color:#547487}
+.radar-table-head span small{display:block;margin-top:2px;color:#48687d;font-size:5px}
+.radar-table-row>span small{display:block;margin-top:2px;color:#4e6e82;font-size:5px}
+.state-pill small{display:block;margin-top:1px;font-size:4px;color:inherit;opacity:.78}
+.preview-step b small{display:block;margin-top:1px;color:#4f7185;font-size:5px;font-weight:500}
+.radar-preview-actions button,.signals-new,.signal-actions button{line-height:1.1}
+.radar-preview-actions button small,.signals-new small,.signal-actions button small,.actions button small,.button-states button small{display:block;margin-top:2px;color:inherit;opacity:.65;font-size:5px}
+.tg-sidebar>button b{font-size:7px}.tg-sidebar>button b small{display:block;color:#526f82;font-size:5px;font-weight:500}
+.tg-title h2 small{color:#5b7d91;font-size:8px;font-weight:500}
+.tg-steps span{display:grid;place-items:center;line-height:1.05}.tg-steps span small{font-size:5px;color:#587589;margin-top:2px}
+.tg-signal-meta span>small,.queue-head span small,.signal-life b small,.bot-stat span small{display:block;color:#4e6c80;font-size:5px}
+.template-head strong small{display:block;color:#537487;font-size:5px}
+.placeholder-core button small{display:block;margin-top:3px;color:#72a8bd;font-size:5px}
+
+/* Signals / Trading Signals */
+.signals-page{min-height:calc(100vh - 82px);display:grid;grid-template-columns:170px minmax(0,1fr);background:#040a0f}
+.signals-side{border-right:1px solid #16445f;background:#050e16;padding:10px 8px}
+.signals-side-title{padding:5px 7px 10px;border-bottom:1px solid #123047}
+.signals-side-title strong{display:block;font-size:11px;letter-spacing:.08em}
+.signals-side-title small{display:block;margin-top:3px;color:#5b7a8e;font-size:6px}
+.signals-side>button{width:100%;min-height:40px;display:grid;align-content:center;text-align:left;border:1px solid transparent;border-radius:6px;background:transparent;color:#7892a3;padding:6px 8px;margin-top:4px}
+.signals-side>button span{font-size:7px;font-weight:800}
+.signals-side>button small{display:block;margin-top:2px;color:#4f6d80;font-size:5px}
+.signals-side>button.active{background:#08273d;border-color:#1e6d94;color:#d0edf7}
+.signals-side>button.active small{color:#70a9c0}
+.signals-side-divider{margin:10px 4px 5px;padding-top:8px;border-top:1px solid #123047;color:#557689;font-size:6px;font-weight:900;letter-spacing:.08em}
+.signals-workspace{min-width:0;padding:10px}
+.signals-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.signals-title h2{margin:0;font-size:16px;letter-spacing:.08em}.signals-title h2 small{margin-left:6px}
+.signals-title p{margin:3px 0 0;color:#698799;font-size:7px}
+.signals-new{border:1px solid #2081a9;border-radius:6px;background:#082b44;color:#c9edf7;padding:7px 11px;font-size:7px;font-weight:900}
+.signals-kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.signals-kpis>div{border:1px solid #15364a;border-radius:6px;background:#06131c;padding:8px;min-width:0}
+.signals-kpis small{display:block;color:#718c9e;font-size:6px}.signals-kpis small em{display:block;margin-top:2px;color:#4f7084;font-size:5px;font-style:normal}
+.signals-kpis b{display:block;margin-top:4px;color:#e0ebf1;font-size:17px}
+.signals-main{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:7px;margin-top:7px}
+.signals-table-card,.signal-detail{border:1px solid #15364a;border-radius:7px;background:#06121b;min-width:0}
+.signals-toolbar{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:7px;align-items:center;padding:7px;border-bottom:1px solid #123047}
+.signals-tabs{display:flex;gap:4px;overflow:auto}
+.signals-tabs button{height:29px;white-space:nowrap;border:1px solid #15374e;border-radius:5px;background:#071823;color:#688296;padding:0 8px;font-size:6px}
+.signals-tabs button.active{background:#0a2c46;border-color:#28799f;color:#caedf8}
+.signals-toolbar input{height:31px;border:1px solid #15364c;border-radius:5px;background:#050e15;color:#a9bdc9;padding:0 8px;font-size:7px}
+.signals-table-head,.signals-row{display:grid;grid-template-columns:28px 90px 50px 78px 60px 1.25fr 70px 92px 55px 55px;gap:6px;align-items:center}
+.signals-table-head{padding:7px;color:#5e798c;font-size:6px;border-bottom:1px solid #123047}
+.signals-table-head small{font-size:5px;color:#48687d}
+.signals-table-body{max-height:575px;overflow:auto}
+.signals-row{width:100%;border:0;border-bottom:1px solid #10293a;background:transparent;color:#8fa5b3;text-align:left;padding:8px 7px;font-size:7px}
+.signals-row:hover{background:#071c29}.signals-row.selected{background:#082439;box-shadow:inset 2px 0 #2bb5df}
+.signals-row b{color:#d3e0e8}
+.signals-row>span small{display:block;margin-top:2px;color:#4d6d80;font-size:5px}
+.signal-state{display:inline-block;padding:3px 5px;border-radius:4px;border:1px solid #334d60;font-style:normal;font-size:6px}
+.signal-state.watch{color:#d8b267;border-color:#6c5328;background:#181309}
+.signal-state.shifting{color:#66c7e4;border-color:#2b637d;background:#081b26}
+.signal-state.confirmed{color:#6bd8b4;border-color:#27604e;background:#081713}
+.signal-state.entry{color:#7eb4ff;border-color:#315f9a;background:#0a1730}
+.signal-state.tp{color:#72d3b3;border-color:#2d765d;background:#071c15}
+.signal-state.sl{color:#e97a88;border-color:#73313c;background:#1a0b0e}
+.signal-state.closed{color:#94a6b2;border-color:#3c5262;background:#0b141a}
+.signal-detail{padding:9px;align-self:start;position:sticky;top:64px}
+.signal-detail-head{display:flex;justify-content:space-between;align-items:center}
+.signal-detail-head strong{display:block;font-size:12px}.signal-detail-head small{display:block;margin-top:2px;color:#58778b;font-size:6px}
+.signal-detail-price{display:flex;justify-content:space-between;align-items:end;margin:9px 0;padding:9px;border:1px solid #14354a;border-radius:6px;background:#071722}
+.signal-detail-price b{font-size:20px}.signal-detail-price span{font-size:8px}
+.signal-detail section{padding:8px;border:1px solid #123047;border-radius:6px;background:#06131c;margin-bottom:6px}
+.signal-chain-step{display:grid;grid-template-columns:18px 1fr;gap:5px;align-items:center;padding:5px 0;border-top:1px solid #0f2737;color:#5d788b}
+.signal-chain-step span{color:#567588}.signal-chain-step b{font-size:7px}.signal-chain-step b small{display:block;margin-top:1px;color:#4f6e82;font-size:5px;font-weight:500}
+.signal-chain-step.done{color:#b6c7d0}.signal-chain-step.done span{color:#54d0a8}
+.signal-math{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:5px 0;border-top:1px solid #0f2737}
+.signal-math span{color:#70899a;font-size:7px}.signal-math b{font-size:8px;color:#d0dce4}
+.signal-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+.signal-actions button{min-height:40px;border:1px solid #18445d;border-radius:5px;background:#071824;color:#7992a3;font-size:6px;font-weight:900}
+.signal-actions .primary{background:#0b3655;border-color:#2585af;color:#c9edf7}
+@media(max-width:1450px){
+  .signals-kpis{grid-template-columns:repeat(4,1fr)}
+  .signals-main{grid-template-columns:minmax(0,1fr) 280px}
+  .signals-table-head,.signals-row{grid-template-columns:25px 78px 45px 68px 55px 1fr 62px 82px 50px 50px}
+}
+@media(max-width:1050px){
+  .signals-page{grid-template-columns:1fr}.signals-side{display:none}
+  .signals-main{grid-template-columns:1fr}.signal-detail{position:static}
+}
