@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AscendEvent, SetupMode } from '@ascend/contracts';
+import type { AscendEvent, AscendTimeframe, SetupMode } from '@ascend/contracts';
 import { events, radar, sessions, stageOrder } from './data/mockScenario';
 import { historicalChronology, historyMeta, marketSources } from './data/mockHistory';
 import AnalyticsPage from './pages/AnalyticsPage';
@@ -11,9 +11,13 @@ import SignalsPage from './pages/SignalsPage';
 import MiniAppPage from './pages/MiniAppPage';
 import SettingsPage from './pages/SettingsPage';
 import DevPage from './pages/DevPage';
+import LiveCandleChart from './components/LiveCandleChart';
+import { useBybitMarket } from './market/useBybitMarket';
+import { deriveLiveMarketContext } from './market/engine';
 import './dev.css';
 import './ux.css';
 import './quality.css';
+import './layout-v2.css';
 
 const fmtPrice=(v?:number)=>typeof v==='number'?v.toLocaleString('en-US'):'—';
 function payloadValue(event:AscendEvent,key:string,fallback='—'){const value=(event.payload as Record<string,unknown>)[key];return value===undefined||value===null?fallback:String(value)}
@@ -28,27 +32,34 @@ export default function App(){
  const[mode,setMode]=useState<SetupMode>('SCALP');
  const[activeGroup,setActiveGroup]=useState('ALL');
  const[currentView,setCurrentView]=useState('OVERVIEW');
- const[chartTf,setChartTf]=useState('15m');
+ const[chartTf,setChartTf]=useState<AscendTimeframe>('15m');
+ const[marketMode,setMarketMode]=useState<'LIVE'|'REPLAY'>('LIVE');
  const[loadedCandles,setLoadedCandles]=useState(2000);
  const[historyRange,setHistoryRange]=useState('1D');
  const[sourceFilter,setSourceFilter]=useState<'ALL'|'DEX'|'CEX'|'CORE'>('ALL');
 
- useEffect(()=>{if(!playing)return;if(visibleCount>=events.length){setPlaying(false);return}const timer=window.setTimeout(()=>{const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])},950);return()=>window.clearTimeout(timer)},[playing,visibleCount]);
+ useEffect(()=>{if(!playing||marketMode!=='REPLAY')return;if(visibleCount>=events.length){setPlaying(false);return}const timer=window.setTimeout(()=>{const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])},950);return()=>window.clearTimeout(timer)},[playing,visibleCount,marketMode]);
+ useEffect(()=>{if(marketMode==='LIVE'&&liveContext.chronology.length){setSelected(liveContext.chronology[liveContext.chronology.length-1])}},[marketMode,liveContext.chronology.length]);
+ const live=useBybitMarket('BTCUSDT',chartTf);
+ const liveContext=useMemo(()=>deriveLiveMarketContext(live.contextCandles,live.candles),[live.contextCandles,live.candles]);
  const visibleEvents=events.slice(0,visibleCount);
  const chain=useMemo(()=>events.filter(e=>e.sequenceId<=selected.sequenceId),[selected]);
  const chronologyEvents=useMemo(()=>{
-  const current=visibleEvents.map(e=>({...e,source:'ASCEND_CORE' as const,status:'CONFIRMED' as const}));
-  const all=[...historicalChronology,...current].sort((a,b)=>a.timestamp-b.timestamp);
-  return all.filter(e=>{
+  const replayCurrent=visibleEvents.map(e=>({...e,source:'ASCEND_CORE' as const,status:'CONFIRMED' as const}));
+  const liveCurrent=liveContext.chronology.map(e=>({...e,source:'BYBIT' as const,status:'OBSERVED' as const}));
+  const base=marketMode==='LIVE'?liveCurrent:[...historicalChronology,...replayCurrent];
+  return base.sort((a,b)=>a.timestamp-b.timestamp).filter(e=>{
    if(sourceFilter==='ALL')return true;
    if(sourceFilter==='DEX')return e.source==='DEX_SCANNER';
    if(sourceFilter==='CORE')return e.source==='ASCEND_CORE';
    return e.source!=='DEX_SCANNER'&&e.source!=='ASCEND_CORE';
   });
- },[visibleEvents,sourceFilter]);
+ },[visibleEvents,sourceFilter,marketMode,liveContext.chronology]);
  const filteredRadar=activeGroup==='ALL'?radar:radar.filter(i=>i.group===activeGroup);
- const confirmed=visibleEvents.some(e=>e.type==='CONFIRMED');
- const riskPass=confirmed&&Number(payloadValue(events[events.length-1],'remainingRangePct','0'))>=40;
+ const confirmed=marketMode==='REPLAY'&&visibleEvents.some(e=>e.type==='CONFIRMED');
+ const riskPass=marketMode==='REPLAY'&&confirmed&&Number(payloadValue(events[events.length-1],'remainingRangePct','0'))>=40;
+ const effectiveSessions=marketMode==='LIVE'&&liveContext.sessions.length?liveContext.sessions:sessions;
+ const currentPrice=marketMode==='LIVE'?(live.ticker.lastPrice??live.candles.at(-1)?.close):86640;
  const reset=()=>{setPlaying(false);setVisibleCount(1);setSelected(events[0])};
 
  return <div className={'app '+density+(radarOpen?'':' radar-closed')+(decisionOpen?'':' decision-closed')}>
