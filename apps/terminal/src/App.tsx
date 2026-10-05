@@ -18,6 +18,7 @@ import './dev.css';
 import './ux.css';
 import './quality.css';
 import './layout-v2.css';
+import './chart-v2.css';
 
 const fmtPrice=(v?:number)=>{if(typeof v!=='number'||!Number.isFinite(v))return'—';const a=Math.abs(v);return v.toLocaleString('en-US',{maximumFractionDigits:a>=1000?2:a>=1?4:a>=0.01?6:10})};
 function payloadValue(event:AscendEvent,key:string,fallback='—'){const value=(event.payload as Record<string,unknown>)[key];return value===undefined||value===null?fallback:String(value)}
