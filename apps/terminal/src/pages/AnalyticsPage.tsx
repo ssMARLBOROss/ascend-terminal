@@ -33,54 +33,54 @@ const coins = [
 ] as const;
 
 const filterRows = [
-  'Все монеты',
-  'Все сессии',
+  'Все монеты · All coins',
+  'Все сессии · All sessions',
   'SCALP + NORMAL',
-  'Все уровни'
+  'Все уровни · All levels'
 ];
 
 export default function AnalyticsPage(){
   return <div className="analytics-layout">
     <aside className="analytics-sidebar">
       <div className="analytics-sidebar-title">
-        <strong>АНАЛИТИКА</strong>
-        <small>РЕЗУЛЬТАТЫ · СТАТИСТИКА · ЭФФЕКТИВНОСТЬ</small>
+        <strong>АНАЛИТИКА · ANALYTICS</strong>
+        <small>РЕЗУЛЬТАТЫ · RESULTS · СТАТИСТИКА · STATISTICS · ЭФФЕКТИВНОСТЬ · EFFICIENCY</small>
       </div>
 
       <div className="analytics-menu">
-        {['Общая статистика','Сессии','Сетапы','Монеты','Лонг / Шорт','SCALP / NORMAL','Уровни ликвидности','Временные интервалы','Сравнение периодов','Журнал сделок','Экспорт данных'].map((item,index)=>
+        {['Общая статистика · Overview','Сессии · Sessions','Сетапы · Setups','Монеты · Coins','Лонг / Шорт · Long / Short','SCALP / NORMAL','Уровни ликвидности · Liquidity Levels','Временные интервалы · Timeframes','Сравнение периодов · Period Compare','Журнал сделок · Trade Journal','Экспорт данных · Export'].map((item,index)=>
           <button className={index===0?'active':''} key={item}><span>{index+1}</span>{item}</button>
         )}
       </div>
 
       <div className="analytics-filter-card">
-        <div className="analytics-filter-title">ПЕРИОД АНАЛИЗА</div>
+        <div className="analytics-filter-title">ПЕРИОД АНАЛИЗА · ANALYSIS PERIOD</div>
         <div className="period-row">
           {['1D','7D','30D','90D'].map(v=><button className={v==='7D'?'active':''} key={v}>{v}</button>)}
         </div>
         <label>С<input value="28.09.2026" readOnly /></label>
         <label>По<input value="05.10.2026" readOnly /></label>
-        <div className="analytics-filter-title secondary">ФИЛЬТРЫ</div>
+        <div className="analytics-filter-title secondary">ФИЛЬТРЫ · FILTERS</div>
         {filterRows.map(v=><button className="filter-select" key={v}>{v}<span>⌄</span></button>)}
-        <button className="apply-filter">ПРИМЕНИТЬ</button>
+        <button className="apply-filter">ПРИМЕНИТЬ · APPLY</button>
       </div>
     </aside>
 
     <main className="analytics-page">
       <section className="analytics-kpis">
-        <div className="kpi-card"><small>Всего сделок</small><b>242</b><span className="positive">↗ +12.3%</span></div>
-        <div className="kpi-card"><small>Win Rate</small><b>68.6%</b><span className="positive">↗ +6.2%</span></div>
-        <div className="kpi-card wide"><small>Общий результат</small><b className="positive">+1,248.67 <em>USDT</em></b><span className="positive">↗ +18.4%</span></div>
-        <div className="kpi-card"><small>Средний R:R</small><b>1:3.2</b><span className="positive">↗ +0.6</span></div>
-        <div className="kpi-card"><small>Profit Factor</small><b>2.48</b><span className="positive">стабильно</span></div>
-        <div className="kpi-card danger"><small>Макс. просадка</small><b>-12.3%</b><span>контроль риска</span></div>
+        <div className="kpi-card"><small>Всего сделок · Total trades</small><b>242</b><span className="positive">↗ +12.3%</span></div>
+        <div className="kpi-card"><small>Процент побед · Win Rate</small><b>68.6%</b><span className="positive">↗ +6.2%</span></div>
+        <div className="kpi-card wide"><small>Общий результат · Total result</small><b className="positive">+1,248.67 <em>USDT</em></b><span className="positive">↗ +18.4%</span></div>
+        <div className="kpi-card"><small>Средний R:R · Avg R:R</small><b>1:3.2</b><span className="positive">↗ +0.6</span></div>
+        <div className="kpi-card"><small>Фактор прибыли · Profit Factor</small><b>2.48</b><span className="positive">стабильно</span></div>
+        <div className="kpi-card danger"><small>Макс. просадка · Max Drawdown</small><b>-12.3%</b><span>контроль риска · risk control</span></div>
       </section>
 
       <section className="analytics-main-grid">
         <article className="analytics-card equity-card">
           <div className="analytics-card-head">
-            <div><strong>ЭКВИТИ КРИВАЯ</strong><small>MOCK · 7 DAYS</small></div>
-            <div className="segmented"><button className="active">Общая</button><button>По сессиям</button><button>По сетапам</button><button>По монетам</button></div>
+            <div><strong>КРИВАЯ КАПИТАЛА · EQUITY CURVE</strong><small>MOCK · 7 ДНЕЙ / DAYS</small></div>
+            <div className="segmented"><button className="active">Общая · Overall</button><button>По сессиям · Sessions</button><button>По сетапам · Setups</button><button>По монетам · Coins</button></div>
           </div>
           <div className="equity-chart">
             <div className="equity-value">05.10.2026<br/><b>1,248.67 USDT</b></div>
@@ -99,13 +99,13 @@ export default function AnalyticsPage(){
         </article>
 
         <article className="analytics-card results-card">
-          <div className="analytics-card-head"><div><strong>РАСПРЕДЕЛЕНИЕ РЕЗУЛЬТАТОВ</strong><small>242 сделки</small></div></div>
+          <div className="analytics-card-head"><div><strong>РАСПРЕДЕЛЕНИЕ РЕЗУЛЬТАТОВ · RESULT DISTRIBUTION</strong><small>242 сделки</small></div></div>
           <div className="result-donut">
-            <div className="donut"><div><b>242</b><small>СДЕЛКИ</small></div></div>
+            <div className="donut"><div><b>242</b><small>СДЕЛКИ · TRADES</small></div></div>
             <div className="result-legend">
-              <div><span className="dot green"></span><p>Профит (TP1/2/3)</p><b>166 · 68.6%</b></div>
-              <div><span className="dot red"></span><p>Убыток (SL)</p><b>62 · 25.6%</b></div>
-              <div><span className="dot gray"></span><p>Безубыток (BE)</p><b>14 · 5.8%</b></div>
+              <div><span className="dot green"></span><p>Профит · Profit (TP1/2/3)</p><b>166 · 68.6%</b></div>
+              <div><span className="dot red"></span><p>Убыток · Loss (SL)</p><b>62 · 25.6%</b></div>
+              <div><span className="dot gray"></span><p>Безубыток · Breakeven (BE)</p><b>14 · 5.8%</b></div>
             </div>
           </div>
           <div className="setup-compare">
@@ -116,7 +116,7 @@ export default function AnalyticsPage(){
         </article>
 
         <article className="analytics-card sessions-card">
-          <div className="analytics-card-head"><div><strong>РЕЗУЛЬТАТЫ ПО СЕССИЯМ</strong><small>PNL</small></div></div>
+          <div className="analytics-card-head"><div><strong>РЕЗУЛЬТАТЫ ПО СЕССИЯМ · SESSION RESULTS</strong><small>PNL</small></div></div>
           <div className="session-bars">
             {sessionBars.map(row=><div className="session-bar" key={row.label}>
               <b className="positive">+{row.value}.18</b>
@@ -127,41 +127,41 @@ export default function AnalyticsPage(){
         </article>
 
         <article className="analytics-card side-card">
-          <div className="analytics-card-head"><div><strong>ЛОНГ / ШОРТ</strong><small>242 сделки</small></div></div>
+          <div className="analytics-card-head"><div><strong>ЛОНГ / ШОРТ · LONG / SHORT</strong><small>242 сделки</small></div></div>
           <div className="longshort-ring"><div><b>54.5%</b><small>LONG</small></div></div>
           <div className="longshort-values"><span><i className="green-box"></i>LONG <b>132</b></span><span><i className="red-box"></i>SHORT <b>110</b></span></div>
         </article>
 
         <article className="analytics-card coins-card">
-          <div className="analytics-card-head"><div><strong>ЛУЧШИЕ МОНЕТЫ</strong><small>PNL / MOCK</small></div></div>
+          <div className="analytics-card-head"><div><strong>ЛУЧШИЕ МОНЕТЫ · TOP COINS</strong><small>PNL / MOCK</small></div></div>
           <div className="coin-table">
-            <div className="table-head"><span>#</span><span>Монета</span><span>Сделки</span><span>Win Rate</span><span>Результат</span></div>
+            <div className="table-head"><span>#</span><span>Монета</span><span>Сделки · Trades</span><span>Процент побед · Win Rate</span><span>Результат · Result</span></div>
             {coins.map((row,index)=><div className="table-row" key={row[0]}><span>{index+1}</span><b>{row[0]}</b><span>{row[1]}</span><span className="positive">{row[2]}</span><span className="positive">{row[3]}</span></div>)}
           </div>
         </article>
 
         <article className="analytics-card efficiency-card">
-          <div className="analytics-card-head"><div><strong>ЭФФЕКТИВНОСТЬ ПО УРОВНЯМ</strong><small>WIN RATE</small></div></div>
+          <div className="analytics-card-head"><div><strong>ЭФФЕКТИВНОСТЬ ПО УРОВНЯМ · LEVEL EFFICIENCY</strong><small>ПРОЦЕНТ ПОБЕД · WIN RATE</small></div></div>
           <div className="efficiency-list">
             {levelRows.map(([label,value])=><div className="efficiency-row" key={label}><span>{label}</span><div><i style={{width:value+'%'}}></i></div><b>{value}%</b></div>)}
           </div>
         </article>
 
         <article className="analytics-card efficiency-card">
-          <div className="analytics-card-head"><div><strong>ВРЕМЕННЫЕ ИНТЕРВАЛЫ</strong><small>WIN RATE</small></div></div>
+          <div className="analytics-card-head"><div><strong>ВРЕМЕННЫЕ ИНТЕРВАЛЫ · TIMEFRAMES</strong><small>ПРОЦЕНТ ПОБЕД · WIN RATE</small></div></div>
           <div className="efficiency-list">
             {tfRows.map(([label,value])=><div className="efficiency-row" key={label}><span>{label}</span><div><i style={{width:value+'%'}}></i></div><b>{value}%</b></div>)}
           </div>
         </article>
 
         <article className="analytics-card compare-card">
-          <div className="analytics-card-head"><div><strong>СРАВНЕНИЕ ПЕРИОДОВ</strong><small>прошлая vs текущая неделя</small></div></div>
+          <div className="analytics-card-head"><div><strong>СРАВНЕНИЕ ПЕРИОДОВ · PERIOD COMPARISON</strong><small>прошлая vs текущая неделя · previous vs current week</small></div></div>
           <div className="compare-table">
-            <div><span>Сделки</span><b>198</b><b>242</b><strong className="positive">+22.2%</strong></div>
-            <div><span>Win Rate</span><b>61.6%</b><b>68.6%</b><strong className="positive">+7.0%</strong></div>
+            <div><span>Сделки · Trades</span><b>198</b><b>242</b><strong className="positive">+22.2%</strong></div>
+            <div><span>Процент побед · Win Rate</span><b>61.6%</b><b>68.6%</b><strong className="positive">+7.0%</strong></div>
             <div><span>R:R</span><b>1:2.1</b><b>1:3.2</b><strong className="positive">+1.1</strong></div>
-            <div><span>Результат</span><b>+524.18</b><b>+1,248.67</b><strong className="positive">+138%</strong></div>
-            <div><span>Max DD</span><b>-18.6%</b><b>-12.3%</b><strong className="positive">лучше</strong></div>
+            <div><span>Результат · Result</span><b>+524.18</b><b>+1,248.67</b><strong className="positive">+138%</strong></div>
+            <div><span>Макс. DD · Max DD</span><b>-18.6%</b><b>-12.3%</b><strong className="positive">лучше</strong></div>
           </div>
         </article>
       </section>
