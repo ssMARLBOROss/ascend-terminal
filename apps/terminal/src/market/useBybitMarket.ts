@@ -25,8 +25,9 @@ function normalize(list:any[]):Candle[]{
   })).filter(c=>Number.isFinite(c.timestamp)&&Number.isFinite(c.close)).sort((a,b)=>a.timestamp-b.timestamp);
 }
 
-async function fetchKlines(symbol:string,interval:string,limit=360){
+async function fetchKlines(symbol:string,interval:string,limit=360,end?:number){
   const qs=new URLSearchParams({category:'linear',symbol,interval,limit:String(limit)});
+  if(end!==undefined)qs.set('end',String(end));
   const res=await fetch('/market-api/v5/market/kline?'+qs.toString(),{cache:'no-store'});
   if(!res.ok)throw new Error('REST '+res.status);
   const json=await res.json();
@@ -45,6 +46,9 @@ export type LiveMarketState={
   lastUpdate?:number;
   latencyMs?:number;
   error?:string;
+  loadingOlder:boolean;
+  hasOlder:boolean;
+  loadOlder:()=>Promise<void>;
 };
 
 export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMarketState{
@@ -55,6 +59,8 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
   const[lastUpdate,setLastUpdate]=useState<number>();
   const[latencyMs,setLatencyMs]=useState<number>();
   const[error,setError]=useState<string>();
+  const[loadingOlder,setLoadingOlder]=useState(false);
+  const[hasOlder,setHasOlder]=useState(true);
   const retryRef=useRef<number>();
   const interval=useMemo(()=>intervalMap[timeframe]??'15',[timeframe]);
 
@@ -133,5 +139,23 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
     return()=>{disposed=true;if(ping)window.clearInterval(ping);if(retryRef.current)window.clearTimeout(retryRef.current);ws?.close()};
   },[symbol,interval]);
 
-  return{status,source:'BYBIT',symbol,timeframe,candles,contextCandles,ticker,lastUpdate,latencyMs,error};
+  const loadOlder=async()=>{
+    if(loadingOlder||!hasOlder||!candles.length)return;
+    setLoadingOlder(true);
+    try{
+      const older=await fetchKlines(symbol,interval,500,candles[0].timestamp-1);
+      setCandles(prev=>{
+        const byTs=new Map<number,Candle>();
+        [...older,...prev].forEach(x=>byTs.set(x.timestamp,x));
+        return [...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-5000);
+      });
+      if(older.length<500)setHasOlder(false);
+    }catch(err){
+      setError(String((err as Error)?.message??err));
+    }finally{
+      setLoadingOlder(false);
+    }
+  };
+
+  return{status,source:'BYBIT',symbol,timeframe,candles,contextCandles,ticker,lastUpdate,latencyMs,error,loadingOlder,hasOlder,loadOlder};
 }
