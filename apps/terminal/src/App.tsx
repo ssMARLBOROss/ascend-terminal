@@ -8,6 +8,7 @@ import PlaceholderPage from './pages/PlaceholderPage';
 import RadarPage from './pages/RadarPage';
 import SignalsPage from './pages/SignalsPage';
 import MiniAppPage from './pages/MiniAppPage';
+import SettingsPage from './pages/SettingsPage';
 
 const fmtPrice=(v?:number)=>typeof v==='number'?v.toLocaleString('en-US'):'—';
 function payloadValue(event:AscendEvent,key:string,fallback='—'){const value=(event.payload as Record<string,unknown>)[key];return value===undefined||value===null?fallback:String(value)}
@@ -59,8 +60,9 @@ export default function App(){
    currentView==='RADAR' ? <div className="standalone-view"><RadarPage/></div> :
    currentView==='SIGNALS' ? <div className="standalone-view"><SignalsPage onNavigate={setCurrentView}/></div> :
    currentView==='MINIAPP' ? <div className="standalone-view"><MiniAppPage/></div> :
-   ['SETTINGS','DEV'].includes(currentView) ? <PlaceholderPage
-      title={{SETTINGS:'НАСТРОЙКИ · SETTINGS',DEV:'РАЗРАБОТКА / ИНФРАСТРУКТУРА · DEV / INFRASTRUCTURE'}[currentView] || currentView}
+   currentView==='SETTINGS' ? <div className="standalone-view"><SettingsPage/></div> :
+   ['DEV'].includes(currentView) ? <PlaceholderPage
+      title={{DEV:'РАЗРАБОТКА / ИНФРАСТРУКТУРА · DEV / INFRASTRUCTURE'}[currentView] || currentView}
       subtitle="Раздел подключён. Section connected. Следующим шагом оформим его как полноценный рабочий экран."
       onBack={()=>setCurrentView('OVERVIEW')}
     /> :
