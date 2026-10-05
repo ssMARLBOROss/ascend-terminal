@@ -1,0 +1,214 @@
+/* ASCEND VISUAL QUALITY PASS
+   Priority: readability > fitting everything into one viewport.
+   1366x768 may scroll vertically; text must remain crisp and legible. */
+
+html,body,#root,.app{
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
+}
+body{font-size:12px}
+button,input,select{font-size:inherit}
+small{line-height:1.25}
+
+/* Never browser-default the custom controls */
+.history-ranges button,.history-actions button,.chronology-source button,
+.chart-toggles button,.timeframes button,.instrument-actions button{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  background:#071722!important;
+  color:#8aa3b3!important;
+  border:1px solid #1b4057!important;
+  border-radius:5px!important;
+  box-shadow:none!important;
+}
+.history-ranges button.active,.chronology-source button.active,.timeframes button.active,.instrument-actions button.active{
+  background:#0a3150!important;
+  border-color:#2c82ad!important;
+  color:#d7eef7!important;
+}
+
+/* Header */
+.global-bar.app-nav{height:62px}
+.brand-block strong{font-size:15px}
+.brand-block small{font-size:7px}
+.top-nav button{min-height:46px}
+.top-nav button span{font-size:9px;font-weight:800}
+.top-nav button small{font-size:6px}
+.global-actions button,.live-status{font-size:8px}
+
+/* Shared type scale */
+.panel-title strong,.analytics-card-head strong,.tg-panel-head strong,
+.settings-card-title,.dev-card-title,.mini-control-title,.section-title{
+  font-size:9px!important;
+}
+.panel-title small,.analytics-card-head small,.tg-panel-head small,
+.settings-card-title small,.dev-card-title small,.mini-control-title small{
+  font-size:6px!important;
+}
+.kv{font-size:8px}
+.kv span{font-size:8px}
+.kv b{font-size:8px}
+.kv span small{font-size:6px!important}
+
+/* Market */
+.terminal-grid{grid-template-columns:56px 238px minmax(500px,1fr) 302px}
+.nav-rail button{height:50px}
+.nav-rail button small{font-size:7px}
+.radar-panel,.decision-panel{padding:8px}
+.radar-row{height:42px}
+.radar-row b{font-size:10px}.radar-row small,.radar-row span,.radar-row em{font-size:8px}
+.instrument-bar strong{font-size:13px}.instrument-bar small{font-size:8px}
+.timeframes button,.instrument-actions button,.chart-toggles button,.scenario-controls button{
+  font-size:8px;
+  min-height:29px;
+  padding:5px 7px;
+}
+.session-card{padding:7px 8px}
+.session-card b{font-size:9px}.session-card span{font-size:7px}.session-card small,.session-card em{font-size:8px}
+.lifecycle button{font-size:7.5px;min-height:27px}
+.chart-toolbar{height:42px}
+.chart-toolbar b{font-size:10px}.chart-toolbar small{font-size:7px}
+.level,.level b{font-size:7.5px}
+.level span{font-size:7px}
+.event-marker{width:27px;height:27px;font-size:9px}
+.event-popover{padding:10px;width:min(340px,42%)}
+.event-head strong{font-size:11px}
+.event-head small,.event-head span{font-size:8px}
+.event-level{font-size:9px}
+.event-popover p{font-size:8.5px;line-height:1.5}
+.event-next small{font-size:7px}.event-next b{font-size:9px}
+.event-chain{font-size:7px}
+.decision-panel h3{font-size:12px}
+.decision-panel p{font-size:8.5px}
+.chain-row b{font-size:8px}.chain-row small{font-size:7px}
+
+/* History must look like part of the terminal, not raw HTML */
+.history-toolbar{
+  grid-template-columns:minmax(310px,1fr) auto auto;
+  padding:8px 9px;
+  gap:8px;
+  min-height:48px;
+}
+.history-summary strong{font-size:9px}
+.history-summary span{font-size:8px;margin-top:3px}
+.history-summary small{font-size:6px;margin-left:9px}
+.history-ranges button,.history-actions button,.chronology-source button{
+  min-height:30px!important;
+  font-size:7.5px!important;
+  padding:0 9px!important;
+}
+.chronology-head{padding:8px 9px 6px}
+.chronology-head strong{font-size:9px}
+.chronology-head small{font-size:6.5px}
+.chronology-scroll{padding:7px 9px 9px;gap:6px}
+.chronology-event{
+  flex-basis:145px;
+  min-height:68px;
+  padding:7px;
+}
+.chronology-event>span,.chronology-event>b{font-size:7.5px}
+.chronology-event>small{font-size:7px}
+.chronology-event>em{font-size:6px}
+.chronology-legend{font-size:6.5px;padding:6px 9px}
+
+/* Analytics */
+.analytics-sidebar-title strong{font-size:12px}
+.analytics-sidebar-title small{font-size:7px}
+.analytics-menu button{font-size:9px;height:38px}
+.analytics-filter-title{font-size:8px}
+.analytics-filter-card label,.period-row button,.filter-select,.apply-filter{font-size:8px}
+.kpi-card small{font-size:8px}.kpi-card b{font-size:19px}.kpi-card span{font-size:8px}
+.analytics-card{padding:10px}
+.setup-row,.result-legend>div{font-size:8px}
+
+/* Radar */
+.radar-head h2{font-size:17px}
+.radar-head p{font-size:8px}
+.radar-health span,.radar-health b{font-size:7.5px}
+.radar-kpis>button,.radar-kpis>div{padding:9px}
+.radar-kpis small{font-size:7px}.radar-kpis b{font-size:17px}.radar-kpis span{font-size:7px}
+.radar-controls input,.radar-controls select{font-size:8px;min-height:32px}
+.radar-group-tabs button span{font-size:7.5px}.radar-group-tabs button small{font-size:6px}
+.radar-table-head{font-size:7px;padding:8px 6px}
+.radar-table-head small{font-size:6px}
+.radar-table-row{font-size:8px;padding:9px 6px;min-height:43px}
+.radar-table-row small{font-size:6.5px}
+.radar-preview{padding:9px}
+.radar-preview-head strong{font-size:12px}.radar-preview-head small{font-size:7px}
+.preview-price b{font-size:20px}.preview-price span{font-size:9px}
+.preview-step b{font-size:8px}.preview-step small{font-size:6px}
+.radar-action-notice,.dex-safety{font-size:7px}
+
+/* Signals */
+.signals-side-title strong{font-size:12px}.signals-side-title small{font-size:7px}
+.signals-side>button span{font-size:8.5px}.signals-side>button small{font-size:6.5px}
+.signals-title h2{font-size:17px}.signals-title p{font-size:8px}
+.signals-kpis small{font-size:7px}.signals-kpis b{font-size:17px}
+.signals-toolbar input,.signals-tabs button{font-size:8px}
+.signals-table-head{font-size:7px}.signals-table-head small{font-size:6px}
+.signals-row{font-size:8px;min-height:42px}
+.signal-detail-head strong{font-size:12px}.signal-detail-head small{font-size:7px}
+.signal-detail-price b{font-size:21px}
+
+/* Telegram */
+.tg-side-title strong{font-size:12px}.tg-side-title small{font-size:7px}
+.tg-sidebar>button b{font-size:8.5px}.tg-sidebar>button small{font-size:6.5px}
+.tg-title h2{font-size:16px}.tg-title p{font-size:8px}
+.tg-panel{padding:9px}
+.tg-signal{padding:8px}
+.tg-symbol b{font-size:10px}
+.tg-signal-meta span,.queue-head,.queue-row{font-size:7.5px}
+.message-preview p{font-size:8px}
+.tg-notice{font-size:7px}
+
+/* Mini App: remove transform scaling because it makes text blurry */
+.phone-shell{transform:none!important;width:300px;height:590px}
+.device-tablet .phone-shell{transform:none!important;width:360px}
+.device-desktop .phone-shell{transform:none!important;width:430px}
+.phone-screen{font-smoothing:antialiased}
+.phone-brand strong{font-size:12px}
+.phone-card-head b{font-size:8px}
+.phone-card-head b small{font-size:6px}
+.trade-row span,.targets small,.detail-metrics span{font-size:6.5px}
+.trade-row b,.targets b,.detail-metrics b{font-size:8px}
+.mini-control-title{font-size:9px!important}
+.mini-toggle-row b,.mini-stat b{font-size:8px}
+.mini-toggle-row small,.mini-stat b small{font-size:6px}
+.miniapp-notice{font-size:7px}
+
+/* Settings */
+.settings-side-title strong{font-size:13px}.settings-side-title small{font-size:7px}
+.settings-side>button b{font-size:8.5px}.settings-side>button small{font-size:6.5px}
+.settings-title h2{font-size:17px}.settings-title p{font-size:8px}
+.settings-summary small{font-size:7px}.settings-summary small em{font-size:6px}
+.settings-summary b{font-size:15px}.settings-summary span,.settings-summary button{font-size:7px}
+.settings-field>span,.session-setting>span,.api-row span{font-size:8px}
+.settings-field>span small,.session-setting>span small,.api-row span small{font-size:6px!important}
+.settings-field input,.settings-field select,.api-row button{font-size:8px}
+.check-row{font-size:8px}
+.settings-mock-badge,.settings-notice{font-size:7px}
+
+/* DEV */
+.dev-side-title strong{font-size:13px}.dev-side-title small{font-size:7px}.dev-side-title p{font-size:7px}
+.dev-side>button b{font-size:8.5px}.dev-side>button small{font-size:6.5px}
+.dev-title h2{font-size:18px}.dev-title p{font-size:8px}
+.dev-title-actions button{font-size:8px}.dev-title-actions small{font-size:6px}
+.dev-kpis small{font-size:7px}.dev-kpis small em{font-size:6px}.dev-kpis b{font-size:16px}.dev-kpis span{font-size:7px}
+.services-head{font-size:7px}.services-head small{font-size:6px}
+.service-row{font-size:8px}.service-row>span:first-child b{font-size:8px}.service-row>span:first-child small{font-size:6px}
+.logs-head,.log-row{font-size:7.5px}
+.management-actions button b{font-size:8px}.management-actions button small{font-size:6px}
+.dev-mock-badge,.dev-notice{font-size:7px}
+
+/* 1366: allow scrolling instead of crushing typography */
+@media(max-width:1400px){
+  .top-nav button{min-width:58px}
+  .top-nav button span{font-size:8px}
+  .top-nav button small{font-size:5.5px}
+  .terminal-grid{grid-template-columns:54px 225px minmax(485px,1fr) 292px}
+  .history-toolbar{grid-template-columns:1fr auto}
+  .history-actions{grid-column:1/3}
+  .radar-table-row{min-height:44px}
+  .settings-grid,.dev-main-grid{align-items:start}
+}
