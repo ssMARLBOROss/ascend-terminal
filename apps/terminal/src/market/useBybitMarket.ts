@@ -64,6 +64,7 @@ export type LiveMarketState={
   lastUpdate?:number;
   latencyMs?:number;
   error?:string;
+  historyReady:boolean;
   loadingOlder:boolean;
   hasOlder:boolean;
   loadOlder:()=>Promise<void>;
@@ -77,7 +78,8 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
   const[status,setStatus]=useState<LiveMarketState['status']>('CONNECTING');
   const[lastUpdate,setLastUpdate]=useState<number>();
   const[latencyMs,setLatencyMs]=useState<number>();
-  const[error,setError]=useState<string>();
+  const[restError,setRestError]=useState<string>();
+  const[wsError,setWsError]=useState<string>();
   const[loadingOlder,setLoadingOlder]=useState(false);
   const[hasOlder,setHasOlder]=useState(true);
   const retryRef=useRef<number>();
@@ -85,10 +87,10 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
 
   useEffect(()=>{
     let disposed=false;
-    setStatus('CONNECTING');setError(undefined);setHasOlder(true);setRawCandles([]);setCandles([]);setContextCandles([]);setTicker({});setLastUpdate(undefined);setLatencyMs(undefined);
+    setStatus('CONNECTING');setRestError(undefined);setWsError(undefined);setHasOlder(true);setRawCandles([]);setCandles([]);setContextCandles([]);setTicker({});setLastUpdate(undefined);setLatencyMs(undefined);
     Promise.all([fetchKlines(symbol,interval,timeframe==='10m'||timeframe==='45m'?720:360),fetchKlines(symbol,'15',360)])
-      .then(([chart,context])=>{if(disposed)return;setRawCandles(chart);setCandles(aggregate(chart,timeframe).slice(-500));setContextCandles(context)})
-      .catch(err=>{if(disposed)return;setError(String(err?.message??err))});
+      .then(([chart,context])=>{if(disposed)return;setRawCandles(chart);setCandles(aggregate(chart,timeframe).slice(-500));setContextCandles(context);setRestError(undefined)})
+      .catch(err=>{if(disposed)return;setRestError('История REST: '+String(err?.message??err))});
     return()=>{disposed=true};
   },[symbol,interval,timeframe]);
 
@@ -102,7 +104,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
       ws=new WebSocket('wss://stream.bybit.com/v5/public/linear');
       ws.onopen=()=>{
         if(disposed)return;
-        setStatus('LIVE');setError(undefined);
+        setStatus('LIVE');setWsError(undefined);
         const topics=[`kline.${interval}.${symbol}`,`tickers.${symbol}`];if(interval!=='15')topics.push(`kline.15.${symbol}`);ws?.send(JSON.stringify({op:'subscribe',args:topics}));
         ping=window.setInterval(()=>{if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({op:'ping'}))},20000);
       };
@@ -151,7 +153,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
           }
         }catch{}
       };
-      ws.onerror=()=>{if(!disposed){setStatus('ERROR');setError('WebSocket error')}};
+      ws.onerror=()=>{if(!disposed){setStatus('ERROR');setWsError('WebSocket error')}};
       ws.onclose=()=>{
         if(ping)window.clearInterval(ping);
         if(disposed)return;
@@ -178,11 +180,13 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
       });
       if(older.length<500)setHasOlder(false);
     }catch(err){
-      setError(String((err as Error)?.message??err));
+      setRestError('История REST: '+String((err as Error)?.message??err));
     }finally{
       setLoadingOlder(false);
     }
   };
 
-  return{status,source:'BYBIT',symbol,timeframe,candles,contextCandles,ticker,lastUpdate,latencyMs,error,loadingOlder,hasOlder,loadOlder};
+  const historyReady=contextCandles.length>=192&&candles.length>=20;
+  const error=restError??wsError;
+  return{status,source:'BYBIT',symbol,timeframe,candles,contextCandles,ticker,lastUpdate,latencyMs,error,historyReady,loadingOlder,hasOlder,loadOlder};
 }
