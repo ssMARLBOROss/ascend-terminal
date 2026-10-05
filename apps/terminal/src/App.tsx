@@ -32,14 +32,15 @@ export default function App(){
  const[mode,setMode]=useState<SetupMode>('SCALP');
  const[activeGroup,setActiveGroup]=useState('ALL');
  const[currentView,setCurrentView]=useState('OVERVIEW');
+ const[marketSymbol,setMarketSymbol]=useState('BTCUSDT');
  const[chartTf,setChartTf]=useState<AscendTimeframe>('15m');
  const[marketMode,setMarketMode]=useState<'LIVE'|'REPLAY'>('LIVE');
  const[loadedCandles,setLoadedCandles]=useState(2000);
  const[historyRange,setHistoryRange]=useState('1D');
  const[sourceFilter,setSourceFilter]=useState<'ALL'|'DEX'|'CEX'|'CORE'>('ALL');
 
- const live=useBybitMarket('BTCUSDT',chartTf);
- const liveContext=useMemo(()=>deriveLiveMarketContext(live.contextCandles,live.candles),[live.contextCandles,live.candles]);
+ const live=useBybitMarket(marketSymbol,chartTf);
+ const liveContext=useMemo(()=>deriveLiveMarketContext(marketSymbol,live.contextCandles,live.candles),[marketSymbol,live.contextCandles,live.candles]);
  useEffect(()=>{if(!playing||marketMode!=='REPLAY')return;if(visibleCount>=events.length){setPlaying(false);return}const timer=window.setTimeout(()=>{const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])},950);return()=>window.clearTimeout(timer)},[playing,visibleCount,marketMode]);
  useEffect(()=>{if(marketMode==='LIVE'&&liveContext.chronology.length){setSelected(liveContext.chronology[liveContext.chronology.length-1])}},[marketMode,liveContext.chronology.length]);
  const visibleEvents=events.slice(0,visibleCount);
@@ -87,7 +88,7 @@ export default function App(){
   {currentView==='OVERVIEW' ? <OverviewPage onNavigate={setCurrentView}/> :
    currentView==='ANALYTICS' ? <div className="standalone-view"><AnalyticsPage/></div> :
    currentView==='TELEGRAM' ? <div className="standalone-view"><TelegramPage onNavigate={setCurrentView}/></div> :
-   currentView==='RADAR' ? <div className="standalone-view"><RadarPage onNavigate={setCurrentView}/></div> :
+   currentView==='RADAR' ? <div className="standalone-view"><RadarPage onNavigate={setCurrentView} onOpenMarket={(symbol)=>{setMarketSymbol(symbol);setCurrentView('MARKET')}}/></div> :
    currentView==='SIGNALS' ? <div className="standalone-view"><SignalsPage onNavigate={setCurrentView}/></div> :
    currentView==='MINIAPP' ? <div className="standalone-view"><MiniAppPage/></div> :
    currentView==='SETTINGS' ? <div className="standalone-view"><SettingsPage/></div> :
@@ -101,13 +102,13 @@ export default function App(){
     <div className="panel-title"><div><strong>УМНЫЙ РАДАР · SMART RADAR</strong><small>весь futures universe · server filtered</small></div><button onClick={()=>setRadarOpen(false)}>×</button></div>
     <input className="search" placeholder="Поиск монеты / Search symbol…"/>
     <div className="radar-tabs">{['ALL','HOT NOW','RC30 LONG','RC70 SHORT','YH/YL APPROACH','ONH/ONL APPROACH'].map(group=><button key={group} className={activeGroup===group?'active':''} onClick={()=>setActiveGroup(group)}>{group}</button>)}</div>
-    <div className="radar-list">{filteredRadar.map(item=><button className={'radar-row '+(item.symbol==='BTCUSDT'?'selected':'')} key={item.symbol}><div><b>{item.symbol}</b><small>{item.state}</small></div><span>{item.price}</span><em className={item.change.startsWith('+')?'positive':'negative'}>{item.change}</em></button>)}</div>
+    <div className="radar-list">{filteredRadar.map(item=><button className={'radar-row '+(item.symbol==='BTCUSDT'?'selected':'')} key={item.symbol} onClick={()=>{setMarketSymbol(item.symbol);setCurrentView('MARKET')}}><div><b>{item.symbol}</b><small>{item.state}</small></div><span>{item.price}</span><em className={item.change.startsWith('+')?'positive':'negative'}>{item.change}</em></button>)}</div>
     <div className="radar-foot"><small>Радар находит ситуацию. Radar finds the situation. Core принимает решение только после подтверждения.</small></div>
    </aside>}
 
    <main className="market-workspace">
     <section className="instrument-bar">
-     <div><strong>BTCUSDT <em className={marketMode==='LIVE'?'real-feed-chip':'mock-feed-chip'}>{marketMode==='LIVE'?'REAL':'REPLAY'}</em></strong><small>{marketMode==='LIVE'?'ФЬЮЧЕРСЫ · FUTURES · BYBIT PUBLIC FEED':'ФЬЮЧЕРСЫ · FUTURES · CORE REPLAY'}</small></div>
+     <div><strong>{marketSymbol} <em className={marketMode==='LIVE'?'real-feed-chip':'mock-feed-chip'}>{marketMode==='LIVE'?'REAL':'REPLAY'}</em></strong><small>{marketMode==='LIVE'?'ФЬЮЧЕРСЫ · FUTURES · BYBIT PUBLIC FEED':'ФЬЮЧЕРСЫ · FUTURES · CORE REPLAY'}</small></div>
      <div className="timeframes">{historyMeta.derivedTimeframes.filter(tf=>!['1W','1M'].includes(tf)).map(tf=><button className={chartTf===tf?'active':''} onClick={()=>setChartTf(tf)} key={tf}>{tf}</button>)}</div>
      <div className="instrument-actions"><button className={marketMode==='LIVE'?'active live-mode-btn':''} onClick={()=>setMarketMode('LIVE')}>● REAL MARKET</button><button className={marketMode==='REPLAY'?'active':''} onClick={()=>setMarketMode('REPLAY')}>CORE REPLAY</button>{!radarOpen&&<button onClick={()=>setRadarOpen(true)}>Радар · Radar</button>}{!decisionOpen&&<button onClick={()=>setDecisionOpen(true)}>Панель · Panel</button>}<button className={mode==='SCALP'?'active':''} onClick={()=>setMode('SCALP')}>SCALP</button><button className={mode==='NORMAL'?'active':''} onClick={()=>setMode('NORMAL')}>NORMAL</button></div>
     </section>
@@ -117,7 +118,7 @@ export default function App(){
     {marketMode==='LIVE'?<section className="lifecycle live-market-flow"><span className="flow-live">● PUBLIC FEED</span><b>BYBIT</b><span>→</span><b>CANDLES</b><span>→</span><b>SESSIONS</b><span>→</span><b>FROZEN LEVELS</b><span>→</span><b>BREAK / SWEEP / RECLAIM</b><span>→</span><em>CORE CONFIRMATION NEXT</em></section>:<section className="lifecycle">{stageOrder.map((stage,index)=>{const event=events[index],done=index<visibleCount,current=selected.type===stage;return <button key={stage} className={(done?'done ':'')+(current?'current':'')} onClick={()=>{if(done)setSelected(event)}}><span>{done?'✓':'○'}</span>{stage}</button>})}</section>}
 
     <section className="chart-shell">
-     <div className="chart-toolbar"><div><b>BTCUSDT · {chartTf}</b><small>СЕССИИ / СТЕНКИ / БАЛАНС / ЛИКВИДНОСТЬ · SESSION FLOW / WALLS / BALANCE / LIQUIDITY</small></div><div className="chart-toggles"><button>УРОВНИ · LEVELS</button><button>КЛАСТЕРЫ · CLUSTERS</button><button>СТРУКТУРА · STRUCTURE</button><button>СОБЫТИЯ · EVENTS</button></div></div>
+     <div className="chart-toolbar"><div><b>{marketSymbol} · {chartTf}</b><small>СЕССИИ / СТЕНКИ / БАЛАНС / ЛИКВИДНОСТЬ · SESSION FLOW / WALLS / BALANCE / LIQUIDITY</small></div><div className="chart-toggles"><button>УРОВНИ · LEVELS</button><button>КЛАСТЕРЫ · CLUSTERS</button><button>СТРУКТУРА · STRUCTURE</button><button>СОБЫТИЯ · EVENTS</button></div></div>
      <div className="history-toolbar">
       <div className="history-summary"><strong>ИСТОРИЯ СВЕЧЕЙ · HISTORICAL CANDLES</strong><span>{marketMode==='LIVE'?live.candles.length.toLocaleString('ru-RU'):loadedCandles.toLocaleString('ru-RU')} загружено / loaded</span><small>{marketMode==='LIVE'?'реальные Bybit candles · REST pagination + WebSocket live':'≈ '+historyMeta.estimatedCandles.toLocaleString('ru-RU')+' доступно · replay store'}</small></div>
       <div className="history-ranges">{['1D','7D','30D','90D'].map(r=><button key={r} className={historyRange===r?'active':''} onClick={()=>setHistoryRange(r)}>{r}</button>)}</div>
@@ -172,7 +173,7 @@ export default function App(){
 
    {decisionOpen&&<aside className="decision-panel">
     <div className="panel-title"><div><strong>ЦЕНТР РЕШЕНИЙ · DECISION CENTER</strong><small>почему сейчас / почему ждём · why now / why wait</small></div><button onClick={()=>setDecisionOpen(false)}>×</button></div>
-    <div className="price-card"><div><small>BTCUSDT · {marketMode==='LIVE'?'BYBIT REAL':'REPLAY'}</small><b>{fmtPrice(currentPrice)}</b></div><span className={confirmed?'confirmed':'watch'}>{marketMode==='LIVE'?'MARKET WATCH':confirmed?'CONFIRMED':'WATCH'}</span></div>
+    <div className="price-card"><div><small>{marketSymbol} · {marketMode==='LIVE'?'BYBIT REAL':'REPLAY'}</small><b>{fmtPrice(currentPrice)}</b></div><span className={confirmed?'confirmed':'watch'}>{marketMode==='LIVE'?'MARKET WATCH':confirmed?'CONFIRMED':'WATCH'}</span></div>
     <section><div className="section-title">{marketMode==='LIVE'?'РЕАЛЬНЫЕ УРОВНИ · LIVE LEVELS':'СТЕНКИ РЫНКА · MARKET WALLS'}</div>{marketMode==='LIVE'?<>{liveContext.levels.slice(0,8).map(level=><div className="kv" key={level.id}><span>{level.label} <small>{level.status}</small></span><b>{fmtPrice(level.price)}</b></div>)}</>:<><div className="kv"><span>Верхняя стенка · Upper Wall</span><b>86,978</b></div><div className="kv"><span>Balance</span><b>86,300–86,400</b></div><div className="kv"><span>Нижняя стенка · Lower Wall</span><b>85,851</b></div><div className="kv"><span>Положение цены · Price position</span><b>внутри диапазона · inside range</b></div></>}</section>
     <section><div className="section-title">АКТИВНОЕ СОБЫТИЕ · ACTIVE EVENT</div><h3>{selected.type}</h3><p>{selected.explanation}</p><div className="kv"><span>Время · Time</span><b>{new Date(selected.timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</b></div><div className="kv"><span>TF</span><b>{selected.timeframe}</b></div><div className="kv"><span>Источник · Source</span><b>{String((selected as any).source??'ASCEND_CORE')}</b></div><div className="kv"><span>Уровень · Level</span><b>{selected.level}</b></div><div className="kv"><span>RSI</span><b>{payloadValue(selected,'rsi')}</b></div><div className="kv"><span>Объём · Volume</span><b>{payloadValue(selected,'volumeRatio')}×</b></div><div className="kv"><span>Глубина снятия · Sweep depth</span><b>{payloadValue(selected,'sweepDepthPct')}</b></div><div className="kv"><span>Закрытие выше · Close above</span><b>{payloadValue(selected,'closeAbovePct')}</b></div></section>
     <section><div className="section-title">ЦЕПОЧКА CORE · CORE CHAIN · {mode}</div>{marketMode==='LIVE'?<><div className="live-core-warning">Рынок уже REAL. Торговое CONFIRMED пока не подключаем к live execution: сначала валидируем события и уровни.</div>{['PUBLIC FEED','CANDLES','SESSION MAP','FROZEN LEVELS','BREAK/SWEEP','STRUCTURE ENGINE','CONFIRMED'].map((stage,index)=><div className={'chain-row '+(index<5?'passed':'')} key={stage}><span>{index<5?'✓':'○'}</span><b>{stage}</b><small>{index<5?'REAL':'NEXT'}</small></div>)}</>:stageOrder.map((stage,index)=><div className={'chain-row '+(index<visibleCount?'passed':'')} key={stage}><span>{index<visibleCount?'✓':'○'}</span><b>{stage}</b><small>{events[index].timeframe}</small></div>)}</section>
