@@ -7,6 +7,7 @@ import TelegramPage from './pages/TelegramPage';
 import PlaceholderPage from './pages/PlaceholderPage';
 import RadarPage from './pages/RadarPage';
 import SignalsPage from './pages/SignalsPage';
+import MiniAppPage from './pages/MiniAppPage';
 
 const fmtPrice=(v?:number)=>typeof v==='number'?v.toLocaleString('en-US'):'—';
 function payloadValue(event:AscendEvent,key:string,fallback='—'){const value=(event.payload as Record<string,unknown>)[key];return value===undefined||value===null?fallback:String(value)}
@@ -57,8 +58,9 @@ export default function App(){
    currentView==='TELEGRAM' ? <div className="standalone-view"><TelegramPage onNavigate={setCurrentView}/></div> :
    currentView==='RADAR' ? <div className="standalone-view"><RadarPage/></div> :
    currentView==='SIGNALS' ? <div className="standalone-view"><SignalsPage onNavigate={setCurrentView}/></div> :
-   ['MINIAPP','SETTINGS','DEV'].includes(currentView) ? <PlaceholderPage
-      title={{MINIAPP:'МИНИ-ПРИЛОЖЕНИЕ · MINI APP',SETTINGS:'НАСТРОЙКИ · SETTINGS',DEV:'РАЗРАБОТКА / ИНФРАСТРУКТУРА · DEV / INFRASTRUCTURE'}[currentView] || currentView}
+   currentView==='MINIAPP' ? <div className="standalone-view"><MiniAppPage/></div> :
+   ['SETTINGS','DEV'].includes(currentView) ? <PlaceholderPage
+      title={{SETTINGS:'НАСТРОЙКИ · SETTINGS',DEV:'РАЗРАБОТКА / ИНФРАСТРУКТУРА · DEV / INFRASTRUCTURE'}[currentView] || currentView}
       subtitle="Раздел подключён. Section connected. Следующим шагом оформим его как полноценный рабочий экран."
       onBack={()=>setCurrentView('OVERVIEW')}
     /> :
