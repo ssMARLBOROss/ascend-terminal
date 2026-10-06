@@ -10,6 +10,7 @@ import {
 } from 'lightweight-charts';
 import type {AscendEvent,AscendTimeframe,Candle} from '@ascend/contracts';
 import type {DisplayLevel} from '../market/engine';
+import {eventLevelId,eventLevelNameRu,eventShortLabel,eventTitleRu} from '../market/eventLabels';
 
 type ChartProps={
   candles:Candle[];
@@ -47,6 +48,9 @@ const sessionDefs=[
   {name:'LONDON' as const,start:7,end:16,fill:'rgba(119,83,171,.05)',line:'rgba(145,108,198,.25)'},
   {name:'NEW YORK' as const,start:13,end:22,fill:'rgba(181,116,52,.05)',line:'rgba(206,145,74,.27)'}
 ];
+
+type CachedViewport={range:{from:number;to:number};following:boolean};
+const viewportCache=new Map<string,CachedViewport>();
 
 const tfSeconds:Record<string,number>={
   '1m':60,'3m':180,'5m':300,'10m':600,'15m':900,'30m':1800,'45m':2700,
@@ -102,6 +106,13 @@ export default function LiveCandleChart({
   const volumeSeriesRef=useRef<ISeriesApi<'Histogram'>|null>(null);
   const priceLinesRef=useRef<any[]>([]);
   const visibleTimeRef=useRef<any>(null);
+  const visibleLogicalRef=useRef<{from:number;to:number}|null>(null);
+  const followLatestRef=useRef(true);
+  const applyingRangeRef=useRef(false);
+  const lastDataLengthRef=useRef(0);
+  const candleCountRef=useRef(candles.length);
+  const pinnedTimeRef=useRef<number|undefined>();
+  const eventAtSecondRef=useRef(new Map<number,AscendEvent[]>());
   const autoLoadingRef=useRef(false);
   const drawOverlayRef=useRef<()=>void>(()=>{});
   const loadOlderRef=useRef(onLoadOlder);
@@ -109,6 +120,8 @@ export default function LiveCandleChart({
   const hasOlderRef=useRef(hasOlder);
   const [hoverTime,setHoverTime]=useState<number>();
   const [pinnedTime,setPinnedTime]=useState<number>();
+  const [selectedMarketEvent,setSelectedMarketEvent]=useState<AscendEvent>();
+  const [eventPopupPoint,setEventPopupPoint]=useState<{x:number;y:number}>();
   const [interactionHint,setInteractionHint]=useState('Перетаскивай график мышью · колесо = zoom');
 
   const sessions=useMemo(()=>buildSessions(candles),[candles]);
@@ -118,6 +131,8 @@ export default function LiveCandleChart({
     return map;
   },[candles]);
   useEffect(()=>{loadOlderRef.current=onLoadOlder},[onLoadOlder]);
+  useEffect(()=>{candleCountRef.current=candles.length},[candles.length]);
+  useEffect(()=>{pinnedTimeRef.current=pinnedTime},[pinnedTime]);
   useEffect(()=>{loadingOlderRef.current=loadingOlder},[loadingOlder]);
   useEffect(()=>{hasOlderRef.current=hasOlder},[hasOlder]);
 
