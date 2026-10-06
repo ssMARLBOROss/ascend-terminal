@@ -111,7 +111,7 @@ export function useAscendMarket(symbol:string,timeframe:AscendTimeframe,enabled=
     const start=async()=>{
       try{
         const controller=new AbortController();
-        const timeout=window.setTimeout(()=>controller.abort(),6000);
+        const timeout=window.setTimeout(()=>controller.abort(),2200);
         const res=await fetch(`/ascend-api/market/bootstrap/${encodeURIComponent(symbol)}?tf=${encodeURIComponent(timeframe)}&limit=360`,{signal:controller.signal,cache:'no-store'});
         window.clearTimeout(timeout);
         if(!res.ok)throw new Error(`ASCEND API ${res.status}`);
