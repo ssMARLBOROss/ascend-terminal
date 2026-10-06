@@ -625,7 +625,7 @@ export default function LiveCandleChart({
     const series=candleSeriesRef.current;
     if(!series||!candles.length)return;
 
-    const markers=mappedEvents.map(({event:e,candleTs})=>{
+    const marketMarkers=mappedEvents.map(({event:e,candleTs})=>{
       const time=Math.floor(candleTs/1000) as UTCTimestamp;
       const isLong=e.direction==='LONG';
       let position:'aboveBar'|'belowBar'|'inBar'='aboveBar';
@@ -645,8 +645,26 @@ export default function LiveCandleChart({
 
       return{time,position,shape,color,text,size:e.type==='SWEEP'?1.35:1};
     });
+
+    const rsiMarkers=rsiMode==='EVENTS'?rsiSignals.slice(-90).map((signal:RsiSignal)=>{
+      const isLong=signal.direction==='LONG';
+      const time=Math.floor(nearestCandleTimestamp(candles,signal.timestamp)/1000) as UTCTimestamp;
+      let color='#397de3';
+      let shape:'circle'|'square'|'arrowUp'|'arrowDown'='circle';
+      let position:'aboveBar'|'belowBar'|'inBar'=isLong?'belowBar':'aboveBar';
+      if(signal.type==='BULL'){color='#43bd6b';shape='arrowUp'}
+      if(signal.type==='BEAR'){color='#e7585f';shape='arrowDown'}
+      if(signal.type==='PIVOT'){color='#4169e1';shape='square'}
+      if(signal.type==='RC30'){color='#45b96b';shape='circle';position='belowBar'}
+      if(signal.type==='RC70'){color='#eb5a63';shape='circle';position='aboveBar'}
+      if(signal.type==='RSI37_UP'){color='#4fa0ff';shape='arrowUp';position='belowBar'}
+      if(signal.type==='RSI63_DOWN'){color='#f08a5d';shape='arrowDown';position='aboveBar'}
+      return{time,position,shape,color,text:signal.label,size:.8};
+    }):[];
+
+    const markers=[...marketMarkers,...rsiMarkers].sort((a,b)=>Number(a.time)-Number(b.time));
     try{(series as any).setMarkers(markers)}catch{}
-  },[mappedEvents,candles.length,timeframe,symbol]);
+  },[mappedEvents,rsiMode,rsiSignals,candles,timeframe,symbol]);
 
 
   useEffect(()=>{
