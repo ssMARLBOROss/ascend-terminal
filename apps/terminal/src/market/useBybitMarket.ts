@@ -24,6 +24,7 @@ type CachedContext={candles:Candle[];updatedAt:number};
 const chartCache=new Map<string,CachedChart>();
 const contextCache=new Map<string,CachedContext>();
 const prefetchingSymbols=new Set<string>();
+const microCache=new Map<string,Candle[]>();
 const PREFETCH_TFS:AscendTimeframe[]=['1m','3m','5m','10m','15m','30m','1H'];
 
 const chartKey=(symbol:string,timeframe:AscendTimeframe)=>`${symbol}:${timeframe}`;
@@ -62,6 +63,19 @@ async function fetchKlines(symbol:string,interval:string,limit=360,end?:number){
   return normalize(json.result.list);
 }
 
+async function fetchMicroHistory(symbol:string){
+  const cached=microCache.get(symbol);
+  if(cached&&cached.length>=1200)return cached;
+  const latest=await fetchKlines(symbol,'1',1000);
+  if(!latest.length)return latest;
+  const older=await fetchKlines(symbol,'1',1000,latest[0].timestamp-1);
+  const byTs=new Map<number,Candle>();
+  [...older,...latest].forEach(c=>byTs.set(c.timestamp,c));
+  const merged=[...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-2000);
+  microCache.set(symbol,merged);
+  return merged;
+}
+
 async function warmTimeframes(symbol:string,current:AscendTimeframe){
   if(prefetchingSymbols.has(symbol))return;
   prefetchingSymbols.add(symbol);
@@ -89,6 +103,7 @@ export type LiveMarketState={
   timeframe:AscendTimeframe;
   candles:Candle[];
   contextCandles:Candle[];
+  eventCandles:Candle[];
   ticker:Ticker;
   lastUpdate?:number;
   latencyMs?:number;
@@ -103,6 +118,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
   const[candles,setCandles]=useState<Candle[]>([]);
   const[rawCandles,setRawCandles]=useState<Candle[]>([]);
   const[contextCandles,setContextCandles]=useState<Candle[]>([]);
+  const[eventCandles,setEventCandles]=useState<Candle[]>([]);
   const[ticker,setTicker]=useState<Ticker>({});
   const[status,setStatus]=useState<LiveMarketState['status']>('CONNECTING');
   const[lastUpdate,setLastUpdate]=useState<number>();
@@ -135,6 +151,10 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
     else if(timeframe==='15m'&&cached)setContextCandles(cached.raw.slice(-500));
     else setContextCandles([]);
 
+    const cachedMicro=microCache.get(symbol);
+    if(cachedMicro)setEventCandles(cachedMicro);
+    else setEventCandles([]);
+
     const load=async()=>{
       try{
         const chartLimit=timeframe==='10m'||timeframe==='45m'?720:360;
@@ -153,6 +173,9 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
       }
     };
     void load();
+    void fetchMicroHistory(symbol)
+      .then(micro=>{if(!disposed)setEventCandles(micro)})
+      .catch(()=>{});
     return()=>{disposed=true};
   },[symbol,interval,timeframe,cacheKey]);
 
@@ -167,7 +190,10 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
       ws.onopen=()=>{
         if(disposed)return;
         setStatus('LIVE');setWsError(undefined);
-        const topics=[`kline.${interval}.${symbol}`,`tickers.${symbol}`];if(interval!=='15')topics.push(`kline.15.${symbol}`);ws?.send(JSON.stringify({op:'subscribe',args:topics}));
+        const topics=[`kline.${interval}.${symbol}`,`tickers.${symbol}`];
+        if(interval!=='15')topics.push(`kline.15.${symbol}`);
+        if(interval!=='1')topics.push(`kline.1.${symbol}`);
+        ws?.send(JSON.stringify({op:'subscribe',args:[...new Set(topics)]}));
         ping=window.setInterval(()=>{if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({op:'ping'}))},20000);
       };
       ws.onmessage=(event)=>{
@@ -203,6 +229,18 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
                 copy.sort((a,b)=>a.timestamp-b.timestamp);
                 const trimmed=copy.slice(-500);
                 contextCache.set(symbol,{candles:trimmed,updatedAt:Date.now()});
+                return trimmed;
+              });
+            }
+            if(topicInterval==='1'){
+              setEventCandles(prev=>{
+                const base=prev.length?prev:(microCache.get(symbol)??[]);
+                const copy=base.slice();
+                const i=copy.findIndex(c=>c.timestamp===next.timestamp);
+                if(i>=0)copy[i]=next;else copy.push(next);
+                copy.sort((a,b)=>a.timestamp-b.timestamp);
+                const trimmed=copy.slice(-2000);
+                microCache.set(symbol,trimmed);
                 return trimmed;
               });
             }
@@ -256,5 +294,5 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
 
   const historyReady=contextCandles.length>=192&&candles.length>=20;
   const error=restError??wsError;
-  return{status,source:'BYBIT',symbol,timeframe,candles,contextCandles,ticker,lastUpdate,latencyMs,error,historyReady,loadingOlder,hasOlder,loadOlder};
+  return{status,source:'BYBIT',symbol,timeframe,candles,contextCandles,eventCandles,ticker,lastUpdate,latencyMs,error,historyReady,loadingOlder,hasOlder,loadOlder};
 }
