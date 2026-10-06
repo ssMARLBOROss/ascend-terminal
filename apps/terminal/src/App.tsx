@@ -23,9 +23,11 @@ import './chart-v2.css';
 import './clarity-v1.css';
 import './chart-clean-v3.css';
 import './rsi-v1.css';
+import './liquidity-clusters-v1.css';
 
 const fmtPrice=(v?:number)=>{if(typeof v!=='number'||!Number.isFinite(v))return'—';const a=Math.abs(v);return v.toLocaleString('en-US',{maximumFractionDigits:a>=1000?2:a>=1?4:a>=0.01?6:10})};
 function payloadValue(event:AscendEvent,key:string,fallback='—'){const value=(event.payload as Record<string,unknown>)[key];return value===undefined||value===null?fallback:String(value)}
+const pressureLabel=(p:number)=>p>=1.4?'STRONG ATTACK':p>=1.1?'BREAK PRESSURE':p>=.7?'CONFLICT':'DEFENSE';
 
 export default function App(){
  const[selected,setSelected]=useState(events[0]);
@@ -45,6 +47,7 @@ export default function App(){
  const[chartFocusTime,setChartFocusTime]=useState<number>();
  const[chartFocusNonce,setChartFocusNonce]=useState(0);
  const[sourceFilter,setSourceFilter]=useState<'ALL'|'DEX'|'CEX'|'CORE'>('ALL');
+ const[showClusters,setShowClusters]=useState(true);
 
  const live=useBybitMarket(marketSymbol,chartTf);
  const historyWindow=Number(historyRange)||250;
@@ -127,7 +130,7 @@ export default function App(){
     {marketMode==='LIVE'?<section className="lifecycle live-market-flow"><span className="flow-live">● PUBLIC FEED</span><b>BYBIT</b><span>→</span><b>CANDLES</b><span>→</span><b>SESSIONS</b><span>→</span><b>FROZEN LEVELS</b><span>→</span><b>TOUCH / SWEEP / BREAK / RECLAIM</b><span>→</span><em>CORE CONFIRMATION NEXT</em></section>:<section className="lifecycle">{stageOrder.map((stage,index)=>{const event=events[index],done=index<visibleCount,current=selected.type===stage;return <button key={stage} className={(done?'done ':'')+(current?'current':'')} onClick={()=>{if(done)setSelected(event)}}><span>{done?'✓':'○'}</span>{stage}</button>})}</section>}
 
     <section className={"chart-shell "+(marketMode==="LIVE"?"chart-clean-live":"")}>
-     <div className="chart-toolbar"><div><b>{marketSymbol} · {chartTf}</b><small>СЕССИИ / СТЕНКИ / БАЛАНС / ЛИКВИДНОСТЬ · SESSION FLOW / WALLS / BALANCE / LIQUIDITY</small></div><div className="chart-toggles"><button>УРОВНИ · LEVELS</button><button>КЛАСТЕРЫ · CLUSTERS</button><button>СТРУКТУРА · STRUCTURE</button><button>СОБЫТИЯ · EVENTS</button></div></div>
+     <div className="chart-toolbar"><div><b>{marketSymbol} · {chartTf}</b><small>СЕССИИ / СТЕНКИ / БАЛАНС / ЛИКВИДНОСТЬ · SESSION FLOW / WALLS / BALANCE / LIQUIDITY</small></div><div className="chart-toggles"><button>УРОВНИ · LEVELS</button><button className={showClusters?'active':''} onClick={()=>setShowClusters(v=>!v)}>КЛАСТЕРЫ · CLUSTERS</button><button>СТРУКТУРА · STRUCTURE</button><button>СОБЫТИЯ · EVENTS</button></div></div>
      <div className={"history-toolbar "+(marketMode==="LIVE"?"chart-history-clean":"")}>
       <div className="history-summary"><strong>ИСТОРИЯ СВЕЧЕЙ · HISTORICAL CANDLES</strong><span>{marketMode==='LIVE'?live.candles.length.toLocaleString('ru-RU'):loadedCandles.toLocaleString('ru-RU')} загружено / loaded</span><small>{marketMode==='LIVE'?(live.historyReady?'реальные Bybit candles · REST + WebSocket live':'ждём REST-историю · WebSocket '+live.status+(live.error?' · '+live.error:'')):'≈ '+historyMeta.estimatedCandles.toLocaleString('ru-RU')+' доступно · replay store'}</small></div>
       <div className="history-ranges compact-presets">{['100','250','500','1000'].map(r=><button key={r} className={historyRange===r?'active':''} onClick={()=>setHistoryRange(r)}>{r}</button>)}</div>
@@ -137,7 +140,7 @@ export default function App(){
       </div>
      </div>
      <div className={'mock-chart '+(marketMode==='LIVE'?'live-chart-mode':'')}>
-      {marketMode==='LIVE'&&<LiveCandleChart candles={live.candles} levels={liveContext.levels} lastPrice={currentPrice} status={live.status} source={live.source} latencyMs={live.latencyMs} symbol={marketSymbol} timeframe={chartTf} windowSize={historyWindow} onLoadOlder={live.loadOlder} loadingOlder={live.loadingOlder} hasOlder={live.hasOlder} focusTimestamp={chartFocusTime} focusNonce={chartFocusNonce} events={liveContext.chronology}/>} 
+      {marketMode==='LIVE'&&<LiveCandleChart candles={live.candles} levels={liveContext.levels} lastPrice={currentPrice} status={live.status} source={live.source} latencyMs={live.latencyMs} symbol={marketSymbol} timeframe={chartTf} windowSize={historyWindow} onLoadOlder={live.loadOlder} loadingOlder={live.loadingOlder} hasOlder={live.hasOlder} focusTimestamp={chartFocusTime} focusNonce={chartFocusNonce} events={liveContext.chronology} clusters={liveContext.clusters} showClusters={showClusters}/>} 
       <div className="session-band asia"><span>ASIA · FROZEN</span></div><div className="session-band london"><span>LONDON · FROZEN</span></div><div className="session-band ny"><span>NEW YORK · LIVE</span></div><div className="session-band next"><span>NEXT ASIA · EXPECTED</span></div>
       <div className="level wall upper-wall"><b>ВЕРХНЯЯ СТЕНКА · UPPER WALL</b><span>ONH 86,978 · CONFIRMED</span></div>
       <div className="level cluster high-cluster"><b>ВЕРХНИЙ КЛАСТЕР LONDON / NY · HIGH CLUSTER</b><span>86,900–86,990 · UNDER ATTACK</span></div>
@@ -173,7 +176,7 @@ export default function App(){
       <div><small>ЦЕНА · LAST PRICE</small><b>{fmtPrice(currentPrice)}</b><span>BYBIT linear perpetual</span></div>
       <div><small>24H</small><b className={(live.ticker.change24hPct??0)>=0?'positive':'negative'}>{live.ticker.change24hPct!==undefined?(live.ticker.change24hPct>=0?'+':'')+live.ticker.change24hPct.toFixed(2)+'%':'—'}</b><span>real-time ticker</span></div>
       <div><small>YH / YL</small><b>{fmtPrice(liveContext.yHigh)} / {fmtPrice(liveContext.yLow)}</b><span>previous UTC day · frozen</span></div>
-      <div><small>VWAP</small><b>{fmtPrice(liveContext.vwap)}</b><span>current UTC day · calculated</span></div>
+      <div><small>VWAP</small><b>{fmtPrice(liveContext.vwap)}</b><span>current UTC day · calculated</span></div><div><small>CLUSTER PRESSURE</small><b>{liveContext.routeUp[0]?liveContext.routeUp[0].pressure.toFixed(2):liveContext.routeDown[0]?.pressure.toFixed(2)??'—'}</b><span>structural heuristic · research</span></div>
       <div><small>СЕССИЯ · SESSION</small><b>{liveContext.activeSession??'TRANSITION'}</b><span>Asia / London / New York</span></div>
       <div><small>VOLUME</small><b>{liveContext.volumeRatio?liveContext.volumeRatio.toFixed(2)+'×':'—'}</b><span>current candle vs 20-candle average</span></div>
       <div><small>FEED</small><b className={live.status==='LIVE'&&live.historyReady?'positive':'warning'}>{live.status==='LIVE'?(live.historyReady?'LIVE':'PARTIAL'):live.status}</b><span>{live.historyReady?'history + websocket':'websocket only'} · {live.latencyMs??'—'} ms</span></div>
@@ -187,6 +190,22 @@ export default function App(){
     <div className="panel-title"><div><strong>ЦЕНТР РЕШЕНИЙ · DECISION CENTER</strong><small>почему сейчас / почему ждём · why now / why wait</small></div><button onClick={()=>setDecisionOpen(false)}>×</button></div>
     <div className="price-card"><div><small>{marketSymbol} · {marketMode==='LIVE'?'BYBIT REAL':'REPLAY'}</small><b>{fmtPrice(currentPrice)}</b></div><span className={confirmed?'confirmed':'watch'}>{marketMode==='LIVE'?'MARKET WATCH':confirmed?'CONFIRMED':'WATCH'}</span></div>
     <section><div className="section-title">{marketMode==='LIVE'?'РЕАЛЬНЫЕ УРОВНИ · LIVE LEVELS':'СТЕНКИ РЫНКА · MARKET WALLS'}</div>{marketMode==='LIVE'?<>{liveContext.levels.slice(0,8).map(level=><div className="kv" key={level.id}><span>{level.label} <small>{level.status}</small></span><b>{fmtPrice(level.price)}</b></div>)}</>:<><div className="kv"><span>Верхняя стенка · Upper Wall</span><b>86,978</b></div><div className="kv"><span>Balance</span><b>86,300–86,400</b></div><div className="kv"><span>Нижняя стенка · Lower Wall</span><b>85,851</b></div><div className="kv"><span>Положение цены · Price position</span><b>внутри диапазона · inside range</b></div></>}</section>
+    {marketMode==='LIVE'&&<section className="cluster-map-panel">
+      <div className="section-title">КАРТА ЛИКВИДНОСТИ · STRUCTURAL CLUSTERS</div>
+      <div className="cluster-research-note">STRUCTURAL / CANDLE-DERIVED · не order book · research first</div>
+      <div className="cluster-attack-row"><span>ATTACK ↑ <b>{liveContext.attackUp}</b></span><span>ATTACK ↓ <b>{liveContext.attackDown}</b></span><span>ATR <b>{fmtPrice(liveContext.atr)}</b></span></div>
+      <div className="cluster-route-title">ВВЕРХ · ROUTE UP</div>
+      <div className="cluster-route-list">{liveContext.routeUp.length?liveContext.routeUp.slice(0,3).map((cluster,index)=><div className={'cluster-route-row '+cluster.status.toLowerCase()} key={cluster.id}>
+        <div><b>U{index+1} · {fmtPrice(cluster.low)}–{fmtPrice(cluster.high)}</b><small>{cluster.members.map(m=>m.label).join(' + ')}</small></div>
+        <span>DEF {cluster.strength}</span><span>ATT {cluster.attack}</span><em>{cluster.pressure.toFixed(2)} · {pressureLabel(cluster.pressure)}</em>
+      </div>):<div className="cluster-empty">нет верхнего structural cluster · none</div>}</div>
+      <div className="cluster-route-title">ВНИЗ · ROUTE DOWN</div>
+      <div className="cluster-route-list">{liveContext.routeDown.length?liveContext.routeDown.slice(0,3).map((cluster,index)=><div className={'cluster-route-row '+cluster.status.toLowerCase()} key={cluster.id}>
+        <div><b>L{index+1} · {fmtPrice(cluster.low)}–{fmtPrice(cluster.high)}</b><small>{cluster.members.map(m=>m.label).join(' + ')}</small></div>
+        <span>DEF {cluster.strength}</span><span>ATT {cluster.attack}</span><em>{cluster.pressure.toFixed(2)} · {pressureLabel(cluster.pressure)}</em>
+      </div>):<div className="cluster-empty">нет нижнего structural cluster · none</div>}</div>
+      <div className="cluster-ranges">{liveContext.ranges.map(frame=><div key={frame.id}><span>{frame.label}</span><b>{frame.positionPct.toFixed(0)}%</b><small>{fmtPrice(frame.low)} ↔ {fmtPrice(frame.high)}</small></div>)}</div>
+    </section>}
     {marketMode==='LIVE'&&liveContext.chronology.length===0?<section><div className="section-title">АКТИВНОЕ СОБЫТИЕ · ACTIVE EVENT</div><h3>WAIT MARKET EVENT</h3><p>Реальные свечи поступают. Ждём касание, пробой, sweep, acceptance или reclaim одного из замороженных уровней.</p><div className="kv"><span>Источник · Source</span><b>BYBIT PUBLIC</b></div><div className="kv"><span>Состояние · Status</span><b className="positive">{live.status}</b></div></section>:<section><div className="section-title">АКТИВНОЕ СОБЫТИЕ · ACTIVE EVENT</div><h3>{eventTitleRu(selected)}</h3><p>{selected.explanation}</p><div className="kv"><span>Время · Time</span><b>{new Date(selected.timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</b></div><div className="kv"><span>TF</span><b>{selected.timeframe}</b></div><div className="kv"><span>Источник · Source</span><b>{marketMode==='LIVE'?'BYBIT':String((selected as any).source??'ASCEND_CORE')}</b></div><div className="kv"><span>Уровень · Level</span><b>{selected.level}</b></div><div className="kv"><span>RSI</span><b>{payloadValue(selected,'rsi')}</b></div><div className="kv"><span>Объём · Volume</span><b>{payloadValue(selected,'volumeRatio')}×</b></div><div className="kv"><span>Глубина снятия · Sweep depth</span><b>{payloadValue(selected,'sweepDepthPct')}</b></div><div className="kv"><span>Закрытие выше · Close above</span><b>{payloadValue(selected,'closeAbovePct')}</b></div></section>}
     <section><div className="section-title">ЦЕПОЧКА CORE · CORE CHAIN · {mode}</div>{marketMode==='LIVE'?<><div className="live-core-warning">Рынок уже REAL. Торговое CONFIRMED пока не подключаем к live execution: сначала валидируем события и уровни.</div>{['PUBLIC FEED','CANDLES','SESSION MAP','FROZEN LEVELS','BREAK/SWEEP','STRUCTURE ENGINE','CONFIRMED'].map((stage,index)=><div className={'chain-row '+(index<5?'passed':'')} key={stage}><span>{index<5?'✓':'○'}</span><b>{stage}</b><small>{index<5?'REAL':'NEXT'}</small></div>)}</>:stageOrder.map((stage,index)=><div className={'chain-row '+(index<visibleCount?'passed':'')} key={stage}><span>{index<visibleCount?'✓':'○'}</span><b>{stage}</b><small>{events[index].timeframe}</small></div>)}</section>
     <section><div className="section-title">РИСК / МАРШРУТ · RISK / ROUTE GATE</div><div className="kv"><span>Потенциальный ход · Potential Move</span><b>{confirmed?'0.96%':'—'}</b></div><div className="kv"><span>Риск · Risk</span><b>{confirmed?'0.38%':'—'}</b></div><div className="kv"><span>Потеряно движения · Lost Move</span><b>{confirmed?'31%':'—'}</b></div><div className="kv"><span>Осталось · Remaining</span><b>{confirmed?'69%':'—'}</b></div><div className="kv"><span>R:R</span><b>{confirmed?'2.4':'—'}</b></div><div className={'gate '+(riskPass?'pass':'wait')}>{riskPass?'РИСК-ФИЛЬТР ПРОЙДЕН · RISK GATE PASSED':'ЖДЁМ ПОДТВЕРЖДЕНИЕ · WAIT CONFIRMATION'}</div></section>
