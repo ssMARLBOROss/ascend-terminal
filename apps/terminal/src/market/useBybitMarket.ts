@@ -43,7 +43,7 @@ function putChartCache(key:string,value:CachedChart){
   chartCache.delete(key);chartCache.set(key,value);pruneOldest(chartCache,MAX_CHART_CACHE);
 }
 function getChartCache(key:string){
-  const value=getChartCache(key);
+  const value=chartCache.get(key);
   if(!value)return undefined;
   if(Date.now()-value.updatedAt>CACHE_TTL_MS){chartCache.delete(key);return undefined}
   chartCache.delete(key);chartCache.set(key,value);
@@ -53,7 +53,7 @@ function putContextCache(key:string,value:CachedContext){
   contextCache.delete(key);contextCache.set(key,value);pruneOldest(contextCache,MAX_CONTEXT_CACHE);
 }
 function getContextCache(key:string){
-  const value=getContextCache(key);
+  const value=contextCache.get(key);
   if(!value)return undefined;
   if(Date.now()-value.updatedAt>CACHE_TTL_MS){contextCache.delete(key);return undefined}
   contextCache.delete(key);contextCache.set(key,value);
@@ -69,7 +69,7 @@ function putMicroCache(key:string,value:Candle[]){
   }
 }
 function getMicroCache(key:string){
-  const value=getMicroCache(key);
+  const value=microCache.get(key);
   const touched=microTouched.get(key)??0;
   if(!value)return undefined;
   if(Date.now()-touched>CACHE_TTL_MS){microCache.delete(key);microTouched.delete(key);return undefined}
