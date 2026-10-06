@@ -144,6 +144,7 @@ export default function LiveCandleChart({
   const candleCountRef=useRef(candles.length);
   const pinnedTimeRef=useRef<number|undefined>();
   const eventAtSecondRef=useRef(new Map<number,AscendEvent[]>());
+  const rsiAtSecondRef=useRef(new Map<number,RsiSignal[]>());
   const sessionsRef=useRef<SessionSlice[]>([]);
   const autoLoadingRef=useRef(false);
   const drawOverlayRef=useRef<()=>void>(()=>{});
@@ -153,6 +154,8 @@ export default function LiveCandleChart({
   const [hoverTime,setHoverTime]=useState<number>();
   const [pinnedTime,setPinnedTime]=useState<number>();
   const [selectedMarketEvent,setSelectedMarketEvent]=useState<AscendEvent>();
+  const [selectedRsiSignal,setSelectedRsiSignal]=useState<RsiSignal>();
+  const [rsiPopupPoint,setRsiPopupPoint]=useState<{x:number;y:number}>();
   const [eventPopupPoint,setEventPopupPoint]=useState<{x:number;y:number}>();
   const [selectedBalance,setSelectedBalance]=useState<SessionSlice>();
   const [balancePopupPoint,setBalancePopupPoint]=useState<{x:number;y:number}>();
@@ -200,6 +203,16 @@ export default function LiveCandleChart({
     }
     eventAtSecondRef.current=map;
   },[mappedEvents]);
+  useEffect(()=>{
+    const map=new Map<number,RsiSignal[]>();
+    for(const signal of rsiSignals){
+      const sec=Math.floor(nearestCandleTimestamp(candles,signal.timestamp)/1000);
+      const list=map.get(sec)??[];
+      list.push(signal);
+      map.set(sec,list);
+    }
+    rsiAtSecondRef.current=map;
+  },[rsiSignals,candles]);
   useEffect(()=>{loadOlderRef.current=onLoadOlder},[onLoadOlder]);
   useEffect(()=>{candleCountRef.current=candles.length},[candles.length]);
   useEffect(()=>{pinnedTimeRef.current=pinnedTime},[pinnedTime]);
@@ -439,6 +452,8 @@ export default function LiveCandleChart({
     setPinnedTime(undefined);
     setSelectedMarketEvent(undefined);
     setEventPopupPoint(undefined);
+    setSelectedRsiSignal(undefined);
+    setRsiPopupPoint(undefined);
     setSelectedBalance(undefined);
     setBalancePopupPoint(undefined);
     setHoverTime(undefined);
@@ -505,6 +520,8 @@ export default function LiveCandleChart({
       if(eventList.length){
         const chosen=eventList[0];
         setSelectedMarketEvent(chosen);
+        setSelectedRsiSignal(undefined);
+        setRsiPopupPoint(undefined);
         if(point&&hostRef.current){
           const rect=hostRef.current.getBoundingClientRect();
           setEventPopupPoint({
@@ -516,8 +533,25 @@ export default function LiveCandleChart({
         setHoverTime(sec*1000);
         return;
       }
+      const rsiList=rsiAtSecondRef.current.get(sec)??[];
+      if(rsiMode!=='OFF'&&rsiList.length&&point&&hostRef.current){
+        const chosen=rsiList[0];
+        const rect=hostRef.current.getBoundingClientRect();
+        setSelectedRsiSignal(chosen);
+        setRsiPopupPoint({
+          x:Math.max(8,Math.min(Number(point.x)+12,Math.max(8,rect.width-310))),
+          y:Math.max(58,Math.min(Number(point.y)+12,Math.max(58,rect.height-190)))
+        });
+        setSelectedMarketEvent(undefined);
+        setEventPopupPoint(undefined);
+        setPinnedTime(sec*1000);
+        setHoverTime(sec*1000);
+        return;
+      }
       setSelectedMarketEvent(undefined);
       setEventPopupPoint(undefined);
+      setSelectedRsiSignal(undefined);
+      setRsiPopupPoint(undefined);
 
       const candleTs=sec*1000;
       const clickPrice=point?series.coordinateToPrice(Number(point.y)):null;
@@ -935,7 +969,7 @@ export default function LiveCandleChart({
       <button type="button" onClick={()=>zoom(.72)} title="Приблизить">＋</button>
       <button type="button" onClick={()=>zoom(1.42)} title="Отдалить">−</button>
       <button type="button" onClick={latest}>ПОСЛЕДНЯЯ · LATEST</button>
-      <button type="button" onClick={()=>{setPinnedTime(undefined);setHoverTime(undefined);setSelectedMarketEvent(undefined);setEventPopupPoint(undefined)}}>СБРОС КУРСОРА</button>
+      <button type="button" onClick={()=>{setPinnedTime(undefined);setHoverTime(undefined);setSelectedMarketEvent(undefined);setEventPopupPoint(undefined);setSelectedRsiSignal(undefined);setRsiPopupPoint(undefined)}}>СБРОС КУРСОРА</button>
     </div>
     <div className="tv-chart-hint">{interactionHint}</div>
     {rsiMode==='PANEL'&&<>
@@ -943,7 +977,15 @@ export default function LiveCandleChart({
       <div className="tv-rsi-panel-label"><b>RSI 14</b><span>{currentRsi!==undefined?currentRsi.toFixed(1):'—'}</span><small>30 / 50 / 70 · context only</small></div>
     </>}
 
-    {selectedBalance&&balancePopupPoint&&<div className="tv-balance-popup" style={{left:balancePopupPoint.x,top:balancePopupPoint.y}}>
+    {selectedRsiSignal&&rsiPopupPoint&&<div className="tv-rsi-event-popup" style={{left:rsiPopupPoint.x,top:rsiPopupPoint.y}}>
+      <button className="tv-event-popup-close" onClick={()=>{setSelectedRsiSignal(undefined);setRsiPopupPoint(undefined)}}>×</button>
+      <strong>{selectedRsiSignal.label}</strong>
+      <small>RSI CONTEXT · НЕ ЦЕНОВОЙ ПРОБОЙ</small>
+      <div><span>Время · Time</span><b>{new Date(selectedRsiSignal.timestamp).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</b></div>
+      <div><span>RSI 14</span><b>{selectedRsiSignal.value.toFixed(2)}</b></div>
+      <p>{selectedRsiSignal.type==='RC70'?'RSI вошёл в зону 70+. Это не означает снятие ценового максимума.':selectedRsiSignal.type==='RC30'?'RSI вошёл в зону 30-. Это не означает снятие ценового минимума.':'Событие относится только к RSI. Направление цены подтверждает Structure Engine.'}</p>
+    </div>}
+        {selectedBalance&&balancePopupPoint&&<div className="tv-balance-popup" style={{left:balancePopupPoint.x,top:balancePopupPoint.y}}>
       <button className="tv-event-popup-close" onClick={()=>{setSelectedBalance(undefined);setBalancePopupPoint(undefined)}}>×</button>
       <strong>{selectedBalance.name==='NEW YORK'?'NEW YORK':selectedBalance.name} · BALANCE {selectedBalance.status}</strong>
       <div><span>HIGH</span><b>{fmtPrice(selectedBalance.high)}</b></div>
