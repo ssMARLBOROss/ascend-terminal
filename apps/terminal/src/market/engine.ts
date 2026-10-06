@@ -280,8 +280,9 @@ function isUpperLevel(id:string){
 }
 function deriveMarketState(events:AscendEvent[],now:number):LiveMarketState{
   const recentCutoff=now-12*3600000;
+  const meaningful=new Set(['PROBE','SWEEP','BREAK','RECLAIM','ACCEPT']);
   const relevant=[...events].reverse().find(e=>{
-    if(e.timestamp<recentCutoff)return false;
+    if(e.timestamp<recentCutoff||!meaningful.has(e.type))return false;
     const id=levelIdFromEvent(e);
     return isLowerLevel(id)||isUpperLevel(id);
   });
