@@ -19,6 +19,15 @@ const tfMs:Record<string,number>={
   '1H':3600000,'2H':7200000,'4H':14400000,'6H':21600000,'12H':43200000,'1D':86400000
 };
 
+type CachedChart={raw:Candle[];display:Candle[];updatedAt:number};
+type CachedContext={candles:Candle[];updatedAt:number};
+const chartCache=new Map<string,CachedChart>();
+const contextCache=new Map<string,CachedContext>();
+const prefetchingSymbols=new Set<string>();
+const PREFETCH_TFS:AscendTimeframe[]=['1m','3m','5m','10m','15m','30m','1H'];
+
+const chartKey=(symbol:string,timeframe:AscendTimeframe)=>`${symbol}:${timeframe}`;
+
 function aggregate(candles:Candle[],timeframe:AscendTimeframe){
   if(timeframe!=='10m'&&timeframe!=='45m')return candles;
   const size=tfMs[timeframe];
@@ -53,6 +62,26 @@ async function fetchKlines(symbol:string,interval:string,limit=360,end?:number){
   return normalize(json.result.list);
 }
 
+async function warmTimeframes(symbol:string,current:AscendTimeframe){
+  if(prefetchingSymbols.has(symbol))return;
+  prefetchingSymbols.add(symbol);
+  try{
+    for(const tf of PREFETCH_TFS){
+      if(tf===current||chartCache.has(chartKey(symbol,tf)))continue;
+      const interval=intervalMap[tf]??'15';
+      try{
+        const raw=await fetchKlines(symbol,interval,tf==='10m'?720:360);
+        chartCache.set(chartKey(symbol,tf),{raw,display:aggregate(raw,tf).slice(-500),updatedAt:Date.now()});
+        if(tf==='15m')contextCache.set(symbol,{candles:raw.slice(-500),updatedAt:Date.now()});
+      }catch{
+        // Prefetch is opportunistic. The active timeframe keeps its own error state.
+      }
+    }
+  }finally{
+    prefetchingSymbols.delete(symbol);
+  }
+}
+
 export type LiveMarketState={
   status:'CONNECTING'|'LIVE'|'RECONNECTING'|'ERROR';
   source:'BYBIT';
@@ -84,15 +113,48 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
   const[hasOlder,setHasOlder]=useState(true);
   const retryRef=useRef<number>();
   const interval=useMemo(()=>intervalMap[timeframe]??'15',[timeframe]);
+  const cacheKey=useMemo(()=>chartKey(symbol,timeframe),[symbol,timeframe]);
 
   useEffect(()=>{
     let disposed=false;
-    setStatus('CONNECTING');setRestError(undefined);setWsError(undefined);setHasOlder(true);setRawCandles([]);setCandles([]);setContextCandles([]);setTicker({});setLastUpdate(undefined);setLatencyMs(undefined);
-    Promise.all([fetchKlines(symbol,interval,timeframe==='10m'||timeframe==='45m'?720:360),fetchKlines(symbol,'15',360)])
-      .then(([chart,context])=>{if(disposed)return;setRawCandles(chart);setCandles(aggregate(chart,timeframe).slice(-500));setContextCandles(context);setRestError(undefined)})
-      .catch(err=>{if(disposed)return;setRestError('История REST: '+String(err?.message??err))});
+    const cached=chartCache.get(cacheKey);
+    const cachedContext=contextCache.get(symbol);
+
+    setStatus('CONNECTING');
+    setRestError(undefined);setWsError(undefined);setHasOlder(true);
+    setLoadingOlder(false);setTicker({});setLastUpdate(undefined);setLatencyMs(undefined);
+
+    if(cached){
+      setRawCandles(cached.raw);
+      setCandles(cached.display);
+    }else{
+      setRawCandles([]);
+      setCandles([]);
+    }
+    if(cachedContext)setContextCandles(cachedContext.candles);
+    else if(timeframe==='15m'&&cached)setContextCandles(cached.raw.slice(-500));
+    else setContextCandles([]);
+
+    const load=async()=>{
+      try{
+        const chartLimit=timeframe==='10m'||timeframe==='45m'?720:360;
+        const chartPromise=fetchKlines(symbol,interval,chartLimit);
+        const contextPromise=interval==='15'?chartPromise:fetchKlines(symbol,'15',360);
+        const[chart,context]=await Promise.all([chartPromise,contextPromise]);
+        if(disposed)return;
+        const display=aggregate(chart,timeframe).slice(-500);
+        setRawCandles(chart);setCandles(display);setContextCandles(context.slice(-500));setRestError(undefined);
+        chartCache.set(cacheKey,{raw:chart,display,updatedAt:Date.now()});
+        contextCache.set(symbol,{candles:context.slice(-500),updatedAt:Date.now()});
+        window.setTimeout(()=>{void warmTimeframes(symbol,timeframe)},120);
+      }catch(err){
+        if(disposed)return;
+        setRestError('История REST: '+String(err?.message??err));
+      }
+    };
+    void load();
     return()=>{disposed=true};
-  },[symbol,interval,timeframe]);
+  },[symbol,interval,timeframe,cacheKey]);
 
   useEffect(()=>{
     let disposed=false;
@@ -127,7 +189,9 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
                 if(i>=0)copy[i]=next;else copy.push(next);
                 copy.sort((a,b)=>a.timestamp-b.timestamp);
                 const trimmed=copy.slice(-1500);
-                setCandles(aggregate(trimmed,timeframe).slice(-500));
+                const display=aggregate(trimmed,timeframe).slice(-500);
+                chartCache.set(cacheKey,{raw:trimmed,display,updatedAt:Date.now()});
+                setCandles(display);
                 return trimmed;
               });
             }
@@ -137,7 +201,9 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
                 const i=copy.findIndex(c=>c.timestamp===next.timestamp);
                 if(i>=0)copy[i]=next;else copy.push(next);
                 copy.sort((a,b)=>a.timestamp-b.timestamp);
-                return copy.slice(-500);
+                const trimmed=copy.slice(-500);
+                contextCache.set(symbol,{candles:trimmed,updatedAt:Date.now()});
+                return trimmed;
               });
             }
           }else if(typeof msg?.topic==='string'&&msg.topic.startsWith('tickers.')){
@@ -163,7 +229,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
     };
     connect();
     return()=>{disposed=true;if(ping)window.clearInterval(ping);if(retryRef.current)window.clearTimeout(retryRef.current);ws?.close()};
-  },[symbol,interval,timeframe]);
+  },[symbol,interval,timeframe,cacheKey]);
 
   const loadOlder=async()=>{
     if(loadingOlder||!hasOlder||!candles.length)return;
@@ -175,7 +241,9 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
         const byTs=new Map<number,Candle>();
         [...older,...prev].forEach(x=>byTs.set(x.timestamp,x));
         const merged=[...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-8000);
-        setCandles(aggregate(merged,timeframe).slice(-5000));
+        const display=aggregate(merged,timeframe).slice(-5000);
+        chartCache.set(cacheKey,{raw:merged,display,updatedAt:Date.now()});
+        setCandles(display);
         return merged;
       });
       if(older.length<500)setHasOlder(false);
