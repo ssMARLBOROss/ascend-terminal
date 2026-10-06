@@ -497,44 +497,28 @@ export default function LiveCandleChart({
     const series=candleSeriesRef.current;
     if(!series||!candles.length)return;
 
-    const allowed=new Set(['TOUCH','SWEEP','BREAK','ACCEPT','RECLAIM','CONFIRMED','ENTRY','TP','SL']);
-    const candleTimes=candles.map(c=>c.timestamp);
-    const nearestTime=(ts:number)=>{
-      let lo=0,hi=candleTimes.length-1,best=candleTimes[0];
-      while(lo<=hi){
-        const mid=(lo+hi)>>1;
-        const value=candleTimes[mid];
-        if(Math.abs(value-ts)<Math.abs(best-ts))best=value;
-        if(value<ts)lo=mid+1;else if(value>ts)hi=mid-1;else return value;
-      }
-      return best;
-    };
-    const markers=(events||[])
-      .filter(e=>allowed.has(e.type))
-      .slice(-80)
-      .map(e=>{
-        const time=Math.floor(nearestTime(e.timestamp)/1000) as UTCTimestamp;
-        const isLong=e.direction==='LONG';
-        const isShort=e.direction==='SHORT';
-        let position:'aboveBar'|'belowBar'|'inBar'='aboveBar';
-        let shape:'circle'|'square'|'arrowUp'|'arrowDown'='circle';
-        let color='#6fb8d8';
-        let text:string=e.type;
+    const markers=mappedEvents.map(({event:e,candleTs})=>{
+      const time=Math.floor(candleTs/1000) as UTCTimestamp;
+      const isLong=e.direction==='LONG';
+      let position:'aboveBar'|'belowBar'|'inBar'='aboveBar';
+      let shape:'circle'|'square'|'arrowUp'|'arrowDown'='circle';
+      let color='#6fb8d8';
+      let text=eventShortLabel(e);
 
-        if(e.type==='TOUCH'){position=isLong?'belowBar':'aboveBar';shape='circle';color='#73bcd8';text='TOUCH'}
-        if(e.type==='SWEEP'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#d7a84d';text='SWEEP'}
-        if(e.type==='BREAK'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#4aa7d6';text='BREAK'}
-        if(e.type==='ACCEPT'){position=isLong?'belowBar':'aboveBar';shape='square';color='#5ac8a3';text='ACCEPT'}
-        if(e.type==='RECLAIM'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#8fd3b7';text='RECLAIM'}
-        if(e.type==='CONFIRMED'){position=isLong?'belowBar':'aboveBar';shape='square';color='#36d09b';text='CONF'}
-        if(e.type==='ENTRY'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#eef4f7';text='ENTRY'}
-        if(e.type==='TP'){position=isLong?'aboveBar':'belowBar';shape='square';color='#37cfa1';text='TP'}
-        if(e.type==='SL'){position=isLong?'belowBar':'aboveBar';shape='square';color='#e36c7e';text='SL'}
+      if(e.type==='TOUCH'){position=isLong?'belowBar':'aboveBar';shape='circle';color='#73bcd8'}
+      if(e.type==='SWEEP'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#d7a84d'}
+      if(e.type==='BREAK'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#4aa7d6'}
+      if(e.type==='ACCEPT'){position=isLong?'belowBar':'aboveBar';shape='square';color='#5ac8a3'}
+      if(e.type==='RECLAIM'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#8fd3b7'}
+      if(e.type==='CONFIRMED'){position=isLong?'belowBar':'aboveBar';shape='square';color='#36d09b'}
+      if(e.type==='ENTRY'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#eef4f7'}
+      if(e.type==='TP'){position=isLong?'aboveBar':'belowBar';shape='square';color='#37cfa1'}
+      if(e.type==='SL'){position=isLong?'belowBar':'aboveBar';shape='square';color='#e36c7e'}
 
-        return{time,position,shape,color,text,size:1};
-      });
+      return{time,position,shape,color,text,size:e.type==='SWEEP'?1.35:1};
+    });
     try{(series as any).setMarkers(markers)}catch{}
-  },[events,candles,timeframe,symbol]);
+  },[mappedEvents,candles.length,timeframe,symbol]);
 
 
   useEffect(()=>{
