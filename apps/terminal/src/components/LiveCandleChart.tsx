@@ -133,6 +133,7 @@ export default function LiveCandleChart({
   const candleCountRef=useRef(candles.length);
   const pinnedTimeRef=useRef<number|undefined>();
   const eventAtSecondRef=useRef(new Map<number,AscendEvent[]>());
+  const sessionsRef=useRef<SessionSlice[]>([]);
   const autoLoadingRef=useRef(false);
   const drawOverlayRef=useRef<()=>void>(()=>{});
   const loadOlderRef=useRef(onLoadOlder);
@@ -147,6 +148,7 @@ export default function LiveCandleChart({
   const [interactionHint,setInteractionHint]=useState('Перетаскивай график мышью · колесо = zoom');
 
   const sessions=useMemo(()=>buildSessions(candles),[candles]);
+  useEffect(()=>{sessionsRef.current=sessions},[sessions]);
   const candleBySecond=useMemo(()=>{
     const map=new Map<number,Candle>();
     candles.forEach(c=>map.set(Math.floor(c.timestamp/1000),c));
@@ -220,8 +222,11 @@ export default function LiveCandleChart({
       ctx.setLineDash([3,5]);
       ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,plotBottom);ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle='rgba(167,194,208,.78)';
-      ctx.fillText(new Date(day).toLocaleDateString('ru-RU',{day:'2-digit',month:'short'}).toUpperCase(),x+5,13);
+      const dayLabel=new Date(day).toLocaleDateString('ru-RU',{day:'2-digit',month:'short'}).toUpperCase();
+      ctx.fillStyle='rgba(6,18,27,.88)';
+      ctx.fillRect(x+4,plotBottom-22,52,16);
+      ctx.fillStyle='rgba(178,202,214,.82)';
+      ctx.fillText(dayLabel,x+8,plotBottom-10);
     }
     ctx.restore();
 
@@ -418,7 +423,7 @@ export default function LiveCandleChart({
 
       const candleTs=sec*1000;
       const clickPrice=point?series.coordinateToPrice(Number(point.y)):null;
-      const balance=[...sessions]
+      const balance=[...sessionsRef.current]
         .sort((a,b)=>(a.status==='LIVE'?0:1)-(b.status==='LIVE'?0:1))
         .find(s=>candleTs>=s.first&&candleTs<=s.last&&clickPrice!==null&&clickPrice<=s.high&&clickPrice>=s.low);
       if(balance&&point&&hostRef.current){
