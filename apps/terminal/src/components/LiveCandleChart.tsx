@@ -8,7 +8,7 @@ import {
   type ISeriesApi,
   type UTCTimestamp
 } from 'lightweight-charts';
-import type {AscendTimeframe,Candle} from '@ascend/contracts';
+import type {AscendEvent,AscendTimeframe,Candle} from '@ascend/contracts';
 import type {DisplayLevel} from '../market/engine';
 
 type ChartProps={
@@ -26,6 +26,7 @@ type ChartProps={
   hasOlder?:boolean;
   focusTimestamp?:number;
   focusNonce?:number;
+  events?:AscendEvent[];
 };
 
 type SessionSlice={
@@ -92,7 +93,7 @@ function buildSessions(candles:Candle[]):SessionSlice[]{
 
 export default function LiveCandleChart({
   candles,levels,lastPrice,status,source,latencyMs,symbol,timeframe,windowSize=250,
-  onLoadOlder,loadingOlder=false,hasOlder=true,focusTimestamp,focusNonce
+  onLoadOlder,loadingOlder=false,hasOlder=true,focusTimestamp,focusNonce,events=[]
 }:ChartProps){
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
@@ -221,6 +222,10 @@ export default function LiveCandleChart({
   drawOverlayRef.current=drawOverlay;
 
   useEffect(()=>{
+    visibleTimeRef.current=null;
+    setPinnedTime(undefined);
+    setHoverTime(undefined);
+    setInteractionHint('Перетаскивай график мышью · колесо = zoom');
     const host=hostRef.current;
     if(!host)return;
     const chart=createChart(host,{
@@ -352,6 +357,51 @@ export default function LiveCandleChart({
 
   useEffect(()=>{requestAnimationFrame(drawOverlay)},[drawOverlay]);
 
+
+  useEffect(()=>{
+    const series=candleSeriesRef.current;
+    if(!series||!candles.length)return;
+
+    const allowed=new Set(['TOUCH','SWEEP','BREAK','ACCEPT','RECLAIM','CONFIRMED','ENTRY','TP','SL']);
+    const candleTimes=candles.map(c=>c.timestamp);
+    const nearestTime=(ts:number)=>{
+      let lo=0,hi=candleTimes.length-1,best=candleTimes[0];
+      while(lo<=hi){
+        const mid=(lo+hi)>>1;
+        const value=candleTimes[mid];
+        if(Math.abs(value-ts)<Math.abs(best-ts))best=value;
+        if(value<ts)lo=mid+1;else if(value>ts)hi=mid-1;else return value;
+      }
+      return best;
+    };
+    const markers=(events||[])
+      .filter(e=>allowed.has(e.type))
+      .slice(-80)
+      .map(e=>{
+        const time=Math.floor(nearestTime(e.timestamp)/1000) as UTCTimestamp;
+        const isLong=e.direction==='LONG';
+        const isShort=e.direction==='SHORT';
+        let position:'aboveBar'|'belowBar'|'inBar'='aboveBar';
+        let shape:'circle'|'square'|'arrowUp'|'arrowDown'='circle';
+        let color='#6fb8d8';
+        let text=e.type;
+
+        if(e.type==='TOUCH'){position=isLong?'belowBar':'aboveBar';shape='circle';color='#73bcd8';text='TOUCH'}
+        if(e.type==='SWEEP'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#d7a84d';text='SWEEP'}
+        if(e.type==='BREAK'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#4aa7d6';text='BREAK'}
+        if(e.type==='ACCEPT'){position=isLong?'belowBar':'aboveBar';shape='square';color='#5ac8a3';text='ACCEPT'}
+        if(e.type==='RECLAIM'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#8fd3b7';text='RECLAIM'}
+        if(e.type==='CONFIRMED'){position=isLong?'belowBar':'aboveBar';shape='square';color='#36d09b';text='CONF'}
+        if(e.type==='ENTRY'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#eef4f7';text='ENTRY'}
+        if(e.type==='TP'){position=isLong?'aboveBar':'belowBar';shape='square';color='#37cfa1';text='TP'}
+        if(e.type==='SL'){position=isLong?'belowBar':'aboveBar';shape='square';color='#e36c7e';text='SL'}
+
+        return{time,position,shape,color,text,size:1};
+      });
+    try{(series as any).setMarkers(markers)}catch{}
+  },[events,candles,timeframe,symbol]);
+
+
   useEffect(()=>{
     const chart=chartRef.current;
     if(!chart||!focusTimestamp||!candles.length)return;
@@ -406,6 +456,7 @@ export default function LiveCandleChart({
       <button type="button" onClick={()=>{setPinnedTime(undefined);setHoverTime(undefined)}}>СБРОС КУРСОРА</button>
     </div>
     <div className="tv-chart-hint">{interactionHint}</div>
+    <div className="tv-event-legend"><span>● TOUCH</span><span>▲ SWEEP</span><span>▲ BREAK</span><span>■ ACCEPT</span><span>↥ RECLAIM</span><span>■ TP</span><span>■ SL</span></div>
     {selectedCandle&&<div className={'tv-ohlcv '+(pinnedTime?'pinned':'')}>
       <div><b>{new Date(selectedCandle.timestamp).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</b><span>{pinnedTime?'● ЗАФИКСИРОВАНО · PINNED':'CROSSHAIR'}</span></div>
       <div><span>O <b>{fmtPrice(selectedCandle.open)}</b></span><span>H <b>{fmtPrice(selectedCandle.high)}</b></span><span>L <b>{fmtPrice(selectedCandle.low)}</b></span><span>C <b>{fmtPrice(selectedCandle.close)}</b></span><span>V <b>{selectedCandle.volume.toLocaleString('en-US',{maximumFractionDigits:2})}</b></span></div>
