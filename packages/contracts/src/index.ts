@@ -224,3 +224,76 @@ export interface MarketHistoryMeta {
   pagination: 'CURSOR';
   lazyLoading: true;
 }
+
+
+export type MarketSourceStatus='CONNECTING'|'LIVE'|'DEGRADED'|'OFFLINE'|'ERROR';
+export type MarketConsensusState='CONSENSUS'|'SOFT_CONFLICT'|'MARKET_CONFLICT'|'INSUFFICIENT_DATA';
+
+export interface NormalizedTicker{
+  source:MarketDataSourceId;
+  instrument:string;
+  timestamp:number;
+  lastPrice:number;
+  change24hPct?:number;
+  high24h?:number;
+  low24h?:number;
+  turnover24h?:number;
+}
+
+export interface SourceHealth{
+  source:MarketDataSourceId;
+  status:MarketSourceStatus;
+  lastUpdate?:number;
+  latencyMs?:number;
+  note?:string;
+}
+
+export interface DexDiscoverySnapshot{
+  source:'DEX_SCANNER';
+  instrument:string;
+  timestamp:number;
+  pairCount:number;
+  liquidityUsd:number;
+  volume24hUsd:number;
+  score:number;
+  canConfirmTrade:false;
+  note:string;
+}
+
+export interface MarketConsensusSnapshot{
+  instrument:string;
+  timestamp:number;
+  state:MarketConsensusState;
+  primarySource:'BYBIT'|'MEXC';
+  bybitPrice?:number;
+  mexcPrice?:number;
+  priceGapPct?:number;
+  bybitDirection?:Direction;
+  mexcDirection?:Direction;
+  note:string;
+}
+
+export interface MarketBootstrapPayload{
+  instrument:string;
+  timeframe:AscendTimeframe;
+  chartCandles:HistoricalCandle[];
+  context15m:HistoricalCandle[];
+  event1m:HistoricalCandle[];
+  ticker?:NormalizedTicker;
+  sources:SourceHealth[];
+  consensus:MarketConsensusSnapshot;
+  dex?:DexDiscoverySnapshot;
+  storage:{
+    hot:'IN_MEMORY';
+    history:'SOURCE_LAZY';
+    redis:'PLANNED';
+    postgres:'PLANNED';
+  };
+}
+
+export type MarketStreamMessage=
+ | {type:'candle';source:'BYBIT'|'MEXC';instrument:string;timeframe:AscendTimeframe;candle:HistoricalCandle}
+ | {type:'ticker';source:'BYBIT'|'MEXC';instrument:string;ticker:NormalizedTicker}
+ | {type:'consensus';instrument:string;snapshot:MarketConsensusSnapshot}
+ | {type:'dex';instrument:string;snapshot:DexDiscoverySnapshot}
+ | {type:'heartbeat';instrument:string;timestamp:number};
