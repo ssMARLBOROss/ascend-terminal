@@ -62,10 +62,10 @@ export function deriveRsiSignals(points:RsiPoint[]):RsiSignal[]{
     const c=points[i];
 
     if(b.value>30&&c.value<=30){
-      out.push({timestamp:c.timestamp,value:c.value,type:'RC30',direction:'LONG',label:'RSI 30 ENTER',shortLabel:'R30'});
+      out.push({timestamp:c.timestamp,value:c.value,type:'RC30',direction:'LONG',label:'RSI 30 ENTER',shortLabel:'RSI30'});
     }
     if(b.value<70&&c.value>=70){
-      out.push({timestamp:c.timestamp,value:c.value,type:'RC70',direction:'SHORT',label:'RSI 70 ENTER',shortLabel:'R70'});
+      out.push({timestamp:c.timestamp,value:c.value,type:'RC70',direction:'SHORT',label:'RSI 70 ENTER',shortLabel:'RSI70'});
     }
     if(b.value<=30&&c.value>30){
       out.push({timestamp:c.timestamp,value:c.value,type:'BULL',direction:'LONG',label:'RSI TURN ↑',shortLabel:'TURN↑'});
@@ -74,10 +74,10 @@ export function deriveRsiSignals(points:RsiPoint[]):RsiSignal[]{
       out.push({timestamp:c.timestamp,value:c.value,type:'BEAR',direction:'SHORT',label:'RSI TURN ↓',shortLabel:'TURN↓'});
     }
     if(b.value<37&&c.value>=37){
-      out.push({timestamp:c.timestamp,value:c.value,type:'RSI37_UP',direction:'LONG',label:'RSI RECOVERY 37↑',shortLabel:'37↑'});
+      out.push({timestamp:c.timestamp,value:c.value,type:'RSI37_UP',direction:'LONG',label:'RSI RECOVERY 37↑',shortLabel:'RSI37↑'});
     }
     if(b.value>63&&c.value<=63){
-      out.push({timestamp:c.timestamp,value:c.value,type:'RSI63_DOWN',direction:'SHORT',label:'RSI RECOVERY 63↓',shortLabel:'63↓'});
+      out.push({timestamp:c.timestamp,value:c.value,type:'RSI63_DOWN',direction:'SHORT',label:'RSI RECOVERY 63↓',shortLabel:'RSI63↓'});
     }
 
     const wasFalling=b.value<a.value;
