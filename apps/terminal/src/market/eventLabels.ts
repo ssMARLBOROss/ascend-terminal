@@ -9,6 +9,8 @@ export function eventLevelId(event:AscendEvent){
   const payloadId=payloadString(event,'levelId');
   if(payloadId)return payloadId;
   const raw=String(event.level??'').toUpperCase();
+  if(raw.startsWith('TDH'))return'TDH';
+  if(raw.startsWith('TDL'))return'TDL';
   if(raw.startsWith('ONH'))return'ONH';
   if(raw.startsWith('ONL'))return'ONL';
   if(raw.startsWith('YH'))return'YH';
@@ -28,8 +30,10 @@ export function eventLevelId(event:AscendEvent){
 
 function levelNameRu(id:string){
   const map:Record<string,string>={
-    YH:'дневной максимум',
-    YL:'дневной минимум',
+    YH:'максимум предыдущего дня',
+    YL:'минимум предыдущего дня',
+    TDH:'максимум текущего дня',
+    TDL:'минимум текущего дня',
     ONH:'ночной максимум',
     ONL:'ночной минимум',
     RTH_HIGH:'RTH максимум',
@@ -49,10 +53,14 @@ function levelNameRu(id:string){
 export function eventShortLabel(event:AscendEvent){
   const id=eventLevelId(event);
   if(event.type==='SWEEP')return `СНЯТ ${id}`;
+  if(event.type==='PROBE')return `ПРОКОЛ ${id}`;
   if(event.type==='TOUCH')return `КАСАНИЕ ${id}`;
   if(event.type==='BREAK')return `ПРОБОЙ ${id}`;
   if(event.type==='ACCEPT')return `ACCEPT ${id}`;
   if(event.type==='RECLAIM')return `RECLAIM ${id}`;
+  if(event.type==='CHOCH')return'CHOCH';
+  if(event.type==='MSS')return'MSS';
+  if(event.type==='BOS')return'BOS';
   if(event.type==='ENTRY')return'ENTRY';
   if(event.type==='TP')return'TP';
   if(event.type==='SL')return'SL';
@@ -63,11 +71,15 @@ export function eventShortLabel(event:AscendEvent){
 export function eventTitleRu(event:AscendEvent){
   const id=eventLevelId(event);
   const level=levelNameRu(id);
-  if(event.type==='SWEEP')return `Снят ${level}`;
+  if(event.type==='SWEEP')return `Снята ликвидность: ${level}`;
+  if(event.type==='PROBE')return `Неглубокий прокол: ${level}`;
   if(event.type==='TOUCH')return `Касание: ${level}`;
   if(event.type==='BREAK')return `Пробой: ${level}`;
   if(event.type==='ACCEPT')return `Принятие цены за уровнем: ${level}`;
   if(event.type==='RECLAIM')return `Возврат уровня: ${level}`;
+  if(event.type==='CHOCH')return'Смена характера движения · CHOCH';
+  if(event.type==='MSS')return'Смена структуры · MSS';
+  if(event.type==='BOS')return'Пробой структуры · BOS';
   if(event.type==='ENTRY')return'Вход в сделку';
   if(event.type==='TP')return'Тейк-профит';
   if(event.type==='SL')return'Стоп-лосс';
