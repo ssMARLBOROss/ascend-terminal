@@ -191,6 +191,7 @@ export function deriveLiveMarketContext(instrument:string,context:Candle[],chart
       const acceptDown=a.close>=p&&b.close<p&&c.close<p;
       const reclaimDown=b.close>p&&c.close<p;
       const reclaimUp=b.close<p&&c.close>p;
+      const touched=c.low<=p&&c.high>=p;
 
       if(sweptHigh)chronology.push(makeEvent(instrument,seq++,c,'SWEEP',level,'SHORT','Цена сняла ликвидность выше уровня и закрылась обратно ниже. Sweep не является самостоятельным входом.','Ждём reclaim/structure confirmation.',{high:c.high,close:c.close,sweepDepthPct:(c.high/p-1)*100}));
       else if(sweptLow)chronology.push(makeEvent(instrument,seq++,c,'SWEEP',level,'LONG','Цена сняла ликвидность ниже уровня и закрылась обратно выше. Sweep не является самостоятельным входом.','Ждём reclaim/structure confirmation.',{low:c.low,close:c.close,sweepDepthPct:(1-c.low/p)*100}));
@@ -200,11 +201,25 @@ export function deriveLiveMarketContext(instrument:string,context:Candle[],chart
       else if(reclaimUp&&a.close>=p)chronology.push(makeEvent(instrument,seq++,c,'RECLAIM',level,'LONG','После выхода ниже цена вернулась над уровень.','Нужна структурная реакция.',{close:c.close}));
       else if(crossedUp)chronology.push(makeEvent(instrument,seq++,c,'BREAK',level,'LONG','Свеча закрылась выше замороженного уровня. Пробой зафиксирован в хронологии.','Проверяем acceptance/retest.',{close:c.close,breakPct:(c.close/p-1)*100}));
       else if(crossedDown)chronology.push(makeEvent(instrument,seq++,c,'BREAK',level,'SHORT','Свеча закрылась ниже замороженного уровня. Пробой поддержки зафиксирован в хронологии.','Проверяем acceptance/retest.',{close:c.close,breakPct:(1-c.close/p)*100}));
+      else if(touched)chronology.push(makeEvent(instrument,seq++,c,'TOUCH',level,'NEUTRAL','Цена коснулась замороженного уровня без подтверждённого пробоя или sweep. Само касание не является входом.','Ждём реакцию: rejection / break / sweep / reclaim.',{high:c.high,low:c.low,close:c.close}));
     }
   }
 
   chronology.sort((a,b)=>a.timestamp-b.timestamp);
-  const deduped=chronology.filter((e,i,arr)=>i===0||!(e.timestamp===arr[i-1].timestamp&&e.type===arr[i-1].type&&e.level===arr[i-1].level)).slice(-30);
+  const compact:AscendEvent[]=[];
+  const lastTouch=new Map<string,number>();
+  for(const event of chronology){
+    if(event.type==='TOUCH'){
+      const key=String(event.level);
+      const prev=lastTouch.get(key);
+      if(prev!==undefined&&event.timestamp-prev<45*60000)continue;
+      lastTouch.set(key,event.timestamp);
+    }
+    const prev=compact[compact.length-1];
+    if(prev&&event.timestamp===prev.timestamp&&event.type===prev.type&&event.level===prev.level)continue;
+    compact.push(event);
+  }
+  const deduped=compact.slice(-60);
 
   const levelPriority=['ONH','ONL','RTH_HIGH','RTH_LOW','IBH','IBL','YH','YL','VWAP','OPEN'];
   levels.sort((a,b)=>{const ai=levelPriority.indexOf(a.id),bi=levelPriority.indexOf(b.id);return(ai<0?99:ai)-(bi<0?99:bi)});
