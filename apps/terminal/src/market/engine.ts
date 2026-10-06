@@ -278,8 +278,10 @@ function isLowerLevel(id:string){
 function isUpperLevel(id:string){
   return id==='YH'||id==='ONH'||id==='RTH_HIGH'||id==='IBH'||id.endsWith('_H');
 }
-function deriveMarketState(events:AscendEvent[]):LiveMarketState{
+function deriveMarketState(events:AscendEvent[],now:number):LiveMarketState{
+  const recentCutoff=now-12*3600000;
   const relevant=[...events].reverse().find(e=>{
+    if(e.timestamp<recentCutoff)return false;
     const id=levelIdFromEvent(e);
     return isLowerLevel(id)||isUpperLevel(id);
   });
@@ -290,7 +292,7 @@ function deriveMarketState(events:AscendEvent[]):LiveMarketState{
   };
 
   const id=levelIdFromEvent(relevant);
-  if(isLowerLevel(id)&&(relevant.type==='SWEEP'||relevant.type==='RECLAIM'||relevant.type==='PROBE')){
+  if(isLowerLevel(id)&&(relevant.type==='SWEEP'||relevant.type==='RECLAIM')){
     return{
       code:'BULL_CANDIDATE',labelRu:'БЫЧИЙ КАНДИДАТ · НЕ ПОДТВЕРЖДЁН',labelEn:'BULL CANDIDATE · NOT CONFIRMED',
       confirmed:false,sourceEventId:relevant.eventId,
@@ -298,12 +300,22 @@ function deriveMarketState(events:AscendEvent[]):LiveMarketState{
       next:'Ждём HL → CHOCH/MSS ↑ → BOS ↑. До структуры статус WAIT.'
     };
   }
-  if(isUpperLevel(id)&&(relevant.type==='SWEEP'||relevant.type==='RECLAIM'||relevant.type==='PROBE')){
+  if(isUpperLevel(id)&&(relevant.type==='SWEEP'||relevant.type==='RECLAIM')){
     return{
       code:'BEAR_CANDIDATE',labelRu:'МЕДВЕЖИЙ КАНДИДАТ · НЕ ПОДТВЕРЖДЁН',labelEn:'BEAR CANDIDATE · NOT CONFIRMED',
       confirmed:false,sourceEventId:relevant.eventId,
       reason:`Верхняя ликвидность ${id} атакована/возвращена, но это ещё не разворот.`,
       next:'Ждём LH → CHOCH/MSS ↓ → BOS ↓. До структуры статус WAIT.'
+    };
+  }
+  if(relevant.type==='PROBE'){
+    const lower=isLowerLevel(id);
+    return{
+      code:'WAIT',labelRu:lower?'ПРОКОЛ НИЖНЕЙ ЗОНЫ · WAIT':'ПРОКОЛ ВЕРХНЕЙ ЗОНЫ · WAIT',
+      labelEn:lower?'LOWER PROBE · WAIT':'UPPER PROBE · WAIT',
+      confirmed:false,sourceEventId:relevant.eventId,
+      reason:`Есть неглубокий прокол ${id}, но probe сам по себе не означает sweep или разворот.`,
+      next:'Ждём sweep / reclaim / acceptance и только потом структуру.'
     };
   }
   if(relevant.type==='ACCEPT'){
@@ -627,7 +639,7 @@ export function deriveLiveMarketContext(
   return{
     sessions,levels,chronology:deduped,
     clusters:clusterState.clusters,routeUp,routeDown,ranges,
-    marketState:deriveMarketState(deduped),
+    marketState:deriveMarketState(deduped,now),
     attackUp:clusterState.attackUp,attackDown:clusterState.attackDown,atr:clusterState.atr,
     vwap,open,yHigh:yr?.high,yLow:yr?.low,todayHigh:tr?.high,todayLow:tr?.low,
     activeSession,volumeRatio
