@@ -180,7 +180,7 @@ export default function LiveCandleChart({
   },[candles]);
   useEffect(()=>{candleBySecondRef.current=candleBySecond},[candleBySecond]);
   const mappedEvents=useMemo(()=>events
-    .filter(e=>['TOUCH','SWEEP','BREAK','ACCEPT','RECLAIM','CONFIRMED','ENTRY','TP','SL'].includes(e.type))
+    .filter(e=>['TOUCH','PROBE','SWEEP','BREAK','ACCEPT','RECLAIM','CHOCH','MSS','BOS','CONFIRMED','ENTRY','TP','SL'].includes(e.type))
     .slice(-100)
     .map(event=>({event,candleTs:nearestCandleTimestamp(candles,event.timestamp)})),[events,candles]);
 
@@ -194,7 +194,7 @@ export default function LiveCandleChart({
     }
     for(const list of map.values()){
       list.sort((a,b)=>{
-        const p:Record<string,number>={SWEEP:0,BREAK:1,RECLAIM:2,ACCEPT:3,TOUCH:4,CONFIRMED:5,ENTRY:6,TP:7,SL:8};
+        const p:Record<string,number>={SWEEP:0,PROBE:1,BREAK:2,RECLAIM:3,ACCEPT:4,TOUCH:5,CHOCH:6,MSS:7,BOS:8,CONFIRMED:9,ENTRY:10,TP:11,SL:12};
         return(p[a.type]??99)-(p[b.type]??99);
       });
     }
@@ -312,10 +312,22 @@ export default function LiveCandleChart({
 
     // Structural liquidity clusters — candle-derived research zones, not an order-book map.
     if(showClusters){
+      const upperRoute=clusters
+        .filter(cluster=>cluster.side==='UPPER'&&cluster.status!=='BROKEN')
+        .sort((a,b)=>a.mid-b.mid);
+      const lowerRoute=clusters
+        .filter(cluster=>cluster.side==='LOWER'&&cluster.status!=='BROKEN')
+        .sort((a,b)=>b.mid-a.mid);
+      const routeName=new Map<string,string>();
+      upperRoute.slice(0,4).forEach((cluster,index)=>routeName.set(cluster.id,`U${index+1}`));
+      lowerRoute.slice(0,4).forEach((cluster,index)=>routeName.set(cluster.id,`L${index+1}`));
+
       const visibleClusters=clusters
-        .filter(cluster=>cluster.status!=='BROKEN')
+        .filter(cluster=>cluster.status!=='BROKEN'&&routeName.has(cluster.id))
         .sort((a,b)=>a.distancePct-b.distancePct)
         .slice(0,6);
+
+      const occupiedY:number[]=[];
       for(const cluster of visibleClusters){
         const yHigh=series.priceToCoordinate(cluster.high);
         const yLow=series.priceToCoordinate(cluster.low);
@@ -325,50 +337,49 @@ export default function LiveCandleChart({
         if(top>plotBottom||top+height<0)continue;
 
         const isUpper=cluster.side==='UPPER';
-        const isActive=cluster.side==='ACTIVE';
         const underAttack=cluster.status==='UNDER_ATTACK';
-        ctx.fillStyle=isActive
-          ? 'rgba(92,122,143,.055)'
-          : isUpper
-            ? (underAttack?'rgba(216,143,61,.09)':'rgba(190,113,72,.055)')
-            : (underAttack?'rgba(48,184,153,.085)':'rgba(48,143,163,.05)');
-        ctx.strokeStyle=isActive
-          ? 'rgba(132,163,180,.28)'
-          : isUpper
-            ? (underAttack?'rgba(230,166,78,.72)':'rgba(197,125,84,.42)')
-            : (underAttack?'rgba(79,211,180,.68)':'rgba(69,157,181,.4)');
+        ctx.fillStyle=isUpper
+          ? (underAttack?'rgba(216,143,61,.075)':'rgba(190,113,72,.04)')
+          : (underAttack?'rgba(48,184,153,.07)':'rgba(48,143,163,.04)');
+        ctx.strokeStyle=isUpper
+          ? (underAttack?'rgba(230,166,78,.65)':'rgba(197,125,84,.34)')
+          : (underAttack?'rgba(79,211,180,.62)':'rgba(69,157,181,.34)');
         ctx.setLineDash(underAttack?[5,3]:[3,5]);
         ctx.fillRect(0,top,Math.max(0,rect.width-132),height);
         ctx.strokeRect(0,top,Math.max(0,rect.width-132),height);
         ctx.setLineDash([]);
 
         const verdict=cluster.pressure>=1.4?'STRONG ATTACK':cluster.pressure>=1.1?'BREAK PRESSURE':cluster.pressure>=.7?'CONFLICT':'DEFENSE';
-        const label=`${cluster.side==='UPPER'?'UPPER':cluster.side==='LOWER'?'LOWER':'ACTIVE'} CLUSTER · ${cluster.status}`;
-        const detail=`DEF ${cluster.strength} · ATT ${cluster.attack} · P ${cluster.pressure.toFixed(2)} · ${verdict}`;
-        const y=Math.max(34,Math.min(plotBottom-30,top+height/2-9));
-        ctx.font='700 7px "Segoe UI",system-ui,sans-serif';
-        ctx.fillStyle='rgba(5,18,27,.9)';
-        ctx.strokeStyle=isUpper?'rgba(211,151,89,.55)':'rgba(71,184,164,.52)';
-        ctx.fillRect(7,y,165,26);
-        ctx.strokeRect(7,y,165,26);
-        ctx.fillStyle=isUpper?'rgba(235,191,136,.9)':'rgba(148,230,211,.9)';
-        ctx.fillText(label,13,y+10);
-        ctx.font='600 6.5px "Segoe UI",system-ui,sans-serif';
-        ctx.fillStyle='rgba(166,190,201,.84)';
-        ctx.fillText(detail,13,y+20);
+        const code=routeName.get(cluster.id)??'LC';
+        let y=Math.max(36,Math.min(plotBottom-30,top+height/2-9));
+        while(occupiedY.some(prev=>Math.abs(prev-y)<30))y=Math.min(plotBottom-30,y+30);
+        occupiedY.push(y);
+        const x=Math.max(8,rect.width-272);
+        const w=132;
+
+        ctx.fillStyle='rgba(5,18,27,.93)';
+        ctx.strokeStyle=isUpper?'rgba(211,151,89,.58)':'rgba(71,184,164,.54)';
+        ctx.fillRect(x,y,w,26);
+        ctx.strokeRect(x,y,w,26);
+        ctx.font='800 7px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle=isUpper?'rgba(239,199,149,.94)':'rgba(152,233,214,.94)';
+        ctx.fillText(`${code} · ${verdict}`,x+6,y+10);
+        ctx.font='600 6.2px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle='rgba(164,188,199,.82)';
+        ctx.fillText(`DEN ${cluster.density} · DEF ${cluster.defense} · ATT ${cluster.attack}`,x+6,y+20);
       }
     }
 
     // Compact level labels at the right edge with collision avoidance.
     const levelPriority:Record<string,number>={
-      ONH:0,ONL:1,YH:2,YL:3,RTH_HIGH:4,RTH_LOW:5,IBH:6,IBL:7,VWAP:8,OPEN:9
+      YH:0,YL:1,TDH:2,TDL:3,ONH:4,ONL:5,RTH_HIGH:6,RTH_LOW:7,IBH:8,IBL:9,VWAP:10,OPEN:11
     };
     const visibleLevels=levels
       .filter(level=>levelPriority[level.id]!==undefined)
       .map(level=>({level,y:series.priceToCoordinate(level.price),priority:levelPriority[level.id]}))
       .filter(item=>item.y!==null&&item.y!>28&&item.y!<plotBottom-4)
       .sort((a,b)=>a.priority-b.priority)
-      .slice(0,10);
+      .slice(0,12);
 
     const placed:{y:number;target:number;level:DisplayLevel}[]=[];
     for(const item of visibleLevels){
@@ -686,10 +697,12 @@ export default function LiveCandleChart({
       let text=eventShortLabel(e);
 
       if(e.type==='TOUCH'){position=isLong?'belowBar':'aboveBar';shape='circle';color='#73bcd8'}
+      if(e.type==='PROBE'){position=isLong?'belowBar':'aboveBar';shape='circle';color='#b68b49'}
       if(e.type==='SWEEP'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#d7a84d'}
       if(e.type==='BREAK'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#4aa7d6'}
       if(e.type==='ACCEPT'){position=isLong?'belowBar':'aboveBar';shape='square';color='#5ac8a3'}
       if(e.type==='RECLAIM'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#8fd3b7'}
+      if(e.type==='CHOCH'||e.type==='MSS'||e.type==='BOS'){position=isLong?'belowBar':'aboveBar';shape='square';color='#8bb9ff'}
       if(e.type==='CONFIRMED'){position=isLong?'belowBar':'aboveBar';shape='square';color='#36d09b'}
       if(e.type==='ENTRY'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#eef4f7'}
       if(e.type==='TP'){position=isLong?'aboveBar':'belowBar';shape='square';color='#37cfa1'}
@@ -711,7 +724,7 @@ export default function LiveCandleChart({
       if(signal.type==='RC70'){color='#eb5a63';shape='circle';position='aboveBar'}
       if(signal.type==='RSI37_UP'){color='#4fa0ff';shape='arrowUp';position='belowBar'}
       if(signal.type==='RSI63_DOWN'){color='#f08a5d';shape='arrowDown';position='aboveBar'}
-      return{time,position,shape,color,text:signal.label,size:.8};
+      return{time,position,shape,color,text:signal.shortLabel,size:.8};
     }):[];
 
     const markers=[...marketMarkers,...rsiMarkers].sort((a,b)=>Number(a.time)-Number(b.time));
@@ -839,7 +852,7 @@ export default function LiveCandleChart({
       if(signal.type==='RC70'){color='#eb5a63';shape='circle';position='aboveBar'}
       if(signal.type==='RSI37_UP'){color='#4fa0ff';shape='arrowUp';position='belowBar'}
       if(signal.type==='RSI63_DOWN'){color='#f08a5d';shape='arrowDown';position='aboveBar'}
-      return{time:Math.floor(signal.timestamp/1000) as UTCTimestamp,position,shape,color,text:signal.label,size:.85};
+      return{time:Math.floor(signal.timestamp/1000) as UTCTimestamp,position,shape,color,text:signal.shortLabel,size:.85};
     }).sort((a,b)=>Number(a.time)-Number(b.time));
     try{(series as any).setMarkers(markers)}catch{}
 
@@ -953,7 +966,7 @@ export default function LiveCandleChart({
         <span><small>Уровень · Level</small><b>{payloadNumber(selectedMarketEvent,'levelPrice')!==undefined?fmtPrice(payloadNumber(selectedMarketEvent,'levelPrice')!):String(selectedMarketEvent.level)}</b></span>
         <span><small>Цена свечи · Close</small><b>{fmtPrice(selectedMarketEvent.price)}</b></span>
       </div>
-      {payloadNumber(selectedMarketEvent,'sweepDepthPct')!==undefined&&<div className="tv-event-popup-metric"><span>Глубина снятия · Sweep depth</span><b>{payloadNumber(selectedMarketEvent,'sweepDepthPct')!.toFixed(4)}%</b></div>}
+      {payloadNumber(selectedMarketEvent,'sweepDepthPct')!==undefined&&<div className="tv-event-popup-metric"><span>Глубина снятия · Sweep depth</span><b>{payloadNumber(selectedMarketEvent,'sweepDepthPct')!.toFixed(4)}%</b></div>}{payloadNumber(selectedMarketEvent,'probeDepthPct')!==undefined&&<div className="tv-event-popup-metric"><span>Глубина прокола · Probe depth</span><b>{payloadNumber(selectedMarketEvent,'probeDepthPct')!.toFixed(4)}%</b></div>}
       <p>{selectedMarketEvent.explanation}</p>
       <div className="tv-event-popup-next"><small>ДАЛЬШЕ · NEXT</small><b>{selectedMarketEvent.nextExpected}</b></div>
     </div>}
