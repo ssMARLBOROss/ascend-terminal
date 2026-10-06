@@ -206,6 +206,7 @@ export default function LiveCandleChart({
 
   const selectedCandle=(pinnedTime?candleBySecond.get(Math.floor(pinnedTime/1000)):undefined)
     ??(hoverTime?candleBySecond.get(Math.floor(hoverTime/1000)):undefined);
+  const currentRsi=rsiPoints.length?rsiPoints[rsiPoints.length-1].value:undefined;
 
   const drawOverlay=useCallback(()=>{
     const canvas=overlayRef.current;
@@ -854,7 +855,7 @@ export default function LiveCandleChart({
 
   if(candles.length<20)return <div className="live-candle-root loading"><b>ЗАГРУЖАЕМ ИСТОРИЮ СВЕЧЕЙ · LOADING CANDLE HISTORY</b><small>{source} WebSocket уже может быть LIVE, но интерактивный график ждёт REST-историю · candles: {candles.length}</small></div>;
 
-  return <div className="tv-chart-root">
+  return <div className={'tv-chart-root '+(rsiMode==='PANEL'?'rsi-panel-mode':'')}>
     <div ref={hostRef} className="tv-chart-host"/>
     <canvas ref={overlayRef} className="tv-chart-overlay"/>
     <div className="live-chart-status">
@@ -863,12 +864,20 @@ export default function LiveCandleChart({
       <small>{lastPrice!==undefined?fmtPrice(lastPrice):'—'} {latencyMs!==undefined?'· '+latencyMs+' ms':''}</small>
     </div>
     <div className="tv-chart-actions">
+      <div className="tv-rsi-switch">
+        <span>RSI</span>
+        {(['OFF','EVENTS','PANEL'] as RsiMode[]).map(mode=><button type="button" key={mode} className={rsiMode===mode?'active':''} onClick={()=>setRsiMode(mode)}>{mode}</button>)}
+      </div>
       <button type="button" onClick={()=>zoom(.72)} title="Приблизить">＋</button>
       <button type="button" onClick={()=>zoom(1.42)} title="Отдалить">−</button>
       <button type="button" onClick={latest}>ПОСЛЕДНЯЯ · LATEST</button>
       <button type="button" onClick={()=>{setPinnedTime(undefined);setHoverTime(undefined);setSelectedMarketEvent(undefined);setEventPopupPoint(undefined)}}>СБРОС КУРСОРА</button>
     </div>
     <div className="tv-chart-hint">{interactionHint}</div>
+    {rsiMode==='PANEL'&&<>
+      <div ref={rsiHostRef} className="tv-rsi-host"/>
+      <div className="tv-rsi-panel-label"><b>RSI 14</b><span>{currentRsi!==undefined?currentRsi.toFixed(1):'—'}</span><small>30 / 50 / 70 · context only</small></div>
+    </>}
 
     {selectedBalance&&balancePopupPoint&&<div className="tv-balance-popup" style={{left:balancePopupPoint.x,top:balancePopupPoint.y}}>
       <button className="tv-event-popup-close" onClick={()=>{setSelectedBalance(undefined);setBalancePopupPoint(undefined)}}>×</button>
