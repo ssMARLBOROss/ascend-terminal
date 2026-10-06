@@ -12,7 +12,7 @@ import MiniAppPage from './pages/MiniAppPage';
 import SettingsPage from './pages/SettingsPage';
 import DevPage from './pages/DevPage';
 import LiveCandleChart from './components/LiveCandleChart';
-import { useBybitMarket } from './market/useBybitMarket';
+import { useAscendMarket } from './market/useAscendMarket';
 import { deriveLiveMarketContext } from './market/engine';
 import {eventShortLabel,eventTitleRu} from './market/eventLabels';
 import './dev.css';
@@ -49,7 +49,7 @@ export default function App(){
  const[sourceFilter,setSourceFilter]=useState<'ALL'|'DEX'|'CEX'|'CORE'>('ALL');
  const[showClusters,setShowClusters]=useState(true);
 
- const live=useBybitMarket(marketSymbol,chartTf,currentView==='MARKET');
+ const live=useAscendMarket(marketSymbol,chartTf,currentView==='MARKET');
  const historyWindow=Number(historyRange)||250;
  const liveContext=useMemo(()=>deriveLiveMarketContext(marketSymbol,live.contextCandles,live.candles,live.eventCandles),[marketSymbol,live.contextCandles,live.candles,live.eventCandles]);
  useEffect(()=>{if(!playing||marketMode!=='REPLAY')return;if(visibleCount>=events.length){setPlaying(false);return}const timer=window.setTimeout(()=>{const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])},950);return()=>window.clearTimeout(timer)},[playing,visibleCount,marketMode]);
