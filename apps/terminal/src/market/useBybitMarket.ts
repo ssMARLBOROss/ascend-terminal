@@ -25,7 +25,57 @@ const chartCache=new Map<string,CachedChart>();
 const contextCache=new Map<string,CachedContext>();
 const prefetchingSymbols=new Set<string>();
 const microCache=new Map<string,Candle[]>();
+const microTouched=new Map<string,number>();
 const PREFETCH_TFS:AscendTimeframe[]=['1m','3m','5m','10m','15m','30m','1H'];
+const CACHE_TTL_MS=20*60*1000;
+const MAX_CHART_CACHE=12;
+const MAX_CONTEXT_CACHE=6;
+const MAX_MICRO_CACHE=4;
+
+function pruneOldest<T>(map:Map<string,T>,max:number){
+  while(map.size>max){
+    const first=map.keys().next().value as string|undefined;
+    if(first===undefined)break;
+    map.delete(first);
+  }
+}
+function putChartCache(key:string,value:CachedChart){
+  chartCache.delete(key);chartCache.set(key,value);pruneOldest(chartCache,MAX_CHART_CACHE);
+}
+function getChartCache(key:string){
+  const value=getChartCache(key);
+  if(!value)return undefined;
+  if(Date.now()-value.updatedAt>CACHE_TTL_MS){chartCache.delete(key);return undefined}
+  chartCache.delete(key);chartCache.set(key,value);
+  return value;
+}
+function putContextCache(key:string,value:CachedContext){
+  contextCache.delete(key);contextCache.set(key,value);pruneOldest(contextCache,MAX_CONTEXT_CACHE);
+}
+function getContextCache(key:string){
+  const value=getContextCache(key);
+  if(!value)return undefined;
+  if(Date.now()-value.updatedAt>CACHE_TTL_MS){contextCache.delete(key);return undefined}
+  contextCache.delete(key);contextCache.set(key,value);
+  return value;
+}
+function putMicroCache(key:string,value:Candle[]){
+  microCache.delete(key);microCache.set(key,value);
+  microTouched.set(key,Date.now());
+  while(microCache.size>MAX_MICRO_CACHE){
+    const first=microCache.keys().next().value as string|undefined;
+    if(first===undefined)break;
+    microCache.delete(first);microTouched.delete(first);
+  }
+}
+function getMicroCache(key:string){
+  const value=getMicroCache(key);
+  const touched=microTouched.get(key)??0;
+  if(!value)return undefined;
+  if(Date.now()-touched>CACHE_TTL_MS){microCache.delete(key);microTouched.delete(key);return undefined}
+  microCache.delete(key);microCache.set(key,value);microTouched.set(key,Date.now());
+  return value;
+}
 
 const chartKey=(symbol:string,timeframe:AscendTimeframe)=>`${symbol}:${timeframe}`;
 
@@ -64,7 +114,7 @@ async function fetchKlines(symbol:string,interval:string,limit=360,end?:number){
 }
 
 async function fetchMicroHistory(symbol:string){
-  const cached=microCache.get(symbol);
+  const cached=getMicroCache(symbol);
   if(cached&&cached.length>=1200)return cached;
   const latest=await fetchKlines(symbol,'1',1000);
   if(!latest.length)return latest;
@@ -72,7 +122,7 @@ async function fetchMicroHistory(symbol:string){
   const byTs=new Map<number,Candle>();
   [...older,...latest].forEach(c=>byTs.set(c.timestamp,c));
   const merged=[...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-2000);
-  microCache.set(symbol,merged);
+  putMicroCache(symbol,merged);
   return merged;
 }
 
@@ -80,17 +130,18 @@ async function warmTimeframes(symbol:string,current:AscendTimeframe){
   if(prefetchingSymbols.has(symbol))return;
   prefetchingSymbols.add(symbol);
   try{
-    for(const tf of PREFETCH_TFS){
-      if(tf===current||chartCache.has(chartKey(symbol,tf)))continue;
+    const currentIndex=Math.max(0,PREFETCH_TFS.indexOf(current));
+    const candidates=PREFETCH_TFS
+      .filter(tf=>tf!==current&&!getChartCache(chartKey(symbol,tf)))
+      .sort((a,b)=>Math.abs(PREFETCH_TFS.indexOf(a)-currentIndex)-Math.abs(PREFETCH_TFS.indexOf(b)-currentIndex))
+      .slice(0,3);
+
+    await Promise.allSettled(candidates.map(async tf=>{
       const interval=intervalMap[tf]??'15';
-      try{
-        const raw=await fetchKlines(symbol,interval,tf==='10m'?720:360);
-        chartCache.set(chartKey(symbol,tf),{raw,display:aggregate(raw,tf).slice(-500),updatedAt:Date.now()});
-        if(tf==='15m')contextCache.set(symbol,{candles:raw.slice(-500),updatedAt:Date.now()});
-      }catch{
-        // Prefetch is opportunistic. The active timeframe keeps its own error state.
-      }
-    }
+      const raw=await fetchKlines(symbol,interval,tf==='10m'?720:360);
+      putChartCache(chartKey(symbol,tf),{raw,display:aggregate(raw,tf).slice(-500),updatedAt:Date.now()});
+      if(tf==='15m')putContextCache(symbol,{candles:raw.slice(-500),updatedAt:Date.now()});
+    }));
   }finally{
     prefetchingSymbols.delete(symbol);
   }
@@ -137,16 +188,16 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
   useEffect(()=>{
     let disposed=false;
     if(!enabled){
-      const cached=chartCache.get(cacheKey);
-      const cachedContext=contextCache.get(symbol);
-      const cachedMicro=microCache.get(symbol);
+      const cached=getChartCache(cacheKey);
+      const cachedContext=getContextCache(symbol);
+      const cachedMicro=getMicroCache(symbol);
       if(cached){setRawCandles(cached.raw);setCandles(cached.display)}
       if(cachedContext)setContextCandles(cachedContext.candles);
       if(cachedMicro)setEventCandles(cachedMicro);
       return()=>{disposed=true};
     }
-    const cached=chartCache.get(cacheKey);
-    const cachedContext=contextCache.get(symbol);
+    const cached=getChartCache(cacheKey);
+    const cachedContext=getContextCache(symbol);
 
     setStatus('CONNECTING');
     setRestError(undefined);setWsError(undefined);setHasOlder(true);
@@ -163,7 +214,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
     else if(timeframe==='15m'&&cached)setContextCandles(cached.raw.slice(-500));
     else setContextCandles([]);
 
-    const cachedMicro=microCache.get(symbol);
+    const cachedMicro=getMicroCache(symbol);
     if(cachedMicro)setEventCandles(cachedMicro);
     else setEventCandles([]);
 
@@ -176,18 +227,21 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
         if(disposed)return;
         const display=aggregate(chart,timeframe).slice(-500);
         setRawCandles(chart);setCandles(display);setContextCandles(context.slice(-500));setRestError(undefined);
-        chartCache.set(cacheKey,{raw:chart,display,updatedAt:Date.now()});
-        contextCache.set(symbol,{candles:context.slice(-500),updatedAt:Date.now()});
-        window.setTimeout(()=>{void warmTimeframes(symbol,timeframe)},120);
+        putChartCache(cacheKey,{raw:chart,display,updatedAt:Date.now()});
+        putContextCache(symbol,{candles:context.slice(-500),updatedAt:Date.now()});
+        window.setTimeout(()=>{if(!disposed)void warmTimeframes(symbol,timeframe)},1200);
       }catch(err){
         if(disposed)return;
         setRestError('История REST: '+String((err as Error)?.message??err));
       }
     };
     void load();
-    void fetchMicroHistory(symbol)
-      .then(micro=>{if(!disposed)setEventCandles(micro)})
-      .catch(()=>{});
+    window.setTimeout(()=>{
+      if(disposed)return;
+      void fetchMicroHistory(symbol)
+        .then(micro=>{if(!disposed)setEventCandles(micro)})
+        .catch(()=>{});
+    },650);
     return()=>{disposed=true};
   },[symbol,interval,timeframe,cacheKey,enabled]);
 
@@ -232,7 +286,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
                 copy.sort((a,b)=>a.timestamp-b.timestamp);
                 const trimmed=copy.slice(-1500);
                 const display=aggregate(trimmed,timeframe).slice(-500);
-                chartCache.set(cacheKey,{raw:trimmed,display,updatedAt:Date.now()});
+                putChartCache(cacheKey,{raw:trimmed,display,updatedAt:Date.now()});
                 setCandles(display);
                 return trimmed;
               });
@@ -244,19 +298,19 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
                 if(i>=0)copy[i]=next;else copy.push(next);
                 copy.sort((a,b)=>a.timestamp-b.timestamp);
                 const trimmed=copy.slice(-500);
-                contextCache.set(symbol,{candles:trimmed,updatedAt:Date.now()});
+                putContextCache(symbol,{candles:trimmed,updatedAt:Date.now()});
                 return trimmed;
               });
             }
             if(topicInterval==='1'){
               setEventCandles(prev=>{
-                const base=prev.length?prev:(microCache.get(symbol)??[]);
+                const base=prev.length?prev:(getMicroCache(symbol)??[]);
                 const copy=base.slice();
                 const i=copy.findIndex(c=>c.timestamp===next.timestamp);
                 if(i>=0)copy[i]=next;else copy.push(next);
                 copy.sort((a,b)=>a.timestamp-b.timestamp);
                 const trimmed=copy.slice(-2000);
-                microCache.set(symbol,trimmed);
+                putMicroCache(symbol,trimmed);
                 return trimmed;
               });
             }
@@ -305,7 +359,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
         [...older,...prev].forEach(x=>byTs.set(x.timestamp,x));
         const merged=[...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-8000);
         const display=aggregate(merged,timeframe).slice(-5000);
-        chartCache.set(cacheKey,{raw:merged,display,updatedAt:Date.now()});
+        putChartCache(cacheKey,{raw:merged,display,updatedAt:Date.now()});
         setCandles(display);
         return merged;
       });
