@@ -9,10 +9,45 @@ export type DisplayLevel={
   availableFrom:number;
 };
 
+export type LiquidityClusterStatus='FRESH'|'TESTED'|'UNDER_ATTACK'|'DEPLETED'|'BROKEN';
+
+export type LiquidityCluster={
+  id:string;
+  side:'UPPER'|'LOWER'|'ACTIVE';
+  low:number;
+  high:number;
+  mid:number;
+  members:DisplayLevel[];
+  strength:number;
+  attack:number;
+  pressure:number;
+  tests:number;
+  rejections:number;
+  status:LiquidityClusterStatus;
+  distancePct:number;
+  availableFrom:number;
+};
+
+export type RangeFrame={
+  id:'12H'|'SESSION'|'HALF_SESSION';
+  label:string;
+  low:number;
+  high:number;
+  mid:number;
+  positionPct:number;
+};
+
 export type LiveMarketContext={
   sessions:SessionState[];
   levels:DisplayLevel[];
   chronology:AscendEvent[];
+  clusters:LiquidityCluster[];
+  routeUp:LiquidityCluster[];
+  routeDown:LiquidityCluster[];
+  ranges:RangeFrame[];
+  attackUp:number;
+  attackDown:number;
+  atr?:number;
   vwap?:number;
   open?:number;
   yHigh?:number;
@@ -50,6 +85,125 @@ function freezeAfter(items:Candle[],fallback:number){
   return items.length?Math.max(...items.map(x=>x.timestamp))+15*60000:fallback;
 }
 
+
+function clamp(value:number,min=0,max=100){return Math.max(min,Math.min(max,value))}
+function atr14(items:Candle[]){
+  if(items.length<15)return undefined;
+  const sample=items.slice(-40);
+  const trs:number[]=[];
+  for(let i=1;i<sample.length;i++){
+    const c=sample[i],p=sample[i-1];
+    trs.push(Math.max(c.high-c.low,Math.abs(c.high-p.close),Math.abs(c.low-p.close)));
+  }
+  const tail=trs.slice(-14);
+  return tail.reduce((s,v)=>s+v,0)/Math.max(1,tail.length);
+}
+function directionalAttack(items:Candle[],direction:'UP'|'DOWN',atr:number|undefined,volumeRatio:number|undefined){
+  const closed=items.slice(-13,-1);
+  if(closed.length<5)return 0;
+  const sign=direction==='UP'?1:-1;
+  const net=(closed[closed.length-1].close-closed[0].open)*sign;
+  let path=0,bars=0,location=0,body=0;
+  for(let i=0;i<closed.length;i++){
+    const c=closed[i];
+    const prev=i?closed[i-1].close:c.open;
+    path+=Math.abs(c.close-prev);
+    if((c.close-c.open)*sign>0)bars++;
+    const span=Math.max(1e-12,c.high-c.low);
+    location+=direction==='UP'?(c.close-c.low)/span:(c.high-c.close)/span;
+    body+=Math.abs(c.close-c.open);
+  }
+  const efficiency=net>0?clamp((net/Math.max(path,1e-12))*100)/100:0;
+  const barShare=bars/closed.length;
+  const closeLocation=location/closed.length;
+  const impulse=atr&&atr>0?clamp((body/closed.length)/atr*100)/100:0;
+  const vol=clamp(((volumeRatio??1)/1.8)*100)/100;
+  return Math.round(clamp(30*efficiency+20*barShare+20*closeLocation+15*impulse+15*vol));
+}
+function levelWeight(level:DisplayLevel){
+  if(level.id==='YH'||level.id==='YL')return 24;
+  if(level.id==='ONH'||level.id==='ONL')return 21;
+  if(level.id==='RTH_HIGH'||level.id==='RTH_LOW')return 18;
+  if(level.id==='IBH'||level.id==='IBL')return 13;
+  if(level.id.endsWith('_H')||level.id.endsWith('_L'))return 11;
+  return 6;
+}
+function countClusterInteractions(items:Candle[],low:number,high:number,availableFrom:number,side:'UPPER'|'LOWER'|'ACTIVE'){
+  let tests=0,rejections=0,lastTestIndex=-99;
+  for(let i=1;i<items.length;i++){
+    const c=items[i];
+    if(c.timestamp<availableFrom)continue;
+    const touched=c.high>=low&&c.low<=high;
+    if(touched&&i-lastTestIndex>2){tests++;lastTestIndex=i}
+    if(side==='UPPER'&&c.high>=low&&c.close<low)rejections++;
+    if(side==='LOWER'&&c.low<=high&&c.close>high)rejections++;
+  }
+  return{tests,rejections};
+}
+function buildClusters(levels:DisplayLevel[],context:Candle[],chart:Candle[],volumeRatio:number|undefined){
+  const price=chart.at(-1)?.close??context.at(-1)?.close;
+  if(price===undefined)return{clusters:[] as LiquidityCluster[],attackUp:0,attackDown:0,atr:undefined as number|undefined};
+  const atr=atr14(context);
+  const attackUp=directionalAttack(chart,'UP',atr,volumeRatio);
+  const attackDown=directionalAttack(chart,'DOWN',atr,volumeRatio);
+  const tolerance=Math.max((atr??price*.002)*.35,price*.0006);
+  const pad=Math.max((atr??price*.002)*.08,price*.00012);
+  const candidates=levels
+    .filter(l=>l.role!=='REFERENCE')
+    .slice()
+    .sort((a,b)=>a.price-b.price);
+
+  const groups:DisplayLevel[][]=[];
+  for(const level of candidates){
+    const group=groups.at(-1);
+    if(!group){groups.push([level]);continue}
+    const max=Math.max(...group.map(x=>x.price));
+    if(level.price-max<=tolerance)group.push(level);
+    else groups.push([level]);
+  }
+
+  const recent=context.slice(-220);
+  const clusters:LiquidityCluster[]=groups.map((members,index)=>{
+    const rawLow=Math.min(...members.map(m=>m.price));
+    const rawHigh=Math.max(...members.map(m=>m.price));
+    const low=rawLow-pad,high=rawHigh+pad,mid=(low+high)/2;
+    const side:LiquidityCluster['side']=price>high?'LOWER':price<low?'UPPER':'ACTIVE';
+    const interaction=countClusterInteractions(recent,low,high,Math.max(...members.map(m=>m.availableFrom)),side);
+    const frozenBonus=members.filter(m=>m.status==='FROZEN').length*4;
+    const composition=members.reduce((s,m)=>s+levelWeight(m),0);
+    const rejectionBonus=Math.min(18,interaction.rejections*4);
+    const depletionPenalty=Math.max(0,interaction.tests-2)*7;
+    const strength=Math.round(clamp(composition+frozenBonus+rejectionBonus-depletionPenalty));
+    const attack=side==='LOWER'?attackDown:side==='UPPER'?attackUp:Math.max(attackUp,attackDown);
+    const pressure=Number((attack/Math.max(1,strength)).toFixed(2));
+    const lastTwo=recent.slice(-2);
+    const broken=side==='UPPER'
+      ? lastTwo.length===2&&lastTwo.every(x=>x.close>high)
+      : side==='LOWER'
+        ? lastTwo.length===2&&lastTwo.every(x=>x.close<low)
+        : false;
+    const near=Math.abs(price-mid)<=Math.max(tolerance,(atr??0)*.45);
+    let status:LiquidityClusterStatus='FRESH';
+    if(broken)status='BROKEN';
+    else if(near&&attack>=45)status='UNDER_ATTACK';
+    else if(interaction.tests>=3)status='DEPLETED';
+    else if(interaction.tests>=1)status='TESTED';
+    return{
+      id:`LC-${index+1}`,side,low,high,mid,members,
+      strength,attack,pressure,tests:interaction.tests,rejections:interaction.rejections,status,
+      distancePct:Math.abs(mid-price)/Math.max(price,1e-12)*100,
+      availableFrom:Math.max(...members.map(m=>m.availableFrom))
+    };
+  });
+
+  return{clusters,attackUp,attackDown,atr};
+}
+function makeRangeFrame(id:RangeFrame['id'],label:string,items:Candle[],price:number):RangeFrame|undefined{
+  const r=range(items);if(!r)return undefined;
+  const span=Math.max(1e-12,r.high-r.low);
+  return{id,label,low:r.low,high:r.high,mid:r.balance,positionPct:clamp((price-r.low)/span*100)};
+}
+
 const SESSION_WINDOWS:Array<{name:SessionName;start:number;end:number}>=[
   {name:'ASIA',start:0,end:8},
   {name:'LONDON',start:7,end:16},
@@ -71,7 +225,7 @@ function makeEvent(
 export function deriveLiveMarketContext(instrument:string,context:Candle[],chart:Candle[],eventCandles:Candle[]=[],now=Date.now()):LiveMarketContext{
   // Do not fabricate levels from a single websocket candle when historical REST is unavailable.
   // We need roughly two days of 15m context before YH/YL, session and ON/RTH/IB levels are trusted.
-  if(context.length<192)return{sessions:[],levels:[],chronology:[]};
+  if(context.length<192)return{sessions:[],levels:[],chronology:[],clusters:[],routeUp:[],routeDown:[],ranges:[],attackUp:0,attackDown:0};
   const todayStart=utcDayStart(now);
   const yesterdayStart=todayStart-86400000;
   const yesterdayEnd=todayStart;
@@ -231,7 +385,40 @@ export function deriveLiveMarketContext(instrument:string,context:Candle[],chart
   const avg=recent.slice(0,-1).reduce((s,c)=>s+c.volume,0)/Math.max(1,recent.length-1);
   const volumeRatio=avg>0&&recent.length?recent[recent.length-1].volume/avg:undefined;
 
-  return{sessions,levels,chronology:deduped,vwap,open,yHigh:yr?.high,yLow:yr?.low,activeSession,volumeRatio};
+  const clusterState=buildClusters(levels,context,chart,volumeRatio);
+  const currentPrice=chart.at(-1)?.close??context.at(-1)?.close??0;
+  const routeUp=clusterState.clusters
+    .filter(c=>c.side==='UPPER'&&c.status!=='BROKEN')
+    .sort((a,b)=>a.mid-b.mid).slice(0,4);
+  const routeDown=clusterState.clusters
+    .filter(c=>c.side==='LOWER'&&c.status!=='BROKEN')
+    .sort((a,b)=>b.mid-a.mid).slice(0,4);
+
+  const twelveH=context.filter(c=>c.timestamp>=now-12*3600000);
+  const activeDef=SESSION_WINDOWS.find(s=>s.name===activeSession);
+  let sessionItems:Candle[]=[];
+  let halfItems:Candle[]=[];
+  if(activeDef){
+    const sStart=todayStart+activeDef.start*3600000;
+    const sEnd=Math.min(now,todayStart+activeDef.end*3600000);
+    sessionItems=context.filter(c=>c.timestamp>=sStart&&c.timestamp<sEnd);
+    const midpoint=sStart+(todayStart+activeDef.end*3600000-sStart)/2;
+    const halfStart=now>=midpoint?midpoint:sStart;
+    const halfEnd=now>=midpoint?sEnd:Math.min(midpoint,sEnd);
+    halfItems=context.filter(c=>c.timestamp>=halfStart&&c.timestamp<halfEnd);
+  }
+  const ranges=[
+    makeRangeFrame('12H','12H RANGE',twelveH,currentPrice),
+    makeRangeFrame('SESSION',activeSession?`${activeSession.replace('_',' ')} RANGE`:'SESSION RANGE',sessionItems,currentPrice),
+    makeRangeFrame('HALF_SESSION','HALF SESSION',halfItems,currentPrice)
+  ].filter((x):x is RangeFrame=>Boolean(x));
+
+  return{
+    sessions,levels,chronology:deduped,
+    clusters:clusterState.clusters,routeUp,routeDown,ranges,
+    attackUp:clusterState.attackUp,attackDown:clusterState.attackDown,atr:clusterState.atr,
+    vwap,open,yHigh:yr?.high,yLow:yr?.low,activeSession,volumeRatio
+  };
 }
 
 function formatCountdown(ms:number){
