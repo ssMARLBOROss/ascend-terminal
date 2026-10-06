@@ -145,6 +145,7 @@ export default function LiveCandleChart({
   const pinnedTimeRef=useRef<number|undefined>();
   const eventAtSecondRef=useRef(new Map<number,AscendEvent[]>());
   const rsiAtSecondRef=useRef(new Map<number,RsiSignal[]>());
+  const rsiModeRef=useRef<RsiMode>('EVENTS');
   const sessionsRef=useRef<SessionSlice[]>([]);
   const autoLoadingRef=useRef(false);
   const drawOverlayRef=useRef<()=>void>(()=>{});
@@ -174,7 +175,7 @@ export default function LiveCandleChart({
     rsiPoints.forEach(p=>map.set(Math.floor(p.timestamp/1000),p.value));
     rsiBySecondRef.current=map;
   },[rsiPoints]);
-  useEffect(()=>{if(typeof window!=='undefined')window.localStorage.setItem('ascend:rsi-mode',rsiMode)},[rsiMode]);
+  useEffect(()=>{rsiModeRef.current=rsiMode;if(typeof window!=='undefined')window.localStorage.setItem('ascend:rsi-mode',rsiMode)},[rsiMode]);
   useEffect(()=>{sessionsRef.current=sessions},[sessions]);
   const candleBySecond=useMemo(()=>{
     const map=new Map<number,Candle>();
@@ -534,7 +535,7 @@ export default function LiveCandleChart({
         return;
       }
       const rsiList=rsiAtSecondRef.current.get(sec)??[];
-      if(rsiMode!=='OFF'&&rsiList.length&&point&&hostRef.current){
+      if(rsiModeRef.current!=='OFF'&&rsiList.length&&point&&hostRef.current){
         const chosen=rsiList[0];
         const rect=hostRef.current.getBoundingClientRect();
         setSelectedRsiSignal(chosen);
