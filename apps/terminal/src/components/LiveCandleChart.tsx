@@ -61,6 +61,10 @@ const fmtPrice=(v:number)=>{
   const a=Math.abs(v);
   return v.toLocaleString('en-US',{maximumFractionDigits:a>=1000?2:a>=1?4:a>=0.01?6:10});
 };
+const payloadNumber=(event:AscendEvent|undefined,key:string)=>{
+  const value=event?.payload?.[key];
+  return typeof value==='number'&&Number.isFinite(value)?value:undefined;
+};
 
 function nearestCandleTimestamp(candles:Candle[],ts:number){
   if(!candles.length)return ts;
@@ -590,7 +594,27 @@ export default function LiveCandleChart({
       <button type="button" onClick={()=>{setPinnedTime(undefined);setHoverTime(undefined);setSelectedMarketEvent(undefined);setEventPopupPoint(undefined)}}>СБРОС КУРСОРА</button>
     </div>
     <div className="tv-chart-hint">{interactionHint}</div>
-    <div className="tv-event-legend"><span>● TOUCH</span><span>▲ SWEEP</span><span>▲ BREAK</span><span>■ ACCEPT</span><span>↥ RECLAIM</span><span>■ TP</span><span>■ SL</span></div>
+    <div className="tv-event-legend"><span>● КАСАНИЕ</span><span>▲ СНЯТИЕ</span><span>▲ ПРОБОЙ</span><span>■ ACCEPT</span><span>↥ RECLAIM</span><span>■ TP</span><span>■ SL</span></div>
+    {selectedMarketEvent&&eventPopupPoint&&<div className="tv-event-popup" style={{left:eventPopupPoint.x,top:eventPopupPoint.y}}>
+      <button className="tv-event-popup-close" onClick={()=>{setSelectedMarketEvent(undefined);setEventPopupPoint(undefined)}}>×</button>
+      <div className="tv-event-popup-head">
+        <strong>{eventTitleRu(selectedMarketEvent)}</strong>
+        <small>{eventShortLabel(selectedMarketEvent)} · {eventLevelId(selectedMarketEvent)}</small>
+      </div>
+      <div className="tv-event-popup-time">
+        <span>Время · Time</span>
+        <b>{new Date(selectedMarketEvent.timestamp).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'})}</b>
+      </div>
+      <div className="tv-event-popup-grid">
+        <span><small>Зона · Zone</small><b>{eventLevelNameRu(selectedMarketEvent)}</b></span>
+        <span><small>TF события</small><b>{selectedMarketEvent.timeframe}</b></span>
+        <span><small>Уровень · Level</small><b>{payloadNumber(selectedMarketEvent,'levelPrice')!==undefined?fmtPrice(payloadNumber(selectedMarketEvent,'levelPrice')!):String(selectedMarketEvent.level)}</b></span>
+        <span><small>Цена свечи · Close</small><b>{fmtPrice(selectedMarketEvent.price)}</b></span>
+      </div>
+      {payloadNumber(selectedMarketEvent,'sweepDepthPct')!==undefined&&<div className="tv-event-popup-metric"><span>Глубина снятия · Sweep depth</span><b>{payloadNumber(selectedMarketEvent,'sweepDepthPct')!.toFixed(4)}%</b></div>}
+      <p>{selectedMarketEvent.explanation}</p>
+      <div className="tv-event-popup-next"><small>ДАЛЬШЕ · NEXT</small><b>{selectedMarketEvent.nextExpected}</b></div>
+    </div>}
     {selectedCandle&&<div className={'tv-ohlcv '+(pinnedTime?'pinned':'')}>
       <div><b>{new Date(selectedCandle.timestamp).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</b><span>{pinnedTime?'● ЗАФИКСИРОВАНО · PINNED':'CROSSHAIR'}</span></div>
       <div><span>O <b>{fmtPrice(selectedCandle.open)}</b></span><span>H <b>{fmtPrice(selectedCandle.high)}</b></span><span>L <b>{fmtPrice(selectedCandle.low)}</b></span><span>C <b>{fmtPrice(selectedCandle.close)}</b></span><span>V <b>{selectedCandle.volume.toLocaleString('en-US',{maximumFractionDigits:2})}</b></span></div>
