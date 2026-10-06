@@ -248,7 +248,7 @@ export default function LiveCandleChart({
       ctx.beginPath();ctx.moveTo(x1,0);ctx.lineTo(x1,plotBottom);ctx.stroke();
       ctx.setLineDash([]);
 
-      const bandLabel=session.name==='NEW_YORK'?'NEW YORK':session.name;
+      const bandLabel=session.name==='NEW YORK'?'NEW YORK':session.name;
       const label=`${bandLabel}${session.status==='LIVE'?' · LIVE':''}`;
       ctx.font='700 8px "Segoe UI",system-ui,sans-serif';
       const labelW=Math.min(Math.max(52,ctx.measureText(label).width+12),Math.max(52,x2-x1-6));
@@ -681,7 +681,7 @@ export default function LiveCandleChart({
 
     {selectedBalance&&balancePopupPoint&&<div className="tv-balance-popup" style={{left:balancePopupPoint.x,top:balancePopupPoint.y}}>
       <button className="tv-event-popup-close" onClick={()=>{setSelectedBalance(undefined);setBalancePopupPoint(undefined)}}>×</button>
-      <strong>{selectedBalance.name==='NEW_YORK'?'NEW YORK':selectedBalance.name} · BALANCE {selectedBalance.status}</strong>
+      <strong>{selectedBalance.name==='NEW YORK'?'NEW YORK':selectedBalance.name} · BALANCE {selectedBalance.status}</strong>
       <div><span>HIGH</span><b>{fmtPrice(selectedBalance.high)}</b></div>
       <div><span>MID</span><b>{fmtPrice(selectedBalance.mid)}</b></div>
       <div><span>LOW</span><b>{fmtPrice(selectedBalance.low)}</b></div>
