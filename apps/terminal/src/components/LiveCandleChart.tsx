@@ -523,22 +523,32 @@ export default function LiveCandleChart({
 
   useEffect(()=>{
     const chart=chartRef.current;
-    if(!chart||!focusTimestamp||!candles.length)return;
+    if(!chart||!focusTimestamp||!focusNonce)return;
     const step=tfSeconds[timeframe]??900;
     const center=Math.floor(focusTimestamp/1000);
     const half=Math.max(step*18,step*Math.min(windowSize,120)/2);
+    applyingRangeRef.current=true;
+    followLatestRef.current=false;
     try{
       chart.timeScale().setVisibleRange({from:(center-half) as UTCTimestamp,to:(center+half) as UTCTimestamp});
       setPinnedTime(focusTimestamp);
     }catch{}
-    requestAnimationFrame(drawOverlay);
-  },[focusTimestamp,focusNonce,timeframe,windowSize,candles.length,drawOverlay]);
+    window.requestAnimationFrame(()=>{
+      applyingRangeRef.current=false;
+      drawOverlayRef.current();
+    });
+  // Deliberately only reacts to a new focus command. Live ticks must never yank the chart back.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[focusNonce]);
 
   useEffect(()=>{
     const chart=chartRef.current;
     if(!chart||!candles.length)return;
     const from=Math.max(0,candles.length-windowSize);
+    applyingRangeRef.current=true;
+    followLatestRef.current=true;
     try{chart.timeScale().setVisibleLogicalRange({from,to:candles.length-1+6})}catch{}
+    window.requestAnimationFrame(()=>{applyingRangeRef.current=false});
   },[windowSize]);
 
   const zoom=(factor:number)=>{
@@ -554,8 +564,13 @@ export default function LiveCandleChart({
     const chart=chartRef.current;
     if(!chart||!candles.length)return;
     setPinnedTime(undefined);
+    setSelectedMarketEvent(undefined);
+    setEventPopupPoint(undefined);
+    followLatestRef.current=true;
     const from=Math.max(0,candles.length-windowSize);
+    applyingRangeRef.current=true;
     chart.timeScale().setVisibleLogicalRange({from,to:candles.length-1+6});
+    window.requestAnimationFrame(()=>{applyingRangeRef.current=false});
   };
 
   if(candles.length<20)return <div className="live-candle-root loading"><b>ЗАГРУЖАЕМ ИСТОРИЮ СВЕЧЕЙ · LOADING CANDLE HISTORY</b><small>{source} WebSocket уже может быть LIVE, но интерактивный график ждёт REST-историю · candles: {candles.length}</small></div>;
@@ -572,7 +587,7 @@ export default function LiveCandleChart({
       <button type="button" onClick={()=>zoom(.72)} title="Приблизить">＋</button>
       <button type="button" onClick={()=>zoom(1.42)} title="Отдалить">−</button>
       <button type="button" onClick={latest}>ПОСЛЕДНЯЯ · LATEST</button>
-      <button type="button" onClick={()=>{setPinnedTime(undefined);setHoverTime(undefined)}}>СБРОС КУРСОРА</button>
+      <button type="button" onClick={()=>{setPinnedTime(undefined);setHoverTime(undefined);setSelectedMarketEvent(undefined);setEventPopupPoint(undefined)}}>СБРОС КУРСОРА</button>
     </div>
     <div className="tv-chart-hint">{interactionHint}</div>
     <div className="tv-event-legend"><span>● TOUCH</span><span>▲ SWEEP</span><span>▲ BREAK</span><span>■ ACCEPT</span><span>↥ RECLAIM</span><span>■ TP</span><span>■ SL</span></div>
