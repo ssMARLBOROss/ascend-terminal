@@ -124,8 +124,8 @@ export class MarketDataService implements OnModuleInit,OnModuleDestroy{
   private async seedSource(source:CexSource,symbol:string){
     try{
       const [one,fifteen]=await Promise.all([
-        this.fetchHistory(source,symbol,'1m',500),
-        this.fetchHistory(source,symbol,'15m',300)
+        this.fetchHistory(source,symbol,'1m',1000),
+        this.fetchHistory(source,symbol,'15m',1000)
       ]);
       this.setBuffer(source,symbol,'1m',one);
       this.setBuffer(source,symbol,'15m',fifteen);
@@ -299,29 +299,30 @@ export class MarketDataService implements OnModuleInit,OnModuleDestroy{
   async bootstrapPayload(symbolRaw:string,tf:AscendTimeframe,limit=360):Promise<MarketBootstrapPayload>{
     const symbol=symbolRaw.toUpperCase();
     const safeLimit=clamp(limit,50,500);
-    let chart=this.getBuffer('BYBIT',symbol,tf).slice(-safeLimit);
+
+    // Hot bootstrap must never wait on exchange REST. Build the requested view
+    // from rolling 1m/15m server buffers; lazy history handles older candles.
+    const bybit1=this.getBuffer('BYBIT',symbol,'1m');
+    const bybit15=this.getBuffer('BYBIT',symbol,'15m');
+    const mexc1=this.getBuffer('MEXC',symbol,'1m');
+    const mexc15=this.getBuffer('MEXC',symbol,'15m');
+    const useBybit=(bybit1.length+bybit15.length)>=(mexc1.length+mexc15.length);
+    const source:CexSource=useBybit?'BYBIT':'MEXC';
+    const one=useBybit?bybit1:mexc1;
+    const fifteen=useBybit?bybit15:mexc15;
+
+    let chart=this.getBuffer(source,symbol,tf).slice(-safeLimit);
     if(!chart.length){
-      try{chart=await this.fetchHistory('BYBIT',symbol,tf,safeLimit)}catch{
-        chart=await this.fetchHistory('MEXC',symbol,tf,safeLimit);
-      }
+      const size=TF_MS[tf]??900000;
+      const base=size<900000?one:fifteen;
+      chart=aggregate(base,tf,source,symbol).slice(-safeLimit);
     }
 
-    let context=this.getBuffer('BYBIT',symbol,'15m').slice(-400);
-    if(context.length<100){
-      try{context=await this.fetchHistory('BYBIT',symbol,'15m',400)}catch{
-        context=await this.fetchHistory('MEXC',symbol,'15m',400);
-      }
-    }
-
-    let event=this.getBuffer('BYBIT',symbol,'1m').slice(-900);
-    if(event.length<300){
-      try{event=await this.fetchHistory('BYBIT',symbol,'1m',900)}catch{
-        event=await this.fetchHistory('MEXC',symbol,'1m',900);
-      }
-    }
+    const context=(fifteen.length?fifteen:aggregate(one,'15m',source,symbol)).slice(-500);
+    const event=one.slice(-1000);
 
     const consensus=this.consensus(symbol);
-    const ticker=this.tickers.get(`${consensus.primarySource}:${symbol}`);
+    const ticker=this.tickers.get(`${source}:${symbol}`)??this.tickers.get(`${consensus.primarySource}:${symbol}`);
     if(!this.dex.has(symbol))void this.scanDex(symbol);
     return{
       instrument:symbol,timeframe:tf,chartCandles:chart,context15m:context,event1m:event,ticker,
