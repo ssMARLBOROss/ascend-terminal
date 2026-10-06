@@ -666,6 +666,139 @@ export default function LiveCandleChart({
     try{(series as any).setMarkers(markers)}catch{}
   },[mappedEvents,rsiMode,rsiSignals,candles,timeframe,symbol]);
 
+  useEffect(()=>{
+    const priceChart=chartRef.current;
+    if(priceChart){
+      try{priceChart.applyOptions({timeScale:{visible:rsiMode!=='PANEL'}} as any)}catch{}
+    }
+
+    if(rsiMode!=='PANEL'){
+      if(rsiChartRef.current){
+        try{rsiChartRef.current.remove()}catch{}
+        rsiChartRef.current=null;
+        rsiSeriesRef.current=null;
+      }
+      return;
+    }
+
+    const host=rsiHostRef.current;
+    if(!host)return;
+
+    const rsiChart=createChart(host,{
+      width:host.clientWidth,
+      height:host.clientHeight,
+      layout:{background:{type:ColorType.Solid,color:'#060d14'},textColor:'#7e96a5',fontFamily:'Inter,system-ui,sans-serif',fontSize:10},
+      grid:{vertLines:{color:'rgba(30,55,71,.18)'},horzLines:{color:'rgba(30,55,71,.28)'}},
+      crosshair:{
+        mode:CrosshairMode.Normal,
+        vertLine:{color:'rgba(163,196,211,.45)',width:1,style:LineStyle.Dashed,labelBackgroundColor:'#163446'},
+        horzLine:{color:'rgba(163,196,211,.32)',width:1,style:LineStyle.Dashed,labelBackgroundColor:'#163446'}
+      },
+      rightPriceScale:{borderColor:'#183548',scaleMargins:{top:.08,bottom:.08}},
+      timeScale:{borderColor:'#183548',timeVisible:true,secondsVisible:false,rightOffset:8,barSpacing:8,minBarSpacing:2,fixLeftEdge:false,lockVisibleTimeRangeOnResize:true},
+      handleScroll:{mouseWheel:false,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},
+      handleScale:{axisPressedMouseMove:true,mouseWheel:true,pinch:true},
+      kineticScroll:{mouse:true,touch:true},
+      localization:{locale:'ru-RU'}
+    });
+    rsiChartRef.current=rsiChart;
+
+    const rsiSeries=rsiChart.addLineSeries({
+      color:'#f1a72d',
+      lineWidth:2,
+      priceLineVisible:true,
+      lastValueVisible:true,
+      priceFormat:{type:'price',precision:1,minMove:.1},
+      autoscaleInfoProvider:()=>({priceRange:{minValue:0,maxValue:100}})
+    } as any);
+    rsiSeriesRef.current=rsiSeries;
+
+    rsiSeries.createPriceLine({price:70,color:'rgba(207,84,92,.58)',lineWidth:1,lineStyle:LineStyle.Dashed,axisLabelVisible:true,title:'70'});
+    rsiSeries.createPriceLine({price:50,color:'rgba(120,143,155,.42)',lineWidth:1,lineStyle:LineStyle.Dotted,axisLabelVisible:true,title:'50'});
+    rsiSeries.createPriceLine({price:30,color:'rgba(74,166,103,.58)',lineWidth:1,lineStyle:LineStyle.Dashed,axisLabelVisible:true,title:'30'});
+
+    const syncToPrice=(range:any)=>{
+      if(!range||!chartRef.current||rsiSyncingRef.current)return;
+      rsiSyncingRef.current=true;
+      try{
+        chartRef.current.timeScale().setVisibleLogicalRange({from:Number(range.from),to:Number(range.to)});
+        visibleLogicalRef.current={from:Number(range.from),to:Number(range.to)};
+        viewportCache.set(`${symbol}:${timeframe}`,{range:{from:Number(range.from),to:Number(range.to)},following:followLatestRef.current});
+      }catch{}
+      window.setTimeout(()=>{rsiSyncingRef.current=false},0);
+    };
+    rsiChart.timeScale().subscribeVisibleLogicalRangeChange(syncToPrice);
+
+    const rsiMove=(param:any)=>{
+      if(!param?.time){
+        if(!crosshairSyncRef.current){
+          try{(chartRef.current as any)?.clearCrosshairPosition?.()}catch{}
+        }
+        return;
+      }
+      const sec=typeof param.time==='number'?param.time:undefined;
+      if(!sec)return;
+      const candle=candleBySecondRef.current.get(sec);
+      if(candle&&chartRef.current&&candleSeriesRef.current&&!crosshairSyncRef.current){
+        crosshairSyncRef.current=true;
+        try{(chartRef.current as any).setCrosshairPosition?.(candle.close,param.time,candleSeriesRef.current)}catch{}
+        window.setTimeout(()=>{crosshairSyncRef.current=false},0);
+      }
+    };
+    rsiChart.subscribeCrosshairMove(rsiMove);
+
+    const resize=new ResizeObserver(()=>{
+      if(!rsiHostRef.current)return;
+      rsiChart.applyOptions({width:rsiHostRef.current.clientWidth,height:rsiHostRef.current.clientHeight});
+    });
+    resize.observe(host);
+
+    const mainRange=chartRef.current?.timeScale().getVisibleLogicalRange();
+    if(mainRange){
+      try{rsiChart.timeScale().setVisibleLogicalRange({from:Number(mainRange.from),to:Number(mainRange.to)})}catch{}
+    }
+
+    return()=>{
+      resize.disconnect();
+      rsiChart.timeScale().unsubscribeVisibleLogicalRangeChange(syncToPrice);
+      rsiChart.unsubscribeCrosshairMove(rsiMove);
+      try{rsiChart.remove()}catch{}
+      if(rsiChartRef.current===rsiChart)rsiChartRef.current=null;
+      rsiSeriesRef.current=null;
+    };
+  },[rsiMode,symbol,timeframe]);
+
+  useEffect(()=>{
+    const chart=rsiChartRef.current;
+    const series=rsiSeriesRef.current;
+    if(rsiMode!=='PANEL'||!chart||!series)return;
+
+    const data=rsiPoints.map(p=>({time:Math.floor(p.timestamp/1000) as UTCTimestamp,value:p.value}));
+    series.setData(data);
+
+    const markers=rsiSignals.slice(-120).map((signal:RsiSignal)=>{
+      let color='#4169e1';
+      let shape:'circle'|'square'|'arrowUp'|'arrowDown'='circle';
+      let position:'aboveBar'|'belowBar'|'inBar'=signal.direction==='LONG'?'belowBar':'aboveBar';
+      if(signal.type==='BULL'){color='#43bd6b';shape='arrowUp'}
+      if(signal.type==='BEAR'){color='#e7585f';shape='arrowDown'}
+      if(signal.type==='PIVOT'){color='#4169e1';shape='square'}
+      if(signal.type==='RC30'){color='#45b96b';shape='circle';position='belowBar'}
+      if(signal.type==='RC70'){color='#eb5a63';shape='circle';position='aboveBar'}
+      if(signal.type==='RSI37_UP'){color='#4fa0ff';shape='arrowUp';position='belowBar'}
+      if(signal.type==='RSI63_DOWN'){color='#f08a5d';shape='arrowDown';position='aboveBar'}
+      return{time:Math.floor(signal.timestamp/1000) as UTCTimestamp,position,shape,color,text:signal.label,size:.85};
+    }).sort((a,b)=>Number(a.time)-Number(b.time));
+    try{(series as any).setMarkers(markers)}catch{}
+
+    const mainRange=chartRef.current?.timeScale().getVisibleLogicalRange();
+    if(mainRange&&!rsiSyncingRef.current){
+      rsiSyncingRef.current=true;
+      try{chart.timeScale().setVisibleLogicalRange({from:Number(mainRange.from),to:Number(mainRange.to)})}catch{}
+      window.setTimeout(()=>{rsiSyncingRef.current=false},0);
+    }
+  },[rsiMode,rsiPoints,rsiSignals]);
+
 
   useEffect(()=>{
     const chart=chartRef.current;
