@@ -11,6 +11,7 @@ import {
 import type {AscendEvent,AscendTimeframe,Candle} from '@ascend/contracts';
 import type {DisplayLevel} from '../market/engine';
 import {eventLevelId,eventLevelNameRu,eventShortLabel,eventTitleRu} from '../market/eventLabels';
+import {computeRsi,deriveRsiSignals,type RsiSignal} from '../market/rsi';
 
 type ChartProps={
   candles:Candle[];
@@ -50,6 +51,7 @@ const sessionDefs=[
 ];
 
 type CachedViewport={range:{from:number;to:number};following:boolean};
+type RsiMode='OFF'|'EVENTS'|'PANEL';
 const viewportCache=new Map<string,CachedViewport>();
 
 const tfSeconds:Record<string,number>={
@@ -120,6 +122,11 @@ export default function LiveCandleChart({
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
   const chartRef=useRef<IChartApi|null>(null);
+  const rsiHostRef=useRef<HTMLDivElement|null>(null);
+  const rsiChartRef=useRef<IChartApi|null>(null);
+  const rsiSeriesRef=useRef<ISeriesApi<'Line'>|null>(null);
+  const rsiSyncingRef=useRef(false);
+  const rsiBySecondRef=useRef(new Map<number,number>());
   const candleSeriesRef=useRef<ISeriesApi<'Candlestick'>|null>(null);
   const volumeSeriesRef=useRef<ISeriesApi<'Histogram'>|null>(null);
   const priceLinesRef=useRef<any[]>([]);
@@ -146,8 +153,21 @@ export default function LiveCandleChart({
   const [selectedBalance,setSelectedBalance]=useState<SessionSlice>();
   const [balancePopupPoint,setBalancePopupPoint]=useState<{x:number;y:number}>();
   const [interactionHint,setInteractionHint]=useState('Перетаскивай график мышью · колесо = zoom');
+  const [rsiMode,setRsiMode]=useState<RsiMode>(()=>{
+    if(typeof window==='undefined')return'EVENTS';
+    const saved=window.localStorage.getItem('ascend:rsi-mode');
+    return saved==='OFF'||saved==='EVENTS'||saved==='PANEL'?saved:'EVENTS';
+  });
 
   const sessions=useMemo(()=>buildSessions(candles),[candles]);
+  const rsiPoints=useMemo(()=>computeRsi(candles,14),[candles]);
+  const rsiSignals=useMemo(()=>deriveRsiSignals(rsiPoints),[rsiPoints]);
+  useEffect(()=>{
+    const map=new Map<number,number>();
+    rsiPoints.forEach(p=>map.set(Math.floor(p.timestamp/1000),p.value));
+    rsiBySecondRef.current=map;
+  },[rsiPoints]);
+  useEffect(()=>{if(typeof window!=='undefined')window.localStorage.setItem('ascend:rsi-mode',rsiMode)},[rsiMode]);
   useEffect(()=>{sessionsRef.current=sessions},[sessions]);
   const candleBySecond=useMemo(()=>{
     const map=new Map<number,Candle>();
