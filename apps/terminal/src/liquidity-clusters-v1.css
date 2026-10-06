@@ -1,4 +1,4 @@
-/* ASCEND STRUCTURAL LIQUIDITY CLUSTERS V1
+/* ASCEND STRUCTURAL LIQUIDITY CLUSTERS V2
    Candle-derived research map. Not an order-book or guaranteed prediction. */
 
 .chart-toggles button.active{
@@ -6,6 +6,44 @@
   background:#0a2638!important;
   color:#d9edf5!important;
 }
+
+.market-state-card{padding-bottom:9px!important}
+.market-state-title{
+  margin:2px 0 2px!important;font-size:11px!important;line-height:1.25!important;
+  letter-spacing:.015em!important;color:#d9e7ed!important
+}
+.market-state-title.bull_candidate,.market-state-title.bull_pressure{color:#70d7af!important}
+.market-state-title.bear_candidate,.market-state-title.bear_pressure{color:#ed8994!important}
+.market-state-title.wait{color:#d0b56d!important}
+.market-state-en{display:block;font-size:7px!important;color:#7895a5!important;margin-bottom:6px}
+.market-state-card p{margin:5px 0!important;font-size:8px!important;line-height:1.45!important;color:#9ab0bc!important}
+.market-state-next{
+  display:flex;flex-direction:column;gap:2px;padding:7px;border:1px solid #1b4257;border-radius:5px;background:#07141d
+}
+.market-state-next span{font-size:6.5px;color:#708c9d}
+.market-state-next b{font-size:8px;line-height:1.4;color:#d0dee5}
+
+.level-groups{padding-bottom:9px!important}
+.level-group{
+  margin-bottom:5px;border:1px solid #17374c;border-radius:5px;overflow:hidden;background:#07141d
+}
+.level-group header{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:5px 7px;border-bottom:1px solid #153247;background:#081925
+}
+.level-group header b{font-size:7.5px;color:#d1e1e8}
+.level-group header small{font-size:6px!important;color:#708d9e!important;white-space:nowrap}
+.level-group.previous-day header{border-left:3px solid #c79b4c}
+.level-group.today header{border-left:3px solid #43a9d3}
+.level-group.overnight header{border-left:3px solid #8a78d0}
+.level-group.sessions header{border-left:3px solid #478879}
+.level-group-row{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 7px;border-top:1px solid rgba(20,49,69,.6)
+}
+.level-group-row:first-of-type{border-top:0}
+.level-group-row span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:7.5px;color:#8ea6b5}
+.level-group-row span small{font-size:6px!important;color:#6f8999!important}
+.level-group-row>b{font-size:8px;color:#d7e4ea;white-space:nowrap}
 
 .cluster-map-panel{padding-bottom:9px!important}
 .cluster-research-note{
@@ -23,28 +61,36 @@
 .cluster-route-title{
   margin:7px 0 4px;color:#7693a4;font-size:7px;font-weight:800;letter-spacing:.06em
 }
-.cluster-route-list{display:flex;flex-direction:column;gap:4px}
+.cluster-route-list{display:flex;flex-direction:column;gap:5px}
 .cluster-route-row{
-  display:grid;grid-template-columns:minmax(0,1fr) 42px 42px minmax(85px,auto);
-  align-items:center;gap:5px;padding:6px 7px;border:1px solid #18384d;border-radius:5px;
+  display:grid;grid-template-columns:minmax(0,1fr);gap:5px;padding:7px;border:1px solid #18384d;border-radius:5px;
   background:#07141d
 }
-.cluster-route-row>div{min-width:0;display:flex;flex-direction:column;gap:2px}
-.cluster-route-row>div b{
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d7e4e9;font-size:8px
+.cluster-route-main{min-width:0;display:flex;flex-direction:column;gap:2px}
+.cluster-route-main>b{
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d7e4e9;font-size:8.5px
 }
-.cluster-route-row>div small{
+.cluster-route-main>small{
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#7691a1!important;font-size:6.5px!important
 }
-.cluster-route-row>span{
-  color:#8aa4b2;font-size:7px;text-align:right
+.cluster-metrics{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px
 }
-.cluster-route-row>em{
-  justify-self:end;font-style:normal;font-size:6.5px;font-weight:800;color:#b7cad3;
-  white-space:nowrap
+.cluster-metrics span{
+  display:flex;justify-content:space-between;gap:3px;padding:4px 5px;border:1px solid #143146;
+  border-radius:4px;background:#06121a;color:#6f8c9c;font-size:6px
+}
+.cluster-metrics b{font-size:7.5px;color:#d0dee5}
+.cluster-verdict{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:4px;border-top:1px solid #143146
+}
+.cluster-verdict>b{font-size:7px;color:#d8e4e9;white-space:nowrap}
+.cluster-verdict>small{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:6px!important;color:#758f9f!important;text-align:right
 }
 .cluster-route-row.under_attack{
-  border-color:#82682d;background:linear-gradient(90deg,#151107,#07141d 70%)
+  border-color:#82682d;background:linear-gradient(90deg,#151107,#07141d 72%)
 }
 .cluster-route-row.depleted{border-color:#544a35;opacity:.86}
 .cluster-route-row.broken{opacity:.45}
@@ -65,19 +111,20 @@
 }
 
 /* One extra analytics item should wrap instead of creating document horizontal scroll. */
-.analytics-strip{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))!important}
+.analytics-strip{grid-template-columns:repeat(auto-fit,minmax(105px,1fr))!important}
 
-/* Cluster overlay is canvas-based; keep DOM clean and page width fixed. */
-.market-workspace,.decision-panel,.cluster-map-panel{min-width:0}
+.market-workspace,.decision-panel,.cluster-map-panel,.level-groups{min-width:0}
 .cluster-route-row>*{min-width:0}
 
 @media(max-width:1400px){
-  .cluster-route-row{
-    grid-template-columns:minmax(0,1fr) 34px 34px minmax(72px,auto);
-    gap:4px;padding:5px 6px
-  }
-  .cluster-route-row>div b{font-size:7px}
-  .cluster-route-row>div small,.cluster-route-row>em,.cluster-route-row>span{font-size:6px!important}
+  .market-state-title{font-size:10px!important}
+  .market-state-card p,.market-state-next b{font-size:7px!important}
+  .level-group header b{font-size:7px}
+  .level-group-row span,.level-group-row>b{font-size:7px}
+  .cluster-route-main>b{font-size:7.5px}
+  .cluster-route-main>small,.cluster-verdict>small{font-size:6px!important}
+  .cluster-metrics span{font-size:5.8px}
+  .cluster-metrics b{font-size:7px}
   .cluster-ranges{grid-template-columns:1fr}
   .cluster-ranges>div{grid-template-columns:1fr auto}
   .cluster-ranges small{grid-column:1/3}
