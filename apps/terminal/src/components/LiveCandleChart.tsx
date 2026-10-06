@@ -223,6 +223,7 @@ export default function LiveCandleChart({
   const selectedCandle=(pinnedTime?candleBySecond.get(Math.floor(pinnedTime/1000)):undefined)
     ??(hoverTime?candleBySecond.get(Math.floor(hoverTime/1000)):undefined);
   const currentRsi=rsiPoints.length?rsiPoints[rsiPoints.length-1].value:undefined;
+  const levelsSignature=useMemo(()=>levels.map(level=>`${level.id}:${level.price.toFixed(8)}:${level.status}`).join('|'),[levels]);
 
   const drawOverlay=useCallback(()=>{
     const canvas=overlayRef.current;
@@ -645,10 +646,24 @@ export default function LiveCandleChart({
     const prepended=previousFirst!==undefined&&nextFirst<previousFirst;
     const appended=previousLast!==undefined&&nextLast>previousLast;
 
-    const candleData=candles.map(c=>({time:Math.floor(c.timestamp/1000) as UTCTimestamp,open:c.open,high:c.high,low:c.low,close:c.close}));
-    const volumeData=candles.map(c=>({time:Math.floor(c.timestamp/1000) as UTCTimestamp,value:c.volume,color:c.close>=c.open?'rgba(45,190,148,.28)':'rgba(214,86,105,.28)'}));
-    series.setData(candleData);
-    volume.setData(volumeData);
+    const fullRefresh=
+      previousLength===0||
+      prepended||
+      (previousFirst!==undefined&&nextFirst!==previousFirst)||
+      candles.length<previousLength||
+      candles.length>previousLength+1;
+
+    if(fullRefresh){
+      const candleData=candles.map(c=>({time:Math.floor(c.timestamp/1000) as UTCTimestamp,open:c.open,high:c.high,low:c.low,close:c.close}));
+      const volumeData=candles.map(c=>({time:Math.floor(c.timestamp/1000) as UTCTimestamp,value:c.volume,color:c.close>=c.open?'rgba(45,190,148,.28)':'rgba(214,86,105,.28)'}));
+      series.setData(candleData);
+      volume.setData(volumeData);
+    }else{
+      const last=candles[candles.length-1];
+      const time=Math.floor(last.timestamp/1000) as UTCTimestamp;
+      series.update({time,open:last.open,high:last.high,low:last.low,close:last.close});
+      volume.update({time,value:last.volume,color:last.close>=last.open?'rgba(45,190,148,.28)':'rgba(214,86,105,.28)'});
+    }
 
     applyingRangeRef.current=true;
     try{
@@ -713,8 +728,10 @@ export default function LiveCandleChart({
         title:''
       }));
     }
-    requestAnimationFrame(drawOverlay);
-  },[levels,candles,drawOverlay]);
+    requestAnimationFrame(drawOverlayRef.current);
+    // Rebuild lines only when level values/statuses actually change, not every websocket tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[levelsSignature,symbol,timeframe]);
 
   useEffect(()=>{requestAnimationFrame(drawOverlay)},[drawOverlay]);
 
