@@ -1,0 +1,63 @@
+/* ASCEND RSI DISPLAY MODE V1 — OFF / EVENTS / PANEL */
+.tv-rsi-switch{
+  display:flex;align-items:center;gap:3px;height:27px;padding:0 3px 0 7px;
+  border:1px solid #1b4057;border-radius:4px;background:rgba(5,18,27,.94)
+}
+.tv-rsi-switch>span{
+  margin-right:2px;color:#8ba4b3;font-size:7px;font-weight:800;letter-spacing:.06em
+}
+.tv-rsi-switch button{
+  min-width:0!important;width:auto!important;height:21px!important;min-height:21px!important;
+  padding:0 6px!important;border:1px solid transparent!important;border-radius:3px!important;
+  background:transparent!important;color:#718c9c!important;font-size:6.5px!important
+}
+.tv-rsi-switch button.active{
+  border-color:#2c78a2!important;background:#0b2c43!important;color:#d8edf5!important;
+  box-shadow:inset 0 0 0 1px rgba(68,170,215,.08)!important
+}
+
+.rsi-panel-mode .tv-chart-host,
+.rsi-panel-mode .tv-chart-overlay{bottom:172px!important}
+.tv-rsi-host{
+  position:absolute;z-index:2;left:0;right:0;bottom:0;height:172px;
+  border-top:1px solid #1a3d52;background:#060d14;overflow:hidden
+}
+.tv-rsi-host>div{width:100%!important;height:100%!important}
+.tv-rsi-panel-label{
+  position:absolute;z-index:7;left:7px;bottom:137px;display:flex;align-items:center;gap:7px;
+  padding:4px 7px;border:1px solid #25475a;border-radius:4px;background:rgba(6,16,23,.9);
+  pointer-events:none
+}
+.tv-rsi-panel-label b{font-size:8px;color:#d4e1e7}
+.tv-rsi-panel-label span{font-size:9px;font-weight:800;color:#f1aa35}
+.tv-rsi-panel-label small{font-size:6.5px;color:#748f9e}
+
+.rsi-panel-mode .tv-history-loading{bottom:181px}
+.rsi-panel-mode .tv-balance-popup,
+.rsi-panel-mode .tv-event-popup{max-height:calc(100% - 184px);overflow:auto}
+
+.chart-clean-live .tv-chart-actions{
+  max-width:70%!important;
+  flex-wrap:nowrap!important;
+}
+.chart-clean-live .tv-rsi-switch{flex:0 0 auto}
+.chart-clean-live .tv-chart-actions>button{flex:0 0 auto}
+
+/* RSI event labels are series markers, so keep chart typography compact enough not to hide candles. */
+.rsi-panel-mode .tv-ohlcv{max-width:48%!important}
+
+@media(max-width:1400px){
+  .rsi-panel-mode .tv-chart-host,
+  .rsi-panel-mode .tv-chart-overlay{bottom:155px!important}
+  .tv-rsi-host{height:155px}
+  .tv-rsi-panel-label{bottom:121px}
+  .rsi-panel-mode .tv-history-loading{bottom:164px}
+  .chart-clean-live .tv-chart-actions{max-width:68%!important}
+  .tv-rsi-switch{padding-left:5px}
+  .tv-rsi-switch>span{font-size:6.5px}
+  .tv-rsi-switch button{padding:0 5px!important;font-size:6px!important}
+}
+@media(max-width:1120px){
+  .tv-rsi-switch>span{display:none}
+  .tv-rsi-switch button{padding:0 4px!important}
+}
