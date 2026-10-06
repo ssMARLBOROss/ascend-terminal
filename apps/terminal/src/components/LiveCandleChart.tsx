@@ -62,6 +62,20 @@ const fmtPrice=(v:number)=>{
   return v.toLocaleString('en-US',{maximumFractionDigits:a>=1000?2:a>=1?4:a>=0.01?6:10});
 };
 
+function nearestCandleTimestamp(candles:Candle[],ts:number){
+  if(!candles.length)return ts;
+  let lo=0,hi=candles.length-1,best=candles[0].timestamp;
+  while(lo<=hi){
+    const mid=(lo+hi)>>1;
+    const value=candles[mid].timestamp;
+    if(Math.abs(value-ts)<Math.abs(best-ts))best=value;
+    if(value<ts)lo=mid+1;
+    else if(value>ts)hi=mid-1;
+    else return value;
+  }
+  return best;
+}
+
 function dayStartUtc(ts:number){
   const d=new Date(ts);
   return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());
@@ -130,6 +144,27 @@ export default function LiveCandleChart({
     candles.forEach(c=>map.set(Math.floor(c.timestamp/1000),c));
     return map;
   },[candles]);
+  const mappedEvents=useMemo(()=>events
+    .filter(e=>['TOUCH','SWEEP','BREAK','ACCEPT','RECLAIM','CONFIRMED','ENTRY','TP','SL'].includes(e.type))
+    .slice(-100)
+    .map(event=>({event,candleTs:nearestCandleTimestamp(candles,event.timestamp)})),[events,candles]);
+
+  useEffect(()=>{
+    const map=new Map<number,AscendEvent[]>();
+    for(const item of mappedEvents){
+      const sec=Math.floor(item.candleTs/1000);
+      const list=map.get(sec)??[];
+      list.push(item.event);
+      map.set(sec,list);
+    }
+    for(const list of map.values()){
+      list.sort((a,b)=>{
+        const p:Record<string,number>={SWEEP:0,BREAK:1,RECLAIM:2,ACCEPT:3,TOUCH:4,CONFIRMED:5,ENTRY:6,TP:7,SL:8};
+        return(p[a.type]??99)-(p[b.type]??99);
+      });
+    }
+    eventAtSecondRef.current=map;
+  },[mappedEvents]);
   useEffect(()=>{loadOlderRef.current=onLoadOlder},[onLoadOlder]);
   useEffect(()=>{candleCountRef.current=candles.length},[candles.length]);
   useEffect(()=>{pinnedTimeRef.current=pinnedTime},[pinnedTime]);
