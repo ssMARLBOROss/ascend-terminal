@@ -272,8 +272,16 @@ export default function LiveCandleChart({
   drawOverlayRef.current=drawOverlay;
 
   useEffect(()=>{
+    const viewportKey=`${symbol}:${timeframe}`;
+    const cachedViewport=viewportCache.get(viewportKey);
     visibleTimeRef.current=null;
+    visibleLogicalRef.current=cachedViewport?.range??null;
+    followLatestRef.current=cachedViewport?.following??true;
+    applyingRangeRef.current=false;
+    lastDataLengthRef.current=0;
     setPinnedTime(undefined);
+    setSelectedMarketEvent(undefined);
+    setEventPopupPoint(undefined);
     setHoverTime(undefined);
     setInteractionHint('Перетаскивай график мышью · колесо = zoom');
     const host=hostRef.current;
@@ -312,20 +320,49 @@ export default function LiveCandleChart({
     volumeSeriesRef.current=volume;
 
     const move=(param:any)=>{
-      if(!param?.time||pinnedTime)return;
+      if(!param?.time||pinnedTimeRef.current)return;
       const sec=typeof param.time==='number'?param.time:undefined;
       if(sec)setHoverTime(sec*1000);
     };
+
     const click=(param:any)=>{
       if(!param?.time)return;
       const sec=typeof param.time==='number'?param.time:undefined;
       if(!sec)return;
+      const eventList=eventAtSecondRef.current.get(sec)??[];
+      const point=param.point;
+      if(eventList.length){
+        const chosen=eventList[0];
+        setSelectedMarketEvent(chosen);
+        if(point&&hostRef.current){
+          const rect=hostRef.current.getBoundingClientRect();
+          setEventPopupPoint({
+            x:Math.max(8,Math.min(Number(point.x)+12,Math.max(8,rect.width-340))),
+            y:Math.max(58,Math.min(Number(point.y)+12,Math.max(58,rect.height-235)))
+          });
+        }
+        setPinnedTime(sec*1000);
+        setHoverTime(sec*1000);
+        return;
+      }
+      setSelectedMarketEvent(undefined);
+      setEventPopupPoint(undefined);
       setPinnedTime(prev=>prev===sec*1000?undefined:sec*1000);
       setHoverTime(sec*1000);
     };
+
     const visible=(range:any)=>{
-      visibleTimeRef.current=chart.timeScale().getVisibleRange();
+      const logical=chart.timeScale().getVisibleLogicalRange();
+      const timeRange=chart.timeScale().getVisibleRange();
+      visibleLogicalRef.current=logical?{from:Number(logical.from),to:Number(logical.to)}:null;
+      visibleTimeRef.current=timeRange;
+      if(!applyingRangeRef.current&&logical){
+        const lastIndex=Math.max(0,candleCountRef.current-1);
+        followLatestRef.current=Number(logical.to)>=lastIndex+2;
+        viewportCache.set(viewportKey,{range:{from:Number(logical.from),to:Number(logical.to)},following:followLatestRef.current});
+      }
       drawOverlayRef.current();
+
       const loadOlder=loadOlderRef.current;
       if(!range||!loadOlder||loadingOlderRef.current||!hasOlderRef.current||autoLoadingRef.current)return;
       const info=series.barsInLogicalRange(range);
@@ -338,6 +375,7 @@ export default function LiveCandleChart({
         });
       }
     };
+
     chart.subscribeCrosshairMove(move);
     chart.subscribeClick(click);
     chart.timeScale().subscribeVisibleLogicalRangeChange(visible);
@@ -351,6 +389,8 @@ export default function LiveCandleChart({
     resize.observe(host);
 
     return()=>{
+      const logical=chart.timeScale().getVisibleLogicalRange();
+      if(logical)viewportCache.set(viewportKey,{range:{from:Number(logical.from),to:Number(logical.to)},following:followLatestRef.current});
       resize.disconnect();
       chart.unsubscribeCrosshairMove(move);
       chart.unsubscribeClick(click);
