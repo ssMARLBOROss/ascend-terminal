@@ -126,7 +126,9 @@ export default function LiveCandleChart({
   const rsiChartRef=useRef<IChartApi|null>(null);
   const rsiSeriesRef=useRef<ISeriesApi<'Line'>|null>(null);
   const rsiSyncingRef=useRef(false);
+  const crosshairSyncRef=useRef(false);
   const rsiBySecondRef=useRef(new Map<number,number>());
+  const candleBySecondRef=useRef(new Map<number,Candle>());
   const candleSeriesRef=useRef<ISeriesApi<'Candlestick'>|null>(null);
   const volumeSeriesRef=useRef<ISeriesApi<'Histogram'>|null>(null);
   const priceLinesRef=useRef<any[]>([]);
@@ -174,6 +176,7 @@ export default function LiveCandleChart({
     candles.forEach(c=>map.set(Math.floor(c.timestamp/1000),c));
     return map;
   },[candles]);
+  useEffect(()=>{candleBySecondRef.current=candleBySecond},[candleBySecond]);
   const mappedEvents=useMemo(()=>events
     .filter(e=>['TOUCH','SWEEP','BREAK','ACCEPT','RECLAIM','CONFIRMED','ENTRY','TP','SL'].includes(e.type))
     .slice(-100)
@@ -413,9 +416,21 @@ export default function LiveCandleChart({
     volumeSeriesRef.current=volume;
 
     const move=(param:any)=>{
-      if(!param?.time||pinnedTimeRef.current)return;
+      if(!param?.time){
+        if(!crosshairSyncRef.current){
+          try{(rsiChartRef.current as any)?.clearCrosshairPosition?.()}catch{}
+        }
+        return;
+      }
       const sec=typeof param.time==='number'?param.time:undefined;
-      if(sec)setHoverTime(sec*1000);
+      if(!sec)return;
+      if(!pinnedTimeRef.current)setHoverTime(sec*1000);
+      const rsiValue=rsiBySecondRef.current.get(sec);
+      if(rsiValue!==undefined&&rsiChartRef.current&&rsiSeriesRef.current&&!crosshairSyncRef.current){
+        crosshairSyncRef.current=true;
+        try{(rsiChartRef.current as any).setCrosshairPosition?.(rsiValue,param.time,rsiSeriesRef.current)}catch{}
+        window.setTimeout(()=>{crosshairSyncRef.current=false},0);
+      }
     };
 
     const click=(param:any)=>{
@@ -470,6 +485,11 @@ export default function LiveCandleChart({
         const lastIndex=Math.max(0,candleCountRef.current-1);
         followLatestRef.current=Number(logical.to)>=lastIndex+2;
         viewportCache.set(viewportKey,{range:{from:Number(logical.from),to:Number(logical.to)},following:followLatestRef.current});
+      }
+      if(logical&&rsiChartRef.current&&!rsiSyncingRef.current){
+        rsiSyncingRef.current=true;
+        try{rsiChartRef.current.timeScale().setVisibleLogicalRange({from:Number(logical.from),to:Number(logical.to)})}catch{}
+        window.setTimeout(()=>{rsiSyncingRef.current=false},0);
       }
       drawOverlayRef.current();
 
