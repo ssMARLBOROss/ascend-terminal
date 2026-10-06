@@ -384,7 +384,7 @@ export default function LiveCandleChart({
         let position:'aboveBar'|'belowBar'|'inBar'='aboveBar';
         let shape:'circle'|'square'|'arrowUp'|'arrowDown'='circle';
         let color='#6fb8d8';
-        let text=e.type;
+        let text:string=e.type;
 
         if(e.type==='TOUCH'){position=isLong?'belowBar':'aboveBar';shape='circle';color='#73bcd8';text='TOUCH'}
         if(e.type==='SWEEP'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#d7a84d';text='SWEEP'}
