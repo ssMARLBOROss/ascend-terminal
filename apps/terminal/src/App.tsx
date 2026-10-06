@@ -21,6 +21,7 @@ import './quality.css';
 import './layout-v2.css';
 import './chart-v2.css';
 import './clarity-v1.css';
+import './chart-clean-v3.css';
 
 const fmtPrice=(v?:number)=>{if(typeof v!=='number'||!Number.isFinite(v))return'—';const a=Math.abs(v);return v.toLocaleString('en-US',{maximumFractionDigits:a>=1000?2:a>=1?4:a>=0.01?6:10})};
 function payloadValue(event:AscendEvent,key:string,fallback='—'){const value=(event.payload as Record<string,unknown>)[key];return value===undefined||value===null?fallback:String(value)}
@@ -120,13 +121,13 @@ export default function App(){
      <div className="instrument-actions"><button className={marketMode==='LIVE'?'active live-mode-btn':''} onClick={()=>setMarketMode('LIVE')}>● REAL MARKET</button><button className={marketMode==='REPLAY'?'active':''} onClick={()=>setMarketMode('REPLAY')}>CORE REPLAY</button>{!radarOpen&&<button onClick={()=>setRadarOpen(true)}>Радар · Radar</button>}{!decisionOpen&&<button onClick={()=>setDecisionOpen(true)}>Панель · Panel</button>}<button className={mode==='SCALP'?'active':''} onClick={()=>setMode('SCALP')}>SCALP</button><button className={mode==='NORMAL'?'active':''} onClick={()=>setMode('NORMAL')}>NORMAL</button></div>
     </section>
 
-    <section className="session-map">{effectiveSessions.map((session,index)=><div className={'session-card '+session.status.toLowerCase()} key={session.name+index}><div><b>{index===3?'NEXT ':''}{session.name}</b><span>{session.status}</span></div>{session.high&&<small>H {fmtPrice(session.high)} · L {fmtPrice(session.low)}</small>}{session.balance&&<small>Balance {fmtPrice(session.balance)}</small>}{session.startsIn&&<em>starts in {session.startsIn}</em>}</div>)}</section>
+    <section className={"session-map "+(marketMode==="LIVE"?"session-map-clean":"")}>{effectiveSessions.map((session,index)=><div className={'session-card '+session.status.toLowerCase()} key={session.name+index}><div><b>{index===3?'NEXT ':''}{session.name}</b><span>{session.status}</span></div>{session.high&&<small>H {fmtPrice(session.high)} · L {fmtPrice(session.low)}</small>}{session.balance&&<small>Balance {fmtPrice(session.balance)}</small>}{session.startsIn&&<em>starts in {session.startsIn}</em>}</div>)}</section>
 
     {marketMode==='LIVE'?<section className="lifecycle live-market-flow"><span className="flow-live">● PUBLIC FEED</span><b>BYBIT</b><span>→</span><b>CANDLES</b><span>→</span><b>SESSIONS</b><span>→</span><b>FROZEN LEVELS</b><span>→</span><b>TOUCH / SWEEP / BREAK / RECLAIM</b><span>→</span><em>CORE CONFIRMATION NEXT</em></section>:<section className="lifecycle">{stageOrder.map((stage,index)=>{const event=events[index],done=index<visibleCount,current=selected.type===stage;return <button key={stage} className={(done?'done ':'')+(current?'current':'')} onClick={()=>{if(done)setSelected(event)}}><span>{done?'✓':'○'}</span>{stage}</button>})}</section>}
 
-    <section className="chart-shell">
+    <section className={"chart-shell "+(marketMode==="LIVE"?"chart-clean-live":"")}>
      <div className="chart-toolbar"><div><b>{marketSymbol} · {chartTf}</b><small>СЕССИИ / СТЕНКИ / БАЛАНС / ЛИКВИДНОСТЬ · SESSION FLOW / WALLS / BALANCE / LIQUIDITY</small></div><div className="chart-toggles"><button>УРОВНИ · LEVELS</button><button>КЛАСТЕРЫ · CLUSTERS</button><button>СТРУКТУРА · STRUCTURE</button><button>СОБЫТИЯ · EVENTS</button></div></div>
-     <div className="history-toolbar">
+     <div className={"history-toolbar "+(marketMode==="LIVE"?"chart-history-clean":"")}>
       <div className="history-summary"><strong>ИСТОРИЯ СВЕЧЕЙ · HISTORICAL CANDLES</strong><span>{marketMode==='LIVE'?live.candles.length.toLocaleString('ru-RU'):loadedCandles.toLocaleString('ru-RU')} загружено / loaded</span><small>{marketMode==='LIVE'?(live.historyReady?'реальные Bybit candles · REST + WebSocket live':'ждём REST-историю · WebSocket '+live.status+(live.error?' · '+live.error:'')):'≈ '+historyMeta.estimatedCandles.toLocaleString('ru-RU')+' доступно · replay store'}</small></div>
       <div className="history-ranges compact-presets">{['100','250','500','1000'].map(r=><button key={r} className={historyRange===r?'active':''} onClick={()=>setHistoryRange(r)}>{r}</button>)}</div>
       <div className="history-actions">
