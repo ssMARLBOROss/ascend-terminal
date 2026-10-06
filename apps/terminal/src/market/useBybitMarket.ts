@@ -114,7 +114,7 @@ export type LiveMarketState={
   loadOlder:()=>Promise<void>;
 };
 
-export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMarketState{
+export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=true):LiveMarketState{
   const[candles,setCandles]=useState<Candle[]>([]);
   const[rawCandles,setRawCandles]=useState<Candle[]>([]);
   const[contextCandles,setContextCandles]=useState<Candle[]>([]);
@@ -128,11 +128,23 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
   const[loadingOlder,setLoadingOlder]=useState(false);
   const[hasOlder,setHasOlder]=useState(true);
   const retryRef=useRef<number>();
+  const tickerFlushRef=useRef<number>();
+  const pendingTickerRef=useRef<Ticker>({});
+  const lastMetaUpdateRef=useRef(0);
   const interval=useMemo(()=>intervalMap[timeframe]??'15',[timeframe]);
   const cacheKey=useMemo(()=>chartKey(symbol,timeframe),[symbol,timeframe]);
 
   useEffect(()=>{
     let disposed=false;
+    if(!enabled){
+      const cached=chartCache.get(cacheKey);
+      const cachedContext=contextCache.get(symbol);
+      const cachedMicro=microCache.get(symbol);
+      if(cached){setRawCandles(cached.raw);setCandles(cached.display)}
+      if(cachedContext)setContextCandles(cachedContext.candles);
+      if(cachedMicro)setEventCandles(cachedMicro);
+      return()=>{disposed=true};
+    }
     const cached=chartCache.get(cacheKey);
     const cachedContext=contextCache.get(symbol);
 
@@ -177,10 +189,11 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
       .then(micro=>{if(!disposed)setEventCandles(micro)})
       .catch(()=>{});
     return()=>{disposed=true};
-  },[symbol,interval,timeframe,cacheKey]);
+  },[symbol,interval,timeframe,cacheKey,enabled]);
 
   useEffect(()=>{
     let disposed=false;
+    if(!enabled)return()=>{disposed=true};
     let ws:WebSocket|undefined;
     let ping:number|undefined;
     const connect=()=>{
@@ -201,8 +214,11 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
         try{
           const msg=JSON.parse(event.data);
           const now=Date.now();
-          if(typeof msg?.ts==='number')setLatencyMs(Math.max(0,now-msg.ts));
-          setLastUpdate(now);
+          if(now-lastMetaUpdateRef.current>=500){
+            lastMetaUpdateRef.current=now;
+            if(typeof msg?.ts==='number')setLatencyMs(Math.max(0,now-msg.ts));
+            setLastUpdate(now);
+          }
           if(typeof msg?.topic==='string'&&msg.topic.startsWith('kline.')){
             const item=Array.isArray(msg.data)?msg.data[0]:undefined;
             if(!item)return;
@@ -247,13 +263,22 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
           }else if(typeof msg?.topic==='string'&&msg.topic.startsWith('tickers.')){
             const item=Array.isArray(msg.data)?msg.data[0]:msg.data;
             if(!item)return;
-            setTicker(prev=>({
-              lastPrice:item.lastPrice!==undefined?Number(item.lastPrice):prev.lastPrice,
-              change24hPct:item.price24hPcnt!==undefined?Number(item.price24hPcnt)*100:prev.change24hPct,
-              high24h:item.highPrice24h!==undefined?Number(item.highPrice24h):prev.high24h,
-              low24h:item.lowPrice24h!==undefined?Number(item.lowPrice24h):prev.low24h,
-              turnover24h:item.turnover24h!==undefined?Number(item.turnover24h):prev.turnover24h
-            }));
+            pendingTickerRef.current={
+              ...pendingTickerRef.current,
+              ...(item.lastPrice!==undefined?{lastPrice:Number(item.lastPrice)}:{}),
+              ...(item.price24hPcnt!==undefined?{change24hPct:Number(item.price24hPcnt)*100}:{}),
+              ...(item.highPrice24h!==undefined?{high24h:Number(item.highPrice24h)}:{}),
+              ...(item.lowPrice24h!==undefined?{low24h:Number(item.lowPrice24h)}:{}),
+              ...(item.turnover24h!==undefined?{turnover24h:Number(item.turnover24h)}:{})
+            };
+            if(tickerFlushRef.current===undefined){
+              tickerFlushRef.current=window.setTimeout(()=>{
+                tickerFlushRef.current=undefined;
+                const pending=pendingTickerRef.current;
+                pendingTickerRef.current={};
+                if(!disposed)setTicker(prev=>({...prev,...pending}));
+              },250);
+            }
           }
         }catch{}
       };
@@ -267,7 +292,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
     };
     connect();
     return()=>{disposed=true;if(ping)window.clearInterval(ping);if(retryRef.current)window.clearTimeout(retryRef.current);ws?.close()};
-  },[symbol,interval,timeframe,cacheKey]);
+  },[symbol,interval,timeframe,cacheKey,enabled]);
 
   const loadOlder=async()=>{
     if(loadingOlder||!hasOlder||!candles.length)return;
