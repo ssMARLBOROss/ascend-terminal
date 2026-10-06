@@ -61,3 +61,17 @@
   .tv-rsi-switch>span{display:none}
   .tv-rsi-switch button{padding:0 4px!important}
 }
+
+.tv-rsi-event-popup{
+  position:absolute;z-index:14;width:285px;max-width:calc(100% - 16px);
+  border:1px solid #315f83;border-radius:7px;background:rgba(5,18,27,.97);
+  box-shadow:0 10px 24px rgba(0,0,0,.4);padding:10px 11px;pointer-events:auto
+}
+.tv-rsi-event-popup>strong{display:block;padding-right:28px;color:#dce9ef;font-size:10px}
+.tv-rsi-event-popup>small{display:block;margin:3px 0 7px;color:#6fa1ba!important;font-size:6.5px!important}
+.tv-rsi-event-popup>div{
+  display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid #173347
+}
+.tv-rsi-event-popup>div span{font-size:7px;color:#7994a4}
+.tv-rsi-event-popup>div b{font-size:8px;color:#d6e4ea}
+.tv-rsi-event-popup p{margin:7px 0 0;font-size:7px;line-height:1.45;color:#95acb8}
