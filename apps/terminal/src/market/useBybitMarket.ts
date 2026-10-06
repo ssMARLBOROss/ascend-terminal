@@ -149,7 +149,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe):LiveMark
         window.setTimeout(()=>{void warmTimeframes(symbol,timeframe)},120);
       }catch(err){
         if(disposed)return;
-        setRestError('История REST: '+String(err?.message??err));
+        setRestError('История REST: '+String((err as Error)?.message??err));
       }
     };
     void load();
