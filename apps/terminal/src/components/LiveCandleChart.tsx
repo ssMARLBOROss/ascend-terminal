@@ -124,6 +124,8 @@ export default function LiveCandleChart({
   const followLatestRef=useRef(true);
   const applyingRangeRef=useRef(false);
   const lastDataLengthRef=useRef(0);
+  const firstTimestampRef=useRef<number>();
+  const lastTimestampRef=useRef<number>();
   const candleCountRef=useRef(candles.length);
   const pinnedTimeRef=useRef<number|undefined>();
   const eventAtSecondRef=useRef(new Map<number,AscendEvent[]>());
@@ -406,19 +408,62 @@ export default function LiveCandleChart({
     const volume=volumeSeriesRef.current;
     const chart=chartRef.current;
     if(!series||!volume||!chart||!candles.length)return;
-    const previousRange=visibleTimeRef.current;
+
+    const previousTimeRange=visibleTimeRef.current;
+    const previousLogical=visibleLogicalRef.current;
+    const previousLength=lastDataLengthRef.current;
+    const previousFirst=firstTimestampRef.current;
+    const previousLast=lastTimestampRef.current;
+    const nextFirst=candles[0].timestamp;
+    const nextLast=candles[candles.length-1].timestamp;
+    const prepended=previousFirst!==undefined&&nextFirst<previousFirst;
+    const appended=previousLast!==undefined&&nextLast>previousLast;
+
     const candleData=candles.map(c=>({time:Math.floor(c.timestamp/1000) as UTCTimestamp,open:c.open,high:c.high,low:c.low,close:c.close}));
     const volumeData=candles.map(c=>({time:Math.floor(c.timestamp/1000) as UTCTimestamp,value:c.volume,color:c.close>=c.open?'rgba(45,190,148,.28)':'rgba(214,86,105,.28)'}));
     series.setData(candleData);
     volume.setData(volumeData);
-    if(previousRange){
-      try{chart.timeScale().setVisibleRange(previousRange)}catch{}
-    }else{
-      const from=Math.max(0,candles.length-windowSize);
-      chart.timeScale().setVisibleLogicalRange({from,to:candles.length-1+6});
+
+    applyingRangeRef.current=true;
+    try{
+      if(prepended&&previousTimeRange){
+        // Loading older candles must not move the viewport the user is currently studying.
+        chart.timeScale().setVisibleRange(previousTimeRange);
+      }else if(previousLogical){
+        const width=Math.max(10,previousLogical.to-previousLogical.from);
+        if(appended&&followLatestRef.current){
+          const to=candles.length-1+6;
+          chart.timeScale().setVisibleLogicalRange({from:to-width,to});
+        }else{
+          chart.timeScale().setVisibleLogicalRange(previousLogical);
+        }
+      }else{
+        const cached=viewportCache.get(`${symbol}:${timeframe}`);
+        if(cached?.range){
+          chart.timeScale().setVisibleLogicalRange(cached.range);
+          followLatestRef.current=cached.following;
+        }else{
+          const from=Math.max(0,candles.length-windowSize);
+          chart.timeScale().setVisibleLogicalRange({from,to:candles.length-1+6});
+          followLatestRef.current=true;
+        }
+      }
+    }catch{}
+
+    lastDataLengthRef.current=candles.length;
+    firstTimestampRef.current=nextFirst;
+    lastTimestampRef.current=nextLast;
+    candleCountRef.current=candles.length;
+    window.requestAnimationFrame(()=>{
+      applyingRangeRef.current=false;
+      drawOverlayRef.current();
+    });
+
+    // Same-candle websocket updates should never reset pan/zoom.
+    if(previousLength===candles.length&&!prepended&&!appended){
+      setInteractionHint('Перетаскивай график мышью · масштаб сохраняется');
     }
-    requestAnimationFrame(drawOverlay);
-  },[candles,drawOverlay,windowSize]);
+  },[candles,windowSize,symbol,timeframe]);
 
   useEffect(()=>{
     const series=candleSeriesRef.current;
