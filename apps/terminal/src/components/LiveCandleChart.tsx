@@ -9,7 +9,7 @@ import {
   type UTCTimestamp
 } from 'lightweight-charts';
 import type {AscendEvent,AscendTimeframe,Candle} from '@ascend/contracts';
-import type {DisplayLevel} from '../market/engine';
+import type {DisplayLevel,LiquidityCluster} from '../market/engine';
 import {eventLevelId,eventLevelNameRu,eventShortLabel,eventTitleRu} from '../market/eventLabels';
 import {computeRsi,deriveRsiSignals,type RsiSignal} from '../market/rsi';
 
@@ -29,6 +29,8 @@ type ChartProps={
   focusTimestamp?:number;
   focusNonce?:number;
   events?:AscendEvent[];
+  clusters?:LiquidityCluster[];
+  showClusters?:boolean;
 };
 
 type SessionSlice={
@@ -117,7 +119,7 @@ function buildSessions(candles:Candle[]):SessionSlice[]{
 
 export default function LiveCandleChart({
   candles,levels,lastPrice,status,source,latencyMs,symbol,timeframe,windowSize=250,
-  onLoadOlder,loadingOlder=false,hasOlder=true,focusTimestamp,focusNonce,events=[]
+  onLoadOlder,loadingOlder=false,hasOlder=true,focusTimestamp,focusNonce,events=[],clusters=[],showClusters=true
 }:ChartProps){
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
@@ -308,6 +310,55 @@ export default function LiveCandleChart({
       }
     }
 
+    // Structural liquidity clusters — candle-derived research zones, not an order-book map.
+    if(showClusters){
+      const visibleClusters=clusters
+        .filter(cluster=>cluster.status!=='BROKEN')
+        .sort((a,b)=>a.distancePct-b.distancePct)
+        .slice(0,6);
+      for(const cluster of visibleClusters){
+        const yHigh=series.priceToCoordinate(cluster.high);
+        const yLow=series.priceToCoordinate(cluster.low);
+        if(yHigh===null||yLow===null)continue;
+        const top=Math.min(yHigh,yLow);
+        const height=Math.max(3,Math.abs(yLow-yHigh));
+        if(top>plotBottom||top+height<0)continue;
+
+        const isUpper=cluster.side==='UPPER';
+        const isActive=cluster.side==='ACTIVE';
+        const underAttack=cluster.status==='UNDER_ATTACK';
+        ctx.fillStyle=isActive
+          ? 'rgba(92,122,143,.055)'
+          : isUpper
+            ? (underAttack?'rgba(216,143,61,.09)':'rgba(190,113,72,.055)')
+            : (underAttack?'rgba(48,184,153,.085)':'rgba(48,143,163,.05)');
+        ctx.strokeStyle=isActive
+          ? 'rgba(132,163,180,.28)'
+          : isUpper
+            ? (underAttack?'rgba(230,166,78,.72)':'rgba(197,125,84,.42)')
+            : (underAttack?'rgba(79,211,180,.68)':'rgba(69,157,181,.4)');
+        ctx.setLineDash(underAttack?[5,3]:[3,5]);
+        ctx.fillRect(0,top,Math.max(0,rect.width-132),height);
+        ctx.strokeRect(0,top,Math.max(0,rect.width-132),height);
+        ctx.setLineDash([]);
+
+        const verdict=cluster.pressure>=1.4?'STRONG ATTACK':cluster.pressure>=1.1?'BREAK PRESSURE':cluster.pressure>=.7?'CONFLICT':'DEFENSE';
+        const label=`${cluster.side==='UPPER'?'UPPER':cluster.side==='LOWER'?'LOWER':'ACTIVE'} CLUSTER · ${cluster.status}`;
+        const detail=`DEF ${cluster.strength} · ATT ${cluster.attack} · P ${cluster.pressure.toFixed(2)} · ${verdict}`;
+        const y=Math.max(34,Math.min(plotBottom-30,top+height/2-9));
+        ctx.font='700 7px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle='rgba(5,18,27,.9)';
+        ctx.strokeStyle=isUpper?'rgba(211,151,89,.55)':'rgba(71,184,164,.52)';
+        ctx.fillRect(7,y,165,26);
+        ctx.strokeRect(7,y,165,26);
+        ctx.fillStyle=isUpper?'rgba(235,191,136,.9)':'rgba(148,230,211,.9)';
+        ctx.fillText(label,13,y+10);
+        ctx.font='600 6.5px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle='rgba(166,190,201,.84)';
+        ctx.fillText(detail,13,y+20);
+      }
+    }
+
     // Compact level labels at the right edge with collision avoidance.
     const levelPriority:Record<string,number>={
       ONH:0,ONL:1,YH:2,YL:3,RTH_HIGH:4,RTH_LOW:5,IBH:6,IBL:7,VWAP:8,OPEN:9
@@ -363,7 +414,7 @@ export default function LiveCandleChart({
         ctx.setLineDash([]);
       }
     }
-  },[candles,pinnedTime,sessions,levels]);
+  },[candles,pinnedTime,sessions,levels,clusters,showClusters]);
   drawOverlayRef.current=drawOverlay;
 
   useEffect(()=>{
