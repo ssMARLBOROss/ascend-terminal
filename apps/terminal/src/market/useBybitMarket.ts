@@ -291,7 +291,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
       };
     };
     connect();
-    return()=>{disposed=true;if(ping)window.clearInterval(ping);if(retryRef.current)window.clearTimeout(retryRef.current);ws?.close()};
+    return()=>{disposed=true;if(ping)window.clearInterval(ping);if(tickerFlushRef.current!==undefined){window.clearTimeout(tickerFlushRef.current);tickerFlushRef.current=undefined}if(retryRef.current)window.clearTimeout(retryRef.current);ws?.close()};
   },[symbol,interval,timeframe,cacheKey,enabled]);
 
   const loadOlder=async()=>{
