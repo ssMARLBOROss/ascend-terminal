@@ -45,7 +45,7 @@ export default function App(){
 
  const live=useBybitMarket(marketSymbol,chartTf);
  const historyWindow=Number(historyRange)||250;
- const liveContext=useMemo(()=>deriveLiveMarketContext(marketSymbol,live.contextCandles,live.candles),[marketSymbol,live.contextCandles,live.candles]);
+ const liveContext=useMemo(()=>deriveLiveMarketContext(marketSymbol,live.contextCandles,live.candles,live.eventCandles),[marketSymbol,live.contextCandles,live.candles,live.eventCandles]);
  useEffect(()=>{if(!playing||marketMode!=='REPLAY')return;if(visibleCount>=events.length){setPlaying(false);return}const timer=window.setTimeout(()=>{const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])},950);return()=>window.clearTimeout(timer)},[playing,visibleCount,marketMode]);
  useEffect(()=>{if(marketMode==='LIVE'&&liveContext.chronology.length){setSelected(liveContext.chronology[liveContext.chronology.length-1])}},[marketMode,liveContext.chronology.length]);
  const visibleEvents=events.slice(0,visibleCount);
