@@ -142,6 +142,8 @@ export default function LiveCandleChart({
   const [pinnedTime,setPinnedTime]=useState<number>();
   const [selectedMarketEvent,setSelectedMarketEvent]=useState<AscendEvent>();
   const [eventPopupPoint,setEventPopupPoint]=useState<{x:number;y:number}>();
+  const [selectedBalance,setSelectedBalance]=useState<SessionSlice>();
+  const [balancePopupPoint,setBalancePopupPoint]=useState<{x:number;y:number}>();
   const [interactionHint,setInteractionHint]=useState('Перетаскивай график мышью · колесо = zoom');
 
   const sessions=useMemo(()=>buildSessions(candles),[candles]);
@@ -223,25 +225,34 @@ export default function LiveCandleChart({
     }
     ctx.restore();
 
-    // Session backgrounds and balance zones.
+    // Session bands: clean, TradingView-like, with local balance rectangles.
     for(const session of sessions){
       const def=sessionDefs.find(x=>x.name===session.name)!;
       const x1=timeScale.timeToCoordinate(Math.floor(session.first/1000) as UTCTimestamp);
       const x2raw=timeScale.timeToCoordinate(Math.floor(session.last/1000) as UTCTimestamp);
       if(x1===null||x2raw===null)continue;
-      const step=Math.max(4,Math.abs(x2raw-x1)/Math.max(1,candles.filter(c=>c.timestamp>=session.first&&c.timestamp<=session.last).length-1));
+      const count=Math.max(1,candles.filter(c=>c.timestamp>=session.first&&c.timestamp<=session.last).length-1);
+      const step=Math.max(4,Math.abs(x2raw-x1)/count);
       const x2=x2raw+step;
       if(x2<0||x1>rect.width)continue;
 
       ctx.fillStyle=def.fill;
       ctx.fillRect(x1,0,Math.max(2,x2-x1),plotBottom);
       ctx.strokeStyle=def.line;
-      ctx.setLineDash([2,4]);
+      ctx.setLineDash([2,5]);
       ctx.beginPath();ctx.moveTo(x1,0);ctx.lineTo(x1,plotBottom);ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle=session.status==='LIVE'?'rgba(203,232,240,.88)':'rgba(105,132,147,.68)';
-      ctx.font='700 8px Inter,system-ui,sans-serif';
-      ctx.fillText(`${session.name} · ${session.status}`,x1+5,27);
+
+      const bandLabel=session.name==='NEW_YORK'?'NEW YORK':session.name;
+      const label=`${bandLabel}${session.status==='LIVE'?' · LIVE':''}`;
+      ctx.font='700 8px "Segoe UI",system-ui,sans-serif';
+      const labelW=Math.min(Math.max(52,ctx.measureText(label).width+12),Math.max(52,x2-x1-6));
+      ctx.fillStyle=session.status==='LIVE'?'rgba(10,59,69,.88)':'rgba(7,25,36,.78)';
+      ctx.strokeStyle=session.status==='LIVE'?'rgba(78,201,180,.55)':def.line;
+      ctx.fillRect(x1+4,7,labelW,18);
+      ctx.strokeRect(x1+4,7,labelW,18);
+      ctx.fillStyle=session.status==='LIVE'?'rgba(206,246,236,.92)':'rgba(142,164,176,.76)';
+      ctx.fillText(label,x1+10,19);
 
       const yh=series.priceToCoordinate(session.high);
       const yl=series.priceToCoordinate(session.low);
@@ -250,18 +261,67 @@ export default function LiveCandleChart({
       const top=Math.min(yh,yl),height=Math.abs(yl-yh);
       if(top>plotBottom||top+height<0)continue;
 
-      ctx.fillStyle=session.status==='LIVE'?'rgba(38,180,157,.045)':'rgba(89,116,132,.035)';
-      ctx.strokeStyle=session.status==='LIVE'?'rgba(72,207,179,.34)':'rgba(115,143,158,.22)';
-      ctx.setLineDash(session.status==='LIVE'?[5,4]:[3,5]);
+      ctx.fillStyle=session.status==='LIVE'?'rgba(50,190,163,.035)':'rgba(87,113,128,.025)';
+      ctx.strokeStyle=session.status==='LIVE'?'rgba(79,211,183,.27)':'rgba(111,137,151,.16)';
+      ctx.setLineDash(session.status==='LIVE'?[5,5]:[3,6]);
       ctx.fillRect(x1,top,Math.max(2,x2-x1),height);
       ctx.strokeRect(x1,top,Math.max(2,x2-x1),height);
-      ctx.setLineDash([4,5]);
-      ctx.strokeStyle=session.status==='LIVE'?'rgba(91,222,195,.46)':'rgba(129,153,164,.28)';
+      ctx.setLineDash([3,6]);
+      ctx.strokeStyle=session.status==='LIVE'?'rgba(98,224,198,.34)':'rgba(126,149,160,.2)';
       ctx.beginPath();ctx.moveTo(x1,ym);ctx.lineTo(x2,ym);ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle=session.status==='LIVE'?'rgba(150,236,216,.9)':'rgba(133,157,168,.72)';
-      ctx.font='600 7px Inter,system-ui,sans-serif';
-      ctx.fillText(`BALANCE · ${session.status} · H ${fmtPrice(session.high)} · M ${fmtPrice(session.mid)} · L ${fmtPrice(session.low)}`,x1+5,Math.max(42,top+12));
+
+      if(x2-x1>68){
+        const short=`BALANCE ${session.status}`;
+        ctx.font='600 7px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle=session.status==='LIVE'?'rgba(140,226,208,.82)':'rgba(125,148,159,.58)';
+        ctx.fillText(short,x1+6,Math.max(38,Math.min(plotBottom-8,top+12)));
+      }
+    }
+
+    // Compact level labels at the right edge with collision avoidance.
+    const levelPriority:Record<string,number>={
+      ONH:0,ONL:1,YH:2,YL:3,RTH_HIGH:4,RTH_LOW:5,IBH:6,IBL:7,VWAP:8,OPEN:9
+    };
+    const visibleLevels=levels
+      .filter(level=>levelPriority[level.id]!==undefined)
+      .map(level=>({level,y:series.priceToCoordinate(level.price),priority:levelPriority[level.id]}))
+      .filter(item=>item.y!==null&&item.y!>28&&item.y!<plotBottom-4)
+      .sort((a,b)=>a.priority-b.priority)
+      .slice(0,10);
+
+    const placed:{y:number;target:number;level:DisplayLevel}[]=[];
+    for(const item of visibleLevels){
+      let y=Number(item.y);
+      const minGap=18;
+      for(const p of placed){
+        if(Math.abs(y-p.y)<minGap)y=p.y+(y>=p.y?minGap:-minGap);
+      }
+      y=Math.max(34,Math.min(plotBottom-10,y));
+      placed.push({y,target:Number(item.y),level:item.level});
+    }
+    placed.sort((a,b)=>a.y-b.y);
+    for(let i=1;i<placed.length;i++){
+      if(placed[i].y-placed[i-1].y<18)placed[i].y=Math.min(plotBottom-10,placed[i-1].y+18);
+    }
+
+    ctx.font='700 8px "Segoe UI",system-ui,sans-serif';
+    for(const item of placed){
+      const x=Math.max(6,rect.width-126);
+      const label=`${item.level.label} · ${item.level.status==='FROZEN'?'F':'L'}  ${fmtPrice(item.level.price)}`;
+      const w=118;
+      if(Math.abs(item.y-item.target)>1){
+        ctx.strokeStyle=item.level.status==='FROZEN'?'rgba(204,164,84,.45)':'rgba(71,174,212,.42)';
+        ctx.setLineDash([2,3]);
+        ctx.beginPath();ctx.moveTo(x-14,item.target);ctx.lineTo(x-3,item.y);ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.fillStyle=item.level.status==='FROZEN'?'rgba(117,87,31,.93)':'rgba(8,78,105,.94)';
+      ctx.strokeStyle=item.level.status==='FROZEN'?'rgba(218,177,92,.78)':'rgba(77,188,227,.75)';
+      ctx.fillRect(x,item.y-8,w,16);
+      ctx.strokeRect(x,item.y-8,w,16);
+      ctx.fillStyle='#e7f0f3';
+      ctx.fillText(label,x+5,item.y+3);
     }
 
     // Pinned candle marker.
@@ -274,7 +334,7 @@ export default function LiveCandleChart({
         ctx.setLineDash([]);
       }
     }
-  },[candles,pinnedTime,sessions]);
+  },[candles,pinnedTime,sessions,levels]);
   drawOverlayRef.current=drawOverlay;
 
   useEffect(()=>{
@@ -288,6 +348,8 @@ export default function LiveCandleChart({
     setPinnedTime(undefined);
     setSelectedMarketEvent(undefined);
     setEventPopupPoint(undefined);
+    setSelectedBalance(undefined);
+    setBalancePopupPoint(undefined);
     setHoverTime(undefined);
     setInteractionHint('Перетаскивай график мышью · колесо = zoom');
     const host=hostRef.current;
@@ -353,6 +415,23 @@ export default function LiveCandleChart({
       }
       setSelectedMarketEvent(undefined);
       setEventPopupPoint(undefined);
+
+      const candleTs=sec*1000;
+      const clickPrice=point?series.coordinateToPrice(Number(point.y)):null;
+      const balance=[...sessions]
+        .sort((a,b)=>(a.status==='LIVE'?0:1)-(b.status==='LIVE'?0:1))
+        .find(s=>candleTs>=s.first&&candleTs<=s.last&&clickPrice!==null&&clickPrice<=s.high&&clickPrice>=s.low);
+      if(balance&&point&&hostRef.current){
+        const rect=hostRef.current.getBoundingClientRect();
+        setSelectedBalance(balance);
+        setBalancePopupPoint({
+          x:Math.max(8,Math.min(Number(point.x)+12,Math.max(8,rect.width-300))),
+          y:Math.max(58,Math.min(Number(point.y)+12,Math.max(58,rect.height-205)))
+        });
+      }else{
+        setSelectedBalance(undefined);
+        setBalancePopupPoint(undefined);
+      }
       setPinnedTime(prev=>prev===sec*1000?undefined:sec*1000);
       setHoverTime(sec*1000);
     };
@@ -487,8 +566,8 @@ export default function LiveCandleChart({
         color:level.status==='FROZEN'?'rgba(213,174,91,.82)':'rgba(70,178,217,.78)',
         lineWidth:1,
         lineStyle:level.status==='FROZEN'?LineStyle.Dashed:LineStyle.SparseDotted,
-        axisLabelVisible:true,
-        title:`${level.label} · ${level.status}`
+        axisLabelVisible:false,
+        title:''
       }));
     }
     requestAnimationFrame(drawOverlay);
@@ -594,7 +673,14 @@ export default function LiveCandleChart({
       <button type="button" onClick={()=>{setPinnedTime(undefined);setHoverTime(undefined);setSelectedMarketEvent(undefined);setEventPopupPoint(undefined)}}>СБРОС КУРСОРА</button>
     </div>
     <div className="tv-chart-hint">{interactionHint}</div>
-    <div className="tv-event-legend"><span>● КАСАНИЕ</span><span>▲ СНЯТИЕ</span><span>▲ ПРОБОЙ</span><span>■ ACCEPT</span><span>↥ RECLAIM</span><span>■ TP</span><span>■ SL</span></div>
+
+    {selectedBalance&&balancePopupPoint&&<div className="tv-balance-popup" style={{left:balancePopupPoint.x,top:balancePopupPoint.y}}>
+      <button className="tv-event-popup-close" onClick={()=>{setSelectedBalance(undefined);setBalancePopupPoint(undefined)}}>×</button>
+      <strong>{selectedBalance.name==='NEW_YORK'?'NEW YORK':selectedBalance.name} · BALANCE {selectedBalance.status}</strong>
+      <div><span>HIGH</span><b>{fmtPrice(selectedBalance.high)}</b></div>
+      <div><span>MID</span><b>{fmtPrice(selectedBalance.mid)}</b></div>
+      <div><span>LOW</span><b>{fmtPrice(selectedBalance.low)}</b></div>
+    </div>}
     {selectedMarketEvent&&eventPopupPoint&&<div className="tv-event-popup" style={{left:eventPopupPoint.x,top:eventPopupPoint.y}}>
       <button className="tv-event-popup-close" onClick={()=>{setSelectedMarketEvent(undefined);setEventPopupPoint(undefined)}}>×</button>
       <div className="tv-event-popup-head">
