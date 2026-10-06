@@ -57,18 +57,18 @@ const SESSION_WINDOWS:Array<{name:SessionName;start:number;end:number}>=[
 ];
 
 function makeEvent(
-  instrument:string,seq:number,candle:Candle,type:AscendEvent['type'],level:DisplayLevel,direction:'LONG'|'SHORT'|'NEUTRAL',
+  instrument:string,seq:number,candle:Candle,eventTimeframe:'1m'|'15m',type:AscendEvent['type'],level:DisplayLevel,direction:'LONG'|'SHORT'|'NEUTRAL',
   explanation:string,nextExpected:string,payload:Record<string,unknown>
 ):AscendEvent{
   return{
     eventId:`live-${instrument}-${level.id}-${candle.timestamp}-${type}`,
-    sequenceId:seq,instrument,timeframe:'15m',type,timestamp:candle.timestamp,
+    sequenceId:seq,instrument,timeframe:eventTimeframe,type,timestamp:candle.timestamp,
     price:candle.close,level:`${level.label} ${level.price.toLocaleString('en-US',{maximumFractionDigits:4})}`,
-    direction,explanation,nextExpected,payload
+    direction,explanation,nextExpected,payload:{levelId:level.id,levelLabel:level.label,levelPrice:level.price,...payload}
   };
 }
 
-export function deriveLiveMarketContext(instrument:string,context:Candle[],chart:Candle[],now=Date.now()):LiveMarketContext{
+export function deriveLiveMarketContext(instrument:string,context:Candle[],chart:Candle[],eventCandles:Candle[]=[],now=Date.now()):LiveMarketContext{
   // Do not fabricate levels from a single websocket candle when historical REST is unavailable.
   // We need roughly two days of 15m context before YH/YL, session and ON/RTH/IB levels are trusted.
   if(context.length<192)return{sessions:[],levels:[],chronology:[]};
@@ -172,9 +172,12 @@ export function deriveLiveMarketContext(instrument:string,context:Candle[],chart
     );
   }
 
-  // Market-level chronology is intentionally evaluated on closed 15m context candles.
-  // Lower-TF structure will be a separate Core layer so raw breaks do not masquerade as entries.
-  const closed=context.slice(-160,-1);
+  // Liquidity-event timestamps use closed 1m candles when available.
+  // If 1m history is not ready, we fall back to closed 15m context candles.
+  // Structure confirmation remains a separate Core layer, so raw liquidity events never become entries.
+  const useMicro=eventCandles.length>=120;
+  const closed=(useMicro?eventCandles:context).slice(useMicro?-1900:-160,-1);
+  const eventTimeframe:'1m'|'15m'=useMicro?'1m':'15m';
   const eventLevels=levels.filter(l=>l.status==='FROZEN');
   const chronology:AscendEvent[]=[];
   let seq=1;
@@ -193,15 +196,15 @@ export function deriveLiveMarketContext(instrument:string,context:Candle[],chart
       const reclaimUp=b.close<p&&c.close>p;
       const touched=c.low<=p&&c.high>=p;
 
-      if(sweptHigh)chronology.push(makeEvent(instrument,seq++,c,'SWEEP',level,'SHORT','Цена сняла ликвидность выше уровня и закрылась обратно ниже. Sweep не является самостоятельным входом.','Ждём reclaim/structure confirmation.',{high:c.high,close:c.close,sweepDepthPct:(c.high/p-1)*100}));
-      else if(sweptLow)chronology.push(makeEvent(instrument,seq++,c,'SWEEP',level,'LONG','Цена сняла ликвидность ниже уровня и закрылась обратно выше. Sweep не является самостоятельным входом.','Ждём reclaim/structure confirmation.',{low:c.low,close:c.close,sweepDepthPct:(1-c.low/p)*100}));
-      else if(acceptUp)chronology.push(makeEvent(instrument,seq++,c,'ACCEPT',level,'LONG','Две закрытые свечи удержались выше замороженного уровня: фиксируем acceptance above.','Ждём ретест или продолжение структуры.',{close:c.close}));
-      else if(acceptDown)chronology.push(makeEvent(instrument,seq++,c,'ACCEPT',level,'SHORT','Две закрытые свечи удержались ниже замороженного уровня: фиксируем acceptance below.','Ждём ретест или продолжение структуры.',{close:c.close}));
-      else if(reclaimDown&&a.close<=p)chronology.push(makeEvent(instrument,seq++,c,'RECLAIM',level,'SHORT','После выхода выше цена вернулась под уровень.','Нужна структурная реакция.',{close:c.close}));
-      else if(reclaimUp&&a.close>=p)chronology.push(makeEvent(instrument,seq++,c,'RECLAIM',level,'LONG','После выхода ниже цена вернулась над уровень.','Нужна структурная реакция.',{close:c.close}));
-      else if(crossedUp)chronology.push(makeEvent(instrument,seq++,c,'BREAK',level,'LONG','Свеча закрылась выше замороженного уровня. Пробой зафиксирован в хронологии.','Проверяем acceptance/retest.',{close:c.close,breakPct:(c.close/p-1)*100}));
-      else if(crossedDown)chronology.push(makeEvent(instrument,seq++,c,'BREAK',level,'SHORT','Свеча закрылась ниже замороженного уровня. Пробой поддержки зафиксирован в хронологии.','Проверяем acceptance/retest.',{close:c.close,breakPct:(1-c.close/p)*100}));
-      else if(touched)chronology.push(makeEvent(instrument,seq++,c,'TOUCH',level,'NEUTRAL','Цена коснулась замороженного уровня без подтверждённого пробоя или sweep. Само касание не является входом.','Ждём реакцию: rejection / break / sweep / reclaim.',{high:c.high,low:c.low,close:c.close}));
+      if(sweptHigh)chronology.push(makeEvent(instrument,seq++,c,eventTimeframe,'SWEEP',level,'SHORT','Цена сняла ликвидность выше уровня и закрылась обратно ниже. Sweep не является самостоятельным входом.','Ждём reclaim/structure confirmation.',{high:c.high,close:c.close,sweepDepthPct:(c.high/p-1)*100}));
+      else if(sweptLow)chronology.push(makeEvent(instrument,seq++,c,eventTimeframe,'SWEEP',level,'LONG','Цена сняла ликвидность ниже уровня и закрылась обратно выше. Sweep не является самостоятельным входом.','Ждём reclaim/structure confirmation.',{low:c.low,close:c.close,sweepDepthPct:(1-c.low/p)*100}));
+      else if(acceptUp)chronology.push(makeEvent(instrument,seq++,c,eventTimeframe,'ACCEPT',level,'LONG','Две закрытые свечи удержались выше замороженного уровня: фиксируем acceptance above.','Ждём ретест или продолжение структуры.',{close:c.close}));
+      else if(acceptDown)chronology.push(makeEvent(instrument,seq++,c,eventTimeframe,'ACCEPT',level,'SHORT','Две закрытые свечи удержались ниже замороженного уровня: фиксируем acceptance below.','Ждём ретест или продолжение структуры.',{close:c.close}));
+      else if(reclaimDown&&a.close<=p)chronology.push(makeEvent(instrument,seq++,c,eventTimeframe,'RECLAIM',level,'SHORT','После выхода выше цена вернулась под уровень.','Нужна структурная реакция.',{close:c.close}));
+      else if(reclaimUp&&a.close>=p)chronology.push(makeEvent(instrument,seq++,c,eventTimeframe,'RECLAIM',level,'LONG','После выхода ниже цена вернулась над уровень.','Нужна структурная реакция.',{close:c.close}));
+      else if(crossedUp)chronology.push(makeEvent(instrument,seq++,c,eventTimeframe,'BREAK',level,'LONG','Свеча закрылась выше замороженного уровня. Пробой зафиксирован в хронологии.','Проверяем acceptance/retest.',{close:c.close,breakPct:(c.close/p-1)*100}));
+      else if(crossedDown)chronology.push(makeEvent(instrument,seq++,c,eventTimeframe,'BREAK',level,'SHORT','Свеча закрылась ниже замороженного уровня. Пробой поддержки зафиксирован в хронологии.','Проверяем acceptance/retest.',{close:c.close,breakPct:(1-c.close/p)*100}));
+      else if(touched)chronology.push(makeEvent(instrument,seq++,c,eventTimeframe,'TOUCH',level,'NEUTRAL','Цена коснулась замороженного уровня без подтверждённого пробоя или sweep. Само касание не является входом.','Ждём реакцию: rejection / break / sweep / reclaim.',{high:c.high,low:c.low,close:c.close}));
     }
   }
 
