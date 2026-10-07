@@ -12,7 +12,7 @@ import MiniAppPage from './pages/MiniAppPage';
 import SettingsPage from './pages/SettingsPage';
 import DevPage from './pages/DevPage';
 import LiveCandleChart from './components/LiveCandleChart';
-import { useAscendMarket } from './market/useAscendMarket';
+import { useBybitMarket } from './market/useBybitMarket';
 import { deriveLiveMarketContext } from './market/engine';
 import {eventShortLabel,eventTitleRu} from './market/eventLabels';
 import './dev.css';
@@ -49,7 +49,7 @@ export default function App(){
  const[sourceFilter,setSourceFilter]=useState<'ALL'|'DEX'|'CEX'|'CORE'>('ALL');
  const[showClusters,setShowClusters]=useState(true);
 
- const live=useAscendMarket(marketSymbol,chartTf,currentView==='MARKET');
+ const live=useBybitMarket(marketSymbol,chartTf,currentView==='MARKET');
  const historyWindow=Number(historyRange)||250;
  const liveContext=useMemo(()=>deriveLiveMarketContext(marketSymbol,live.contextCandles,live.candles,live.eventCandles),[marketSymbol,live.contextCandles,live.candles,live.eventCandles]);
  useEffect(()=>{if(!playing||marketMode!=='REPLAY')return;if(visibleCount>=events.length){setPlaying(false);return}const timer=window.setTimeout(()=>{const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])},950);return()=>window.clearTimeout(timer)},[playing,visibleCount,marketMode]);
@@ -159,14 +159,7 @@ export default function App(){
       <div className="event-popover"><div className="event-head"><div><strong>{selected.type}</strong><small>{selected.timeframe} · {selected.session} · {String((selected as any).source??'ASCEND_CORE')}</small></div><span>{new Date(selected.timestamp).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</span></div><div className="event-level">{selected.level} · {fmtPrice(selected.price)}</div><p>{selected.explanation}</p><div className="event-next"><small>ЧТО ЖДЁМ ДАЛЬШЕ · NEXT EXPECTED</small><b>{selected.nextExpected}</b></div><div className="event-chain">{chain.map(item=>item.type).join(' → ')}</div></div>
       </>}
      </div>
-     {marketMode==='REPLAY'?<div className="scenario-controls"><button className="primary" onClick={()=>setPlaying(true)} disabled={playing||visibleCount>=events.length}>▶ ПРОИГРАТЬ СЦЕНАРИЙ · PLAY</button><button onClick={()=>{if(visibleCount>=events.length)return;const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])}}>ШАГ +1 · STEP</button><button onClick={reset}>СБРОС · RESET</button><span>{visibleCount}/{events.length} событий · events</span></div>:<div className="scenario-controls live-feed-controls">
- <span className={live.status==='LIVE'&&live.historyReady?'positive':'warning'}>● {live.status==='LIVE'?(live.historyReady?'LIVE':'PARTIAL'):live.status}</span>
- <b>{fmtPrice(currentPrice)}</b>
- <span>24H {live.ticker.change24hPct!==undefined?(live.ticker.change24hPct>=0?'+':'')+live.ticker.change24hPct.toFixed(2)+'%':'—'}</span>
- <span>Latency {live.latencyMs??'—'} ms</span>
- {live.sources?.filter(source=>['BYBIT','MEXC','DEX_SCANNER'].includes(source.source)).map(source=><span key={source.source} className={source.status==='LIVE'?'positive':'warning'}>{source.source==='DEX_SCANNER'?'DEX':source.source} {source.status}</span>)}
- <span className={live.consensus?.state==='MARKET_CONFLICT'?'negative':live.consensus?.state==='CONSENSUS'?'positive':'warning'}>{live.consensus?.state??'SOURCE CHECK'}</span>
-</div>}
+     {marketMode==='REPLAY'?<div className="scenario-controls"><button className="primary" onClick={()=>setPlaying(true)} disabled={playing||visibleCount>=events.length}>▶ ПРОИГРАТЬ СЦЕНАРИЙ · PLAY</button><button onClick={()=>{if(visibleCount>=events.length)return;const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])}}>ШАГ +1 · STEP</button><button onClick={reset}>СБРОС · RESET</button><span>{visibleCount}/{events.length} событий · events</span></div>:<div className="scenario-controls live-feed-controls"><span className={live.status==='LIVE'&&live.historyReady?'positive':'warning'}>● {live.status==='LIVE'?(live.historyReady?'LIVE':'PARTIAL'):live.status}</span><b>{fmtPrice(currentPrice)}</b><span>24H {live.ticker.change24hPct!==undefined?(live.ticker.change24hPct>=0?'+':'')+live.ticker.change24hPct.toFixed(2)+'%':'—'}</span><span>Latency {live.latencyMs??'—'} ms</span><span>{live.error?'Ошибка · '+live.error:(live.historyReady?'Public data · no API key':'WebSocket live · ждём историю')}</span></div>}
      <section className="chronology-panel">
       <div className="chronology-head">
        <div><strong>ХРОНОЛОГИЯ РЫНКА · MARKET CHRONOLOGY</strong><small>{marketMode==='LIVE'?'REAL PRICE: touch / probe / sweep / break / accept / reclaim · RSI отдельно · без look-ahead':'REPLAY: события Core + research context'}</small></div>
@@ -243,6 +236,6 @@ export default function App(){
    </aside>}
   </div>}
 
-  <footer className="system-bar"><span className="ok">● ИНТЕРФЕЙС · UI ONLINE</span><span className={live.status==='LIVE'&&live.historyReady?'real-footer':'mock-footer'}>ASCEND DATA ENGINE · {live.status==='LIVE'?(live.historyReady?'LIVE':'PARTIAL'):live.status}</span><span>BYBIT + MEXC · CEX VALIDATION</span><span>DEX SCANNER · DISCOVERY ONLY</span><span>{live.consensus?.state??'CONSENSUS WAIT'}</span><span>Core · validation mode</span><span>Redis · planned</span><span>PostgreSQL · planned</span><span>Telegram · not connected</span><span className="latency">Задержка · Latency {live.latencyMs??"—"} ms</span></footer>
+  <footer className="system-bar"><span className="ok">● ИНТЕРФЕЙС · UI ONLINE</span><span className={live.status==='LIVE'&&live.historyReady?'real-footer':'mock-footer'}>BYBIT MARKET · {live.status==='LIVE'?(live.historyReady?'LIVE':'PARTIAL'):live.status}</span><span>CEX: {marketSources.filter(s=>s.kind==='CEX').length} adapters architecture</span><span>DEX: discovery-only ready</span><span>Рыночный поток · Market Feed {live.status}</span><span>Симуляция Core · Core Simulation</span><span>Каркас API · API skeleton</span><span>PostgreSQL · запланирован / planned</span><span>Redis · запланирован / planned</span><span>Telegram · не подключён / not connected</span><span className="latency">Задержка · Latency {live.latencyMs??"—"} ms</span></footer>
  </div>
 }
