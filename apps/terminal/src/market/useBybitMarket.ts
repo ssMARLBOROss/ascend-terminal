@@ -178,16 +178,18 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
   const[hasOlder,setHasOlder]=useState(true);
   const retryRef=useRef<number>();
   const tickerFlushRef=useRef<number>();
-  const activeKeyRef=useRef(cacheKey);
   const olderAbortRef=useRef<AbortController>();
   const pendingTickerRef=useRef<Ticker>({});
   const lastMetaUpdateRef=useRef(0);
   const interval=useMemo(()=>intervalMap[timeframe]??'15',[timeframe]);
   const cacheKey=useMemo(()=>chartKey(symbol,timeframe),[symbol,timeframe]);
+  const activeKeyRef=useRef(cacheKey);
   activeKeyRef.current=cacheKey;
 
   useEffect(()=>{
     let disposed=false;
+    olderAbortRef.current?.abort();
+    olderAbortRef.current=undefined;
     const controller=new AbortController();
     let microTimer:number|undefined;
     if(!enabled){
