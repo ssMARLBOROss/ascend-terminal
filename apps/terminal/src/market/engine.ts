@@ -522,7 +522,7 @@ export function deriveLiveMarketContext(
     if(r){
       const status=frozen?'FROZEN':'LIVE';
       const name=session.name.replace('_',' ');
-      const profile=buildVolumeProfile(session.name,name+' PROFILE',items,status,20);
+      const profile=buildVolumeProfile(session.name as VolumeProfileId,name+' PROFILE',items,status,20);
       if(profile)sessionProfiles.push(profile);
       levels.push(
         {id:`${session.name}_H`,label:`${name} H`,price:r.high,status,role:'RESISTANCE',availableFrom:frozen?end:now,period:'SESSION',dateLabel:todayLabel},
