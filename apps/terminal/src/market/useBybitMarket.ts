@@ -27,6 +27,8 @@ const prefetchingSymbols=new Set<string>();
 const microCache=new Map<string,Candle[]>();
 const microTouched=new Map<string,number>();
 const PREFETCH_TFS:AscendTimeframe[]=['1m','3m','5m','10m','15m','30m','1H'];
+const MICRO_HISTORY_LIMIT=1000;
+const EVENT_CANDLE_LIMIT=1000;
 const CACHE_TTL_MS=20*60*1000;
 const MAX_CHART_CACHE=12;
 const MAX_CONTEXT_CACHE=6;
@@ -115,15 +117,11 @@ async function fetchKlines(symbol:string,interval:string,limit=360,end?:number){
 
 async function fetchMicroHistory(symbol:string){
   const cached=getMicroCache(symbol);
-  if(cached&&cached.length>=1200)return cached;
-  const latest=await fetchKlines(symbol,'1',1000);
-  if(!latest.length)return latest;
-  const older=await fetchKlines(symbol,'1',1000,latest[0].timestamp-1);
-  const byTs=new Map<number,Candle>();
-  [...older,...latest].forEach(c=>byTs.set(c.timestamp,c));
-  const merged=[...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-2000);
-  putMicroCache(symbol,merged);
-  return merged;
+  if(cached&&cached.length>=Math.min(600,MICRO_HISTORY_LIMIT))return cached;
+  const latest=await fetchKlines(symbol,'1',MICRO_HISTORY_LIMIT);
+  const trimmed=latest.slice(-MICRO_HISTORY_LIMIT);
+  putMicroCache(symbol,trimmed);
+  return trimmed;
 }
 
 async function warmTimeframes(symbol:string,current:AscendTimeframe){
@@ -134,7 +132,7 @@ async function warmTimeframes(symbol:string,current:AscendTimeframe){
     const candidates=PREFETCH_TFS
       .filter(tf=>tf!==current&&!getChartCache(chartKey(symbol,tf)))
       .sort((a,b)=>Math.abs(PREFETCH_TFS.indexOf(a)-currentIndex)-Math.abs(PREFETCH_TFS.indexOf(b)-currentIndex))
-      .slice(0,3);
+      .slice(0,1);
 
     await Promise.allSettled(candidates.map(async tf=>{
       const interval=intervalMap[tf]??'15';
@@ -229,7 +227,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
         setRawCandles(chart);setCandles(display);setContextCandles(context.slice(-500));setRestError(undefined);
         putChartCache(cacheKey,{raw:chart,display,updatedAt:Date.now()});
         putContextCache(symbol,{candles:context.slice(-500),updatedAt:Date.now()});
-        window.setTimeout(()=>{if(!disposed)void warmTimeframes(symbol,timeframe)},1200);
+        window.setTimeout(()=>{if(!disposed)void warmTimeframes(symbol,timeframe)},5000);
       }catch(err){
         if(disposed)return;
         setRestError('История REST: '+String((err as Error)?.message??err));
@@ -241,7 +239,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
       void fetchMicroHistory(symbol)
         .then(micro=>{if(!disposed)setEventCandles(micro)})
         .catch(()=>{});
-    },650);
+    },2000);
     return()=>{disposed=true};
   },[symbol,interval,timeframe,cacheKey,enabled]);
 
@@ -302,14 +300,14 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
                 return trimmed;
               });
             }
-            if(topicInterval==='1'){
+            if(topicInterval==='1'&&item.confirm===true){
               setEventCandles(prev=>{
                 const base=prev.length?prev:(getMicroCache(symbol)??[]);
                 const copy=base.slice();
                 const i=copy.findIndex(c=>c.timestamp===next.timestamp);
                 if(i>=0)copy[i]=next;else copy.push(next);
                 copy.sort((a,b)=>a.timestamp-b.timestamp);
-                const trimmed=copy.slice(-2000);
+                const trimmed=copy.slice(-EVENT_CANDLE_LIMIT);
                 putMicroCache(symbol,trimmed);
                 return trimmed;
               });
@@ -357,8 +355,8 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
       setRawCandles(prev=>{
         const byTs=new Map<number,Candle>();
         [...older,...prev].forEach(x=>byTs.set(x.timestamp,x));
-        const merged=[...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-8000);
-        const display=aggregate(merged,timeframe).slice(-5000);
+        const merged=[...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-2400);
+        const display=aggregate(merged,timeframe).slice(-1500);
         putChartCache(cacheKey,{raw:merged,display,updatedAt:Date.now()});
         setCandles(display);
         return merged;
