@@ -1,0 +1,126 @@
+/* ASCEND Volume Profile Proxy V1
+   Candle-derived approximation. Research context only; not tick-level VAP. */
+
+.volume-profile-panel{
+  padding-bottom:9px!important;
+}
+.profile-research-note{
+  margin:-2px 0 7px;
+  padding:5px 7px;
+  border:1px solid #3d4750;
+  border-radius:4px;
+  background:#0b1116;
+  color:#98a7b1;
+  font-size:7px;
+  font-weight:700;
+  line-height:1.35;
+}
+.profile-current{
+  border:1px solid #20394b;
+  border-radius:5px;
+  background:#07141d;
+  padding:7px;
+}
+.profile-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:6px;
+}
+.profile-head>div{min-width:0}
+.profile-head b{
+  display:block;
+  color:#d8e5eb;
+  font-size:8.5px;
+}
+.profile-head small{
+  display:block;
+  margin-top:2px;
+  color:#7e96a5!important;
+  font-size:6.5px!important;
+}
+.profile-head>strong{
+  color:#efb760;
+  font-size:10px;
+  white-space:nowrap;
+}
+.profile-level-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:4px;
+}
+.profile-level-grid>div{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  padding:5px;
+  border:1px solid #183247;
+  border-radius:4px;
+  background:#06121a;
+}
+.profile-level-grid span{
+  color:#6e8999;
+  font-size:6px;
+}
+.profile-level-grid b{
+  color:#d4e0e6;
+  font-size:7.5px;
+}
+.profile-migration{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:2px 8px;
+  margin-top:6px;
+  padding-top:6px;
+  border-top:1px solid #173247;
+}
+.profile-migration>span{
+  color:#718c9b;
+  font-size:6.5px;
+}
+.profile-migration>b{
+  font-size:7.5px;
+}
+.profile-migration>small{
+  grid-column:1/3;
+  color:#6f8795!important;
+  font-size:6px!important;
+}
+.profile-composite{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  margin-top:5px;
+  padding:6px 7px;
+  border:1px solid #27353f;
+  border-radius:4px;
+  background:#091015;
+}
+.profile-composite span{
+  color:#8094a0;
+  font-size:6.5px;
+}
+.profile-composite b{
+  color:#c9d5db;
+  font-size:7px;
+  line-height:1.35;
+}
+.profile-safety{
+  display:block;
+  margin-top:6px;
+  color:#6d8491!important;
+  font-size:6px!important;
+  line-height:1.4;
+}
+.profile-empty{
+  padding:7px;
+  border:1px dashed #263a46;
+  border-radius:4px;
+  color:#718794;
+  font-size:7px;
+}
+@media(max-width:1400px){
+  .profile-level-grid b{font-size:7px}
+  .profile-head b{font-size:8px}
+}
