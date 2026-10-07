@@ -19,7 +19,7 @@ export function useBybitUniverse(pollMs=5000){
   const[items,setItems]=useState<BybitTicker[]>(cachedUniverse);
   const[status,setStatus]=useState<'LOADING'|'LIVE'|'ERROR'>(cachedUniverse.length?'LIVE':'LOADING');
   const[error,setError]=useState<string>();
-  const[lastUpdate,setLastUpdate]=useState<number>(cachedUniverseAt||undefined);
+  const[lastUpdate,setLastUpdate]=useState<number|undefined>(cachedUniverseAt||undefined);
   const inFlightRef=useRef(false);
   const controllerRef=useRef<AbortController>();
 
