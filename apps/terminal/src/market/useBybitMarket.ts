@@ -105,20 +105,20 @@ function normalize(list:any[]):Candle[]{
   })).filter(c=>Number.isFinite(c.timestamp)&&Number.isFinite(c.close)).sort((a,b)=>a.timestamp-b.timestamp);
 }
 
-async function fetchKlines(symbol:string,interval:string,limit=360,end?:number){
+async function fetchKlines(symbol:string,interval:string,limit=360,end?:number,signal?:AbortSignal){
   const qs=new URLSearchParams({category:'linear',symbol,interval,limit:String(limit)});
   if(end!==undefined)qs.set('end',String(end));
-  const res=await fetch('/market-api/v5/market/kline?'+qs.toString(),{cache:'no-store'});
+  const res=await fetch('/market-api/v5/market/kline?'+qs.toString(),{cache:'no-store',signal});
   if(!res.ok)throw new Error('REST '+res.status);
   const json=await res.json();
   if(json?.retCode!==0||!Array.isArray(json?.result?.list))throw new Error(json?.retMsg||'Invalid kline response');
   return normalize(json.result.list);
 }
 
-async function fetchMicroHistory(symbol:string){
+async function fetchMicroHistory(symbol:string,signal?:AbortSignal){
   const cached=getMicroCache(symbol);
   if(cached&&cached.length>=Math.min(600,MICRO_HISTORY_LIMIT))return cached;
-  const latest=await fetchKlines(symbol,'1',MICRO_HISTORY_LIMIT);
+  const latest=await fetchKlines(symbol,'1',MICRO_HISTORY_LIMIT,undefined,signal);
   const trimmed=latest.slice(-MICRO_HISTORY_LIMIT);
   putMicroCache(symbol,trimmed);
   return trimmed;
@@ -178,13 +178,18 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
   const[hasOlder,setHasOlder]=useState(true);
   const retryRef=useRef<number>();
   const tickerFlushRef=useRef<number>();
+  const activeKeyRef=useRef(cacheKey);
+  const olderAbortRef=useRef<AbortController>();
   const pendingTickerRef=useRef<Ticker>({});
   const lastMetaUpdateRef=useRef(0);
   const interval=useMemo(()=>intervalMap[timeframe]??'15',[timeframe]);
   const cacheKey=useMemo(()=>chartKey(symbol,timeframe),[symbol,timeframe]);
+  activeKeyRef.current=cacheKey;
 
   useEffect(()=>{
     let disposed=false;
+    const controller=new AbortController();
+    let microTimer:number|undefined;
     if(!enabled){
       const cached=getChartCache(cacheKey);
       const cachedContext=getContextCache(symbol);
@@ -219,28 +224,32 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
     const load=async()=>{
       try{
         const chartLimit=timeframe==='10m'||timeframe==='45m'?720:360;
-        const chartPromise=fetchKlines(symbol,interval,chartLimit);
-        const contextPromise=interval==='15'?chartPromise:fetchKlines(symbol,'15',360);
+        const chartPromise=fetchKlines(symbol,interval,chartLimit,undefined,controller.signal);
+        const contextPromise=interval==='15'?chartPromise:fetchKlines(symbol,'15',360,undefined,controller.signal);
         const[chart,context]=await Promise.all([chartPromise,contextPromise]);
         if(disposed)return;
         const display=aggregate(chart,timeframe).slice(-500);
         setRawCandles(chart);setCandles(display);setContextCandles(context.slice(-500));setRestError(undefined);
         putChartCache(cacheKey,{raw:chart,display,updatedAt:Date.now()});
         putContextCache(symbol,{candles:context.slice(-500),updatedAt:Date.now()});
-        window.setTimeout(()=>{if(!disposed)void warmTimeframes(symbol,timeframe)},5000);
+        // Background TF prefetch is intentionally disabled here. It was piling up network work during rapid symbol/TF switches.
       }catch(err){
         if(disposed)return;
         setRestError('История REST: '+String((err as Error)?.message??err));
       }
     };
     void load();
-    window.setTimeout(()=>{
+    microTimer=window.setTimeout(()=>{
       if(disposed)return;
-      void fetchMicroHistory(symbol)
+      void fetchMicroHistory(symbol,controller.signal)
         .then(micro=>{if(!disposed)setEventCandles(micro)})
-        .catch(()=>{});
+        .catch(err=>{if((err as any)?.name!=='AbortError')return});
     },2000);
-    return()=>{disposed=true};
+    return()=>{
+      disposed=true;
+      controller.abort();
+      if(microTimer!==undefined)window.clearTimeout(microTimer);
+    };
   },[symbol,interval,timeframe,cacheKey,enabled]);
 
   useEffect(()=>{
@@ -279,9 +288,13 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
             if(topicInterval===interval){
               setRawCandles(prev=>{
                 const copy=prev.slice();
-                const i=copy.findIndex(c=>c.timestamp===next.timestamp);
-                if(i>=0)copy[i]=next;else copy.push(next);
-                copy.sort((a,b)=>a.timestamp-b.timestamp);
+                const lastIndex=copy.length-1;
+                if(lastIndex>=0&&copy[lastIndex].timestamp===next.timestamp)copy[lastIndex]=next;
+                else if(lastIndex<0||copy[lastIndex].timestamp<next.timestamp)copy.push(next);
+                else{
+                  const i=copy.findIndex(c=>c.timestamp===next.timestamp);
+                  if(i>=0)copy[i]=next;else{copy.push(next);copy.sort((a,b)=>a.timestamp-b.timestamp)}
+                }
                 const trimmed=copy.slice(-1500);
                 const display=aggregate(trimmed,timeframe).slice(-500);
                 putChartCache(cacheKey,{raw:trimmed,display,updatedAt:Date.now()});
@@ -292,9 +305,13 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
             if(topicInterval==='15'){
               setContextCandles(prev=>{
                 const copy=prev.slice();
-                const i=copy.findIndex(c=>c.timestamp===next.timestamp);
-                if(i>=0)copy[i]=next;else copy.push(next);
-                copy.sort((a,b)=>a.timestamp-b.timestamp);
+                const lastIndex=copy.length-1;
+                if(lastIndex>=0&&copy[lastIndex].timestamp===next.timestamp)copy[lastIndex]=next;
+                else if(lastIndex<0||copy[lastIndex].timestamp<next.timestamp)copy.push(next);
+                else{
+                  const i=copy.findIndex(c=>c.timestamp===next.timestamp);
+                  if(i>=0)copy[i]=next;else{copy.push(next);copy.sort((a,b)=>a.timestamp-b.timestamp)}
+                }
                 const trimmed=copy.slice(-500);
                 putContextCache(symbol,{candles:trimmed,updatedAt:Date.now()});
                 return trimmed;
@@ -304,9 +321,13 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
               setEventCandles(prev=>{
                 const base=prev.length?prev:(getMicroCache(symbol)??[]);
                 const copy=base.slice();
-                const i=copy.findIndex(c=>c.timestamp===next.timestamp);
-                if(i>=0)copy[i]=next;else copy.push(next);
-                copy.sort((a,b)=>a.timestamp-b.timestamp);
+                const lastIndex=copy.length-1;
+                if(lastIndex>=0&&copy[lastIndex].timestamp===next.timestamp)copy[lastIndex]=next;
+                else if(lastIndex<0||copy[lastIndex].timestamp<next.timestamp)copy.push(next);
+                else{
+                  const i=copy.findIndex(c=>c.timestamp===next.timestamp);
+                  if(i>=0)copy[i]=next;else{copy.push(next);copy.sort((a,b)=>a.timestamp-b.timestamp)}
+                }
                 const trimmed=copy.slice(-EVENT_CANDLE_LIMIT);
                 putMicroCache(symbol,trimmed);
                 return trimmed;
@@ -329,7 +350,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
                 const pending=pendingTickerRef.current;
                 pendingTickerRef.current={};
                 if(!disposed)setTicker(prev=>({...prev,...pending}));
-              },250);
+              },750);
             }
           }
         }catch{}
@@ -348,11 +369,17 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
 
   const loadOlder=async()=>{
     if(loadingOlder||!hasOlder||!candles.length)return;
+    const requestKey=cacheKey;
+    olderAbortRef.current?.abort();
+    const controller=new AbortController();
+    olderAbortRef.current=controller;
     setLoadingOlder(true);
     try{
       const oldestRaw=rawCandles[0]?.timestamp??candles[0].timestamp;
-      const older=await fetchKlines(symbol,interval,500,oldestRaw-1);
+      const older=await fetchKlines(symbol,interval,500,oldestRaw-1,controller.signal);
+      if(activeKeyRef.current!==requestKey||controller.signal.aborted)return;
       setRawCandles(prev=>{
+        if(activeKeyRef.current!==requestKey)return prev;
         const byTs=new Map<number,Candle>();
         [...older,...prev].forEach(x=>byTs.set(x.timestamp,x));
         const merged=[...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-2400);
@@ -363,9 +390,12 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
       });
       if(older.length<500)setHasOlder(false);
     }catch(err){
-      setRestError('История REST: '+String((err as Error)?.message??err));
+      if((err as any)?.name!=='AbortError'&&activeKeyRef.current===requestKey){
+        setRestError('История REST: '+String((err as Error)?.message??err));
+      }
     }finally{
-      setLoadingOlder(false);
+      if(activeKeyRef.current===requestKey)setLoadingOlder(false);
+      if(olderAbortRef.current===controller)olderAbortRef.current=undefined;
     }
   };
 
