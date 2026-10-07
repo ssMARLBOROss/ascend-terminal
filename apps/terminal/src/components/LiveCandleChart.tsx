@@ -148,6 +148,7 @@ export default function LiveCandleChart({
   const rsiModeRef=useRef<RsiMode>('EVENTS');
   const sessionsRef=useRef<SessionSlice[]>([]);
   const autoLoadingRef=useRef(false);
+  const autoLoadCountRef=useRef(0);
   const drawOverlayRef=useRef<()=>void>(()=>{});
   const loadOlderRef=useRef(onLoadOlder);
   const loadingOlderRef=useRef(loadingOlder);
@@ -593,9 +594,10 @@ export default function LiveCandleChart({
       drawOverlayRef.current();
 
       const loadOlder=loadOlderRef.current;
-      if(!range||!loadOlder||loadingOlderRef.current||!hasOlderRef.current||autoLoadingRef.current)return;
+      if(!range||!loadOlder||loadingOlderRef.current||!hasOlderRef.current||autoLoadingRef.current||autoLoadCountRef.current>=1)return;
       const info=series.barsInLogicalRange(range);
       if(info&&info.barsBefore<24){
+        autoLoadCountRef.current+=1;
         autoLoadingRef.current=true;
         setInteractionHint('Подгружаем старую историю · loading older candles…');
         Promise.resolve(loadOlder()).finally(()=>{
@@ -618,6 +620,7 @@ export default function LiveCandleChart({
     resize.observe(host);
 
     return()=>{
+      autoLoadCountRef.current=0;
       const logical=chart.timeScale().getVisibleLogicalRange();
       if(logical)viewportCache.set(viewportKey,{range:{from:Number(logical.from),to:Number(logical.to)},following:followLatestRef.current});
       resize.disconnect();
