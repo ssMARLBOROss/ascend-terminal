@@ -27,8 +27,8 @@ const prefetchingSymbols=new Set<string>();
 const microCache=new Map<string,Candle[]>();
 const microTouched=new Map<string,number>();
 const PREFETCH_TFS:AscendTimeframe[]=['1m','3m','5m','10m','15m','30m','1H'];
-const MICRO_HISTORY_LIMIT=1000;
-const EVENT_CANDLE_LIMIT=1000;
+const MICRO_HISTORY_LIMIT=500;
+const EVENT_CANDLE_LIMIT=600;
 const CACHE_TTL_MS=20*60*1000;
 const HOT_CACHE_MS=30*1000;
 const MAX_CHART_CACHE=12;
@@ -229,28 +229,32 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
         const now=Date.now();
         const chartFresh=Boolean(cached&&now-cached.updatedAt<HOT_CACHE_MS);
         const contextFresh=Boolean(cachedContext&&now-cachedContext.updatedAt<HOT_CACHE_MS);
-        if(chartFresh&&contextFresh){
-          setRestError(undefined);
-          return;
-        }
 
-        const chartLimit=timeframe==='10m'||timeframe==='45m'?720:360;
-        const chartPromise=chartFresh
-          ? Promise.resolve(cached!.raw)
-          : fetchKlines(symbol,interval,chartLimit,undefined,controller.signal);
-        const contextPromise=interval==='15'
-          ? chartPromise
-          : contextFresh
-            ? Promise.resolve(cachedContext!.candles)
-            : fetchKlines(symbol,'15',360,undefined,controller.signal);
-        const[chart,context]=await Promise.all([chartPromise,contextPromise]);
+        // First paint: chart candles should not wait for 15m context.
+        let chart=cached?.raw??[];
+        if(!chartFresh){
+          const chartLimit=timeframe==='10m'||timeframe==='45m'?480:240;
+          chart=await fetchKlines(symbol,interval,chartLimit,undefined,controller.signal);
+        }
         if(disposed)return;
-        const display=aggregate(chart,timeframe).slice(-500);
-        setRawCandles(chart);setCandles(display);setContextCandles(context.slice(-500));setRestError(undefined);
-        const updatedAt=Date.now();
-        putChartCache(cacheKey,{raw:chart,display,updatedAt});
-        putContextCache(symbol,{candles:context.slice(-500),updatedAt});
-        // No speculative TF prefetch: switching markets must cancel old work instead of competing with the active chart.
+
+        const display=aggregate(chart,timeframe).slice(-320);
+        const chartUpdatedAt=Date.now();
+        setRawCandles(chart);setCandles(display);setRestError(undefined);
+        putChartCache(cacheKey,{raw:chart,display,updatedAt:chartUpdatedAt});
+
+        // Analysis context is secondary and may arrive a moment later.
+        let context=cachedContext?.candles??[];
+        if(interval==='15'){
+          context=chart;
+        }else if(!contextFresh){
+          context=await fetchKlines(symbol,'15',240,undefined,controller.signal);
+        }
+        if(disposed)return;
+
+        const trimmedContext=context.slice(-320);
+        setContextCandles(trimmedContext);
+        putContextCache(symbol,{candles:trimmedContext,updatedAt:Date.now()});
       }catch(err){
         if(disposed||(err as any)?.name==='AbortError')return;
         setRestError('История REST: '+String((err as Error)?.message??err));
@@ -262,7 +266,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
       void fetchMicroHistory(symbol,controller.signal)
         .then(micro=>{if(!disposed)setEventCandles(micro)})
         .catch(err=>{if((err as any)?.name!=='AbortError')return});
-    },2000);
+    },3000);
     return()=>{
       disposed=true;
       controller.abort();
@@ -394,19 +398,19 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
     setLoadingOlder(true);
     try{
       const oldestRaw=rawCandles[0]?.timestamp??candles[0].timestamp;
-      const older=await fetchKlines(symbol,interval,500,oldestRaw-1,controller.signal);
+      const older=await fetchKlines(symbol,interval,300,oldestRaw-1,controller.signal);
       if(activeKeyRef.current!==requestKey||controller.signal.aborted)return;
       setRawCandles(prev=>{
         if(activeKeyRef.current!==requestKey)return prev;
         const byTs=new Map<number,Candle>();
         [...older,...prev].forEach(x=>byTs.set(x.timestamp,x));
-        const merged=[...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-2400);
-        const display=aggregate(merged,timeframe).slice(-1500);
+        const merged=[...byTs.values()].sort((a,b)=>a.timestamp-b.timestamp).slice(-1200);
+        const display=aggregate(merged,timeframe).slice(-800);
         putChartCache(cacheKey,{raw:merged,display,updatedAt:Date.now()});
         setCandles(display);
         return merged;
       });
-      if(older.length<500)setHasOlder(false);
+      if(older.length<300)setHasOlder(false);
     }catch(err){
       if((err as any)?.name!=='AbortError'&&activeKeyRef.current===requestKey){
         setRestError('История REST: '+String((err as Error)?.message??err));
