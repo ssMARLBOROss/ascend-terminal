@@ -58,13 +58,13 @@ export default function App(){
  const[analysisPulse,setAnalysisPulse]=useState(0);
  useEffect(()=>{
   if(currentView!=='MARKET')return;
-  const timer=window.setInterval(()=>setAnalysisPulse(v=>v+1),1200);
+  const timer=window.setInterval(()=>setAnalysisPulse(v=>v+1),2000);
   return()=>window.clearInterval(timer);
  },[currentView,marketSymbol,chartTf]);
  const liveContext=useMemo(()=>{
   const input=analysisInputRef.current;
   return deriveLiveMarketContext(input.symbol,input.context,input.chart,input.events);
- },[analysisPulse,currentView]);
+ },[analysisPulse,currentView,marketSymbol,chartTf]);
  useEffect(()=>{if(!playing||marketMode!=='REPLAY')return;if(visibleCount>=events.length){setPlaying(false);return}const timer=window.setTimeout(()=>{const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])},950);return()=>window.clearTimeout(timer)},[playing,visibleCount,marketMode]);
  useEffect(()=>{if(marketMode==='LIVE'&&liveContext.chronology.length){setSelected(liveContext.chronology[liveContext.chronology.length-1])}},[marketMode,liveContext.chronology.length]);
  const visibleEvents=events.slice(0,visibleCount);
