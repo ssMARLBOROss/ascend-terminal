@@ -9,7 +9,7 @@ import {
   type UTCTimestamp
 } from 'lightweight-charts';
 import type {AscendEvent,AscendTimeframe,Candle} from '@ascend/contracts';
-import type {DisplayLevel,LiquidityCluster} from '../market/engine';
+import type {DisplayLevel,LiquidityCluster,VolumeProfile} from '../market/engine';
 import {eventLevelId,eventLevelNameRu,eventShortLabel,eventTitleRu} from '../market/eventLabels';
 import {computeRsi,deriveRsiSignals,type RsiSignal} from '../market/rsi';
 
@@ -31,6 +31,8 @@ type ChartProps={
   events?:AscendEvent[];
   clusters?:LiquidityCluster[];
   showClusters?:boolean;
+  profiles?:VolumeProfile[];
+  showProfiles?:boolean;
 };
 
 type SessionSlice={
@@ -119,7 +121,8 @@ function buildSessions(candles:Candle[]):SessionSlice[]{
 
 export default function LiveCandleChart({
   candles,levels,lastPrice,status,source,latencyMs,symbol,timeframe,windowSize=250,
-  onLoadOlder,loadingOlder=false,hasOlder=true,focusTimestamp,focusNonce,events=[],clusters=[],showClusters=true
+  onLoadOlder,loadingOlder=false,hasOlder=true,focusTimestamp,focusNonce,events=[],clusters=[],showClusters=true,
+  profiles=[],showProfiles=true
 }:ChartProps){
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
@@ -326,6 +329,71 @@ export default function LiveCandleChart({
       }
     }
 
+    // Candle-derived volume profile proxy. This is NOT tick-level exchange volume-at-price.
+    if(showProfiles&&profiles.length){
+      const composite=profiles.find(profile=>profile.id==='COMPOSITE_12H');
+      if(composite){
+        const yVah=series.priceToCoordinate(composite.vah);
+        const yVal=series.priceToCoordinate(composite.val);
+        const yPoc=series.priceToCoordinate(composite.poc);
+        const xStart=timeScale.timeToCoordinate(Math.floor(composite.start/1000) as UTCTimestamp);
+        if(yVah!==null&&yVal!==null&&yPoc!==null){
+          const top=Math.min(yVah,yVal);
+          const height=Math.max(2,Math.abs(yVal-yVah));
+          const x=Math.max(0,xStart??0);
+          const width=Math.max(0,rect.width-132-x);
+          ctx.fillStyle='rgba(148,156,166,.035)';
+          ctx.fillRect(x,top,width,height);
+          ctx.strokeStyle='rgba(174,183,193,.25)';
+          ctx.setLineDash([4,5]);
+          ctx.beginPath();ctx.moveTo(x,yPoc);ctx.lineTo(rect.width-132,yPoc);ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+
+      for(const profile of profiles.filter(profile=>profile.id!=='COMPOSITE_12H')){
+        const x1=timeScale.timeToCoordinate(Math.floor(profile.start/1000) as UTCTimestamp);
+        const x2=timeScale.timeToCoordinate(Math.floor(profile.end/1000) as UTCTimestamp);
+        if(x1===null||x2===null||x2<0||x1>rect.width)continue;
+        const available=Math.max(42,Math.abs(x2-x1));
+        const maxWidth=Math.min(82,Math.max(42,available*.42));
+        const maxShare=Math.max(...profile.bins.map(bin=>bin.share),1e-9);
+
+        for(const bin of profile.bins){
+          const yHigh=series.priceToCoordinate(bin.high);
+          const yLow=series.priceToCoordinate(bin.low);
+          if(yHigh===null||yLow===null)continue;
+          const y=Math.min(yHigh,yLow);
+          const h=Math.max(1,Math.abs(yLow-yHigh));
+          if(y>plotBottom||y+h<0)continue;
+          const w=Math.max(1,(bin.share/maxShare)*maxWidth);
+          const inValueArea=bin.mid>=profile.val&&bin.mid<=profile.vah;
+          ctx.fillStyle=inValueArea?'rgba(154,168,178,.24)':'rgba(111,127,138,.12)';
+          ctx.fillRect(x1,y,w,h);
+        }
+
+        const yPoc=series.priceToCoordinate(profile.poc);
+        const yVah=series.priceToCoordinate(profile.vah);
+        const yVal=series.priceToCoordinate(profile.val);
+        if(yPoc!==null){
+          ctx.strokeStyle=profile.status==='LIVE'?'rgba(241,171,76,.86)':'rgba(208,151,76,.62)';
+          ctx.setLineDash([]);
+          ctx.beginPath();ctx.moveTo(x1,yPoc);ctx.lineTo(x1+maxWidth+8,yPoc);ctx.stroke();
+          if(profile.status==='LIVE'){
+            ctx.font='700 7px "Segoe UI",system-ui,sans-serif';
+            ctx.fillStyle='rgba(241,191,116,.9)';
+            ctx.fillText('POC',x1+maxWidth+11,yPoc+3);
+          }
+        }
+        if(profile.status==='LIVE'){
+          ctx.font='600 6.5px "Segoe UI",system-ui,sans-serif';
+          ctx.fillStyle='rgba(160,178,187,.78)';
+          if(yVah!==null)ctx.fillText('VAH',x1+maxWidth+11,yVah+3);
+          if(yVal!==null)ctx.fillText('VAL',x1+maxWidth+11,yVal+3);
+        }
+      }
+    }
+
     // Structural liquidity clusters — candle-derived research zones, not an order-book map.
     if(showClusters){
       const upperRoute=clusters
@@ -441,7 +509,7 @@ export default function LiveCandleChart({
         ctx.setLineDash([]);
       }
     }
-  },[candles,pinnedTime,sessions,levels,clusters,showClusters]);
+  },[candles,pinnedTime,sessions,levels,clusters,showClusters,profiles,showProfiles]);
   drawOverlayRef.current=drawOverlay;
 
   useEffect(()=>{
