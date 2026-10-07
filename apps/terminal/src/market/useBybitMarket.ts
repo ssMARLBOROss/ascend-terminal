@@ -30,6 +30,7 @@ const PREFETCH_TFS:AscendTimeframe[]=['1m','3m','5m','10m','15m','30m','1H'];
 const MICRO_HISTORY_LIMIT=1000;
 const EVENT_CANDLE_LIMIT=1000;
 const CACHE_TTL_MS=20*60*1000;
+const HOT_CACHE_MS=30*1000;
 const MAX_CHART_CACHE=12;
 const MAX_CONTEXT_CACHE=6;
 const MAX_MICRO_CACHE=4;
@@ -225,18 +226,33 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
 
     const load=async()=>{
       try{
+        const now=Date.now();
+        const chartFresh=Boolean(cached&&now-cached.updatedAt<HOT_CACHE_MS);
+        const contextFresh=Boolean(cachedContext&&now-cachedContext.updatedAt<HOT_CACHE_MS);
+        if(chartFresh&&contextFresh){
+          setRestError(undefined);
+          return;
+        }
+
         const chartLimit=timeframe==='10m'||timeframe==='45m'?720:360;
-        const chartPromise=fetchKlines(symbol,interval,chartLimit,undefined,controller.signal);
-        const contextPromise=interval==='15'?chartPromise:fetchKlines(symbol,'15',360,undefined,controller.signal);
+        const chartPromise=chartFresh
+          ? Promise.resolve(cached!.raw)
+          : fetchKlines(symbol,interval,chartLimit,undefined,controller.signal);
+        const contextPromise=interval==='15'
+          ? chartPromise
+          : contextFresh
+            ? Promise.resolve(cachedContext!.candles)
+            : fetchKlines(symbol,'15',360,undefined,controller.signal);
         const[chart,context]=await Promise.all([chartPromise,contextPromise]);
         if(disposed)return;
         const display=aggregate(chart,timeframe).slice(-500);
         setRawCandles(chart);setCandles(display);setContextCandles(context.slice(-500));setRestError(undefined);
-        putChartCache(cacheKey,{raw:chart,display,updatedAt:Date.now()});
-        putContextCache(symbol,{candles:context.slice(-500),updatedAt:Date.now()});
-        // Background TF prefetch is intentionally disabled here. It was piling up network work during rapid symbol/TF switches.
+        const updatedAt=Date.now();
+        putChartCache(cacheKey,{raw:chart,display,updatedAt});
+        putContextCache(symbol,{candles:context.slice(-500),updatedAt});
+        // No speculative TF prefetch: switching markets must cancel old work instead of competing with the active chart.
       }catch(err){
-        if(disposed)return;
+        if(disposed||(err as any)?.name==='AbortError')return;
         setRestError('История REST: '+String((err as Error)?.message??err));
       }
     };
