@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AscendEvent, AscendTimeframe, SetupMode } from '@ascend/contracts';
 import { events, radar, sessions, stageOrder } from './data/mockScenario';
 import { historicalChronology, historyMeta, marketSources } from './data/mockHistory';
@@ -51,7 +51,18 @@ export default function App(){
 
  const live=useBybitMarket(marketSymbol,chartTf,currentView==='MARKET');
  const historyWindow=Number(historyRange)||250;
- const liveContext=useMemo(()=>deriveLiveMarketContext(marketSymbol,live.contextCandles,live.candles,live.eventCandles),[marketSymbol,live.contextCandles,live.candles,live.eventCandles]);
+ const analysisInputRef=useRef({symbol:marketSymbol,context:live.contextCandles,chart:live.candles,events:live.eventCandles});
+ analysisInputRef.current={symbol:marketSymbol,context:live.contextCandles,chart:live.candles,events:live.eventCandles};
+ const[analysisPulse,setAnalysisPulse]=useState(0);
+ useEffect(()=>{
+  if(currentView!=='MARKET')return;
+  const timer=window.setInterval(()=>setAnalysisPulse(v=>v+1),1200);
+  return()=>window.clearInterval(timer);
+ },[currentView,marketSymbol,chartTf]);
+ const liveContext=useMemo(()=>{
+  const input=analysisInputRef.current;
+  return deriveLiveMarketContext(input.symbol,input.context,input.chart,input.events);
+ },[analysisPulse,currentView]);
  useEffect(()=>{if(!playing||marketMode!=='REPLAY')return;if(visibleCount>=events.length){setPlaying(false);return}const timer=window.setTimeout(()=>{const next=visibleCount+1;setVisibleCount(next);setSelected(events[next-1])},950);return()=>window.clearTimeout(timer)},[playing,visibleCount,marketMode]);
  useEffect(()=>{if(marketMode==='LIVE'&&liveContext.chronology.length){setSelected(liveContext.chronology[liveContext.chronology.length-1])}},[marketMode,liveContext.chronology.length]);
  const visibleEvents=events.slice(0,visibleCount);
