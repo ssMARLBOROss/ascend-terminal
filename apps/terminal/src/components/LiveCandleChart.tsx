@@ -150,12 +150,7 @@ export default function LiveCandleChart({
   const rsiAtSecondRef=useRef(new Map<number,RsiSignal[]>());
   const rsiModeRef=useRef<RsiMode>('EVENTS');
   const sessionsRef=useRef<SessionSlice[]>([]);
-  const autoLoadingRef=useRef(false);
-  const autoLoadCountRef=useRef(0);
   const drawOverlayRef=useRef<()=>void>(()=>{});
-  const loadOlderRef=useRef(onLoadOlder);
-  const loadingOlderRef=useRef(loadingOlder);
-  const hasOlderRef=useRef(hasOlder);
   const [hoverTime,setHoverTime]=useState<number>();
   const [pinnedTime,setPinnedTime]=useState<number>();
   const [selectedMarketEvent,setSelectedMarketEvent]=useState<AscendEvent>();
@@ -218,11 +213,8 @@ export default function LiveCandleChart({
     }
     rsiAtSecondRef.current=map;
   },[rsiSignals,candles]);
-  useEffect(()=>{loadOlderRef.current=onLoadOlder},[onLoadOlder]);
   useEffect(()=>{candleCountRef.current=candles.length},[candles.length]);
   useEffect(()=>{pinnedTimeRef.current=pinnedTime},[pinnedTime]);
-  useEffect(()=>{loadingOlderRef.current=loadingOlder},[loadingOlder]);
-  useEffect(()=>{hasOlderRef.current=hasOlder},[hasOlder]);
 
   const selectedCandle=(pinnedTime?candleBySecond.get(Math.floor(pinnedTime/1000)):undefined)
     ??(hoverTime?candleBySecond.get(Math.floor(hoverTime/1000)):undefined);
@@ -682,7 +674,6 @@ export default function LiveCandleChart({
     resize.observe(host);
 
     return()=>{
-      autoLoadCountRef.current=0;
       const logical=chart.timeScale().getVisibleLogicalRange();
       if(logical)viewportCache.set(viewportKey,{range:{from:Number(logical.from),to:Number(logical.to)},following:followLatestRef.current});
       resize.disconnect();
