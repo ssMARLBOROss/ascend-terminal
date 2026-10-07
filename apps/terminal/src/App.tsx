@@ -92,7 +92,7 @@ export default function App(){
  const sessionProfiles=liveContext.volumeProfiles.filter(profile=>profile.id!=='COMPOSITE_12H');
  const currentProfile=(liveContext.activeSession?sessionProfiles.find(profile=>profile.id===liveContext.activeSession):undefined)??sessionProfiles.at(-1);
  const compositeProfile=liveContext.volumeProfiles.find(profile=>profile.id==='COMPOSITE_12H');
- const profilePosition=currentProfile
+ const profilePosition=currentProfile&&typeof currentPrice==='number'
   ? currentPrice>currentProfile.vah?'ABOVE VA':currentPrice<currentProfile.val?'BELOW VA':'INSIDE VA'
   :'WAIT';
  const reset=()=>{setPlaying(false);setVisibleCount(1);setSelected(events[0])};
