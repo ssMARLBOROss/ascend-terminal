@@ -661,24 +661,18 @@ export default function LiveCandleChart({
       }
       drawOverlayRef.current();
 
-      const loadOlder=loadOlderRef.current;
-      if(!range||!loadOlder||loadingOlderRef.current||!hasOlderRef.current||autoLoadingRef.current||autoLoadCountRef.current>=1)return;
-      const info=series.barsInLogicalRange(range);
-      if(info&&info.barsBefore<24){
-        autoLoadCountRef.current+=1;
-        autoLoadingRef.current=true;
-        setInteractionHint('Подгружаем старую историю · loading older candles…');
-        Promise.resolve(loadOlder()).finally(()=>{
-          autoLoadingRef.current=false;
-          setInteractionHint('Перетаскивай график мышью · колесо = zoom');
-        });
-      }
+      // Older history is loaded only by explicit user action.
+      // Auto-loading here caused extra REST work and races on symbol/timeframe switches.
     };
 
+    const visibleTime=()=>{
+      visibleTimeRef.current=chart.timeScale().getVisibleRange();
+      drawOverlayRef.current();
+    };
     chart.subscribeCrosshairMove(move);
     chart.subscribeClick(click);
     chart.timeScale().subscribeVisibleLogicalRangeChange(visible);
-    chart.timeScale().subscribeVisibleTimeRangeChange(()=>{visibleTimeRef.current=chart.timeScale().getVisibleRange();drawOverlayRef.current()});
+    chart.timeScale().subscribeVisibleTimeRangeChange(visibleTime);
 
     const resize=new ResizeObserver(()=>{
       if(!hostRef.current)return;
@@ -694,6 +688,8 @@ export default function LiveCandleChart({
       resize.disconnect();
       chart.unsubscribeCrosshairMove(move);
       chart.unsubscribeClick(click);
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(visible);
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(visibleTime);
       chart.remove();
       chartRef.current=null;candleSeriesRef.current=null;volumeSeriesRef.current=null;
     };
@@ -1057,6 +1053,7 @@ export default function LiveCandleChart({
       </div>
       <button type="button" onClick={()=>zoom(.72)} title="Приблизить">＋</button>
       <button type="button" onClick={()=>zoom(1.42)} title="Отдалить">−</button>
+      <button type="button" disabled={!onLoadOlder||loadingOlder||!hasOlder} onClick={()=>{if(!onLoadOlder||loadingOlder||!hasOlder)return;setInteractionHint('Подгружаем старую историю · loading older candles…');void onLoadOlder().finally(()=>setInteractionHint('Перетаскивай график мышью · колесо = zoom'))}}>ИСТОРИЯ ←</button>
       <button type="button" onClick={latest}>ПОСЛЕДНЯЯ · LATEST</button>
       <button type="button" onClick={()=>{setPinnedTime(undefined);setHoverTime(undefined);setSelectedMarketEvent(undefined);setEventPopupPoint(undefined);setSelectedRsiSignal(undefined);setRsiPopupPoint(undefined)}}>СБРОС КУРСОРА</button>
     </div>
