@@ -24,6 +24,7 @@ import './clarity-v1.css';
 import './chart-clean-v3.css';
 import './rsi-v1.css';
 import './liquidity-clusters-v1.css';
+import './volume-profile-v1.css';
 
 const fmtPrice=(v?:number)=>{if(typeof v!=='number'||!Number.isFinite(v))return'—';const a=Math.abs(v);return v.toLocaleString('en-US',{maximumFractionDigits:a>=1000?2:a>=1?4:a>=0.01?6:10})};
 function payloadValue(event:AscendEvent,key:string,fallback='—'){const value=(event.payload as Record<string,unknown>)[key];return value===undefined||value===null?fallback:String(value)}
@@ -48,6 +49,7 @@ export default function App(){
  const[chartFocusNonce,setChartFocusNonce]=useState(0);
  const[sourceFilter,setSourceFilter]=useState<'ALL'|'DEX'|'CEX'|'CORE'>('ALL');
  const[showClusters,setShowClusters]=useState(true);
+ const[showProfiles,setShowProfiles]=useState(true);
 
  const live=useBybitMarket(marketSymbol,chartTf,currentView==='MARKET');
  const historyWindow=Number(historyRange)||250;
@@ -87,6 +89,12 @@ export default function App(){
  const todayLevels=liveContext.levels.filter(level=>level.period==='TODAY');
  const overnightLevels=liveContext.levels.filter(level=>level.period==='OVERNIGHT');
  const sessionLevels=liveContext.levels.filter(level=>level.period==='SESSION').slice(0,8);
+ const sessionProfiles=liveContext.volumeProfiles.filter(profile=>profile.id!=='COMPOSITE_12H');
+ const currentProfile=(liveContext.activeSession?sessionProfiles.find(profile=>profile.id===liveContext.activeSession):undefined)??sessionProfiles.at(-1);
+ const compositeProfile=liveContext.volumeProfiles.find(profile=>profile.id==='COMPOSITE_12H');
+ const profilePosition=currentProfile
+  ? currentPrice>currentProfile.vah?'ABOVE VA':currentPrice<currentProfile.val?'BELOW VA':'INSIDE VA'
+  :'WAIT';
  const reset=()=>{setPlaying(false);setVisibleCount(1);setSelected(events[0])};
  const focusChart=(timestamp:number)=>{setChartFocusTime(timestamp);setChartFocusNonce(v=>v+1)};
 
@@ -145,7 +153,7 @@ export default function App(){
     {marketMode==='LIVE'?<section className="lifecycle live-market-flow"><span className="flow-live">● PUBLIC FEED</span><b>BYBIT</b><span>→</span><b>CANDLES</b><span>→</span><b>SESSIONS</b><span>→</span><b>FROZEN LEVELS</b><span>→</span><b>TOUCH / SWEEP / BREAK / RECLAIM</b><span>→</span><em>CORE CONFIRMATION NEXT</em></section>:<section className="lifecycle">{stageOrder.map((stage,index)=>{const event=events[index],done=index<visibleCount,current=selected.type===stage;return <button key={stage} className={(done?'done ':'')+(current?'current':'')} onClick={()=>{if(done)setSelected(event)}}><span>{done?'✓':'○'}</span>{stage}</button>})}</section>}
 
     <section className={"chart-shell "+(marketMode==="LIVE"?"chart-clean-live":"")}>
-     <div className="chart-toolbar"><div><b>{marketSymbol} · {chartTf}</b><small>СЕССИИ / СТЕНКИ / БАЛАНС / ЛИКВИДНОСТЬ · SESSION FLOW / WALLS / BALANCE / LIQUIDITY</small></div><div className="chart-toggles"><button>УРОВНИ · LEVELS</button><button className={showClusters?'active':''} onClick={()=>setShowClusters(v=>!v)}>КЛАСТЕРЫ · CLUSTERS</button><button>СТРУКТУРА · STRUCTURE</button><button>СОБЫТИЯ · EVENTS</button></div></div>
+     <div className="chart-toolbar"><div><b>{marketSymbol} · {chartTf}</b><small>СЕССИИ / СТЕНКИ / БАЛАНС / ЛИКВИДНОСТЬ · SESSION FLOW / WALLS / BALANCE / LIQUIDITY</small></div><div className="chart-toggles"><button>УРОВНИ · LEVELS</button><button className={showProfiles?'active':''} onClick={()=>setShowProfiles(v=>!v)}>ПРОФИЛЬ · PROFILE</button><button className={showClusters?'active':''} onClick={()=>setShowClusters(v=>!v)}>КЛАСТЕРЫ · CLUSTERS</button><button>СТРУКТУРА · STRUCTURE</button><button>СОБЫТИЯ · EVENTS</button></div></div>
      <div className={"history-toolbar "+(marketMode==="LIVE"?"chart-history-clean":"")}>
       <div className="history-summary"><strong>ИСТОРИЯ СВЕЧЕЙ · HISTORICAL CANDLES</strong><span>{marketMode==='LIVE'?live.candles.length.toLocaleString('ru-RU'):loadedCandles.toLocaleString('ru-RU')} загружено / loaded</span><small>{marketMode==='LIVE'?(live.historyReady?'реальные Bybit candles · REST + WebSocket live':'ждём REST-историю · WebSocket '+live.status+(live.error?' · '+live.error:'')):'≈ '+historyMeta.estimatedCandles.toLocaleString('ru-RU')+' доступно · replay store'}</small></div>
       <div className="history-ranges compact-presets">{['100','250','500','1000'].map(r=><button key={r} className={historyRange===r?'active':''} onClick={()=>setHistoryRange(r)}>{r}</button>)}</div>
@@ -155,7 +163,7 @@ export default function App(){
       </div>
      </div>
      <div className={'mock-chart '+(marketMode==='LIVE'?'live-chart-mode':'')}>
-      {marketMode==='LIVE'&&<LiveCandleChart candles={live.candles} levels={liveContext.levels} lastPrice={currentPrice} status={live.status} source={live.source} latencyMs={live.latencyMs} symbol={marketSymbol} timeframe={chartTf} windowSize={historyWindow} onLoadOlder={live.loadOlder} loadingOlder={live.loadingOlder} hasOlder={live.hasOlder} focusTimestamp={chartFocusTime} focusNonce={chartFocusNonce} events={liveContext.chronology} clusters={liveContext.clusters} showClusters={showClusters}/>} 
+      {marketMode==='LIVE'&&<LiveCandleChart candles={live.candles} levels={liveContext.levels} lastPrice={currentPrice} status={live.status} source={live.source} latencyMs={live.latencyMs} symbol={marketSymbol} timeframe={chartTf} windowSize={historyWindow} onLoadOlder={live.loadOlder} loadingOlder={live.loadingOlder} hasOlder={live.hasOlder} focusTimestamp={chartFocusTime} focusNonce={chartFocusNonce} events={liveContext.chronology} clusters={liveContext.clusters} showClusters={showClusters} profiles={liveContext.volumeProfiles} showProfiles={showProfiles}/>} 
       {marketMode==='REPLAY'&&<>
       <div className="session-band asia"><span>ASIA · FROZEN</span></div><div className="session-band london"><span>LONDON · FROZEN</span></div><div className="session-band ny"><span>NEW YORK · LIVE</span></div><div className="session-band next"><span>NEXT ASIA · EXPECTED</span></div>
       <div className="level wall upper-wall"><b>ВЕРХНЯЯ СТЕНКА · UPPER WALL</b><span>ONH 86,978 · CONFIRMED</span></div>
@@ -193,7 +201,7 @@ export default function App(){
       <div><small>ЦЕНА · LAST PRICE</small><b>{fmtPrice(currentPrice)}</b><span>BYBIT linear perpetual</span></div>
       <div><small>24H</small><b className={(live.ticker.change24hPct??0)>=0?'positive':'negative'}>{live.ticker.change24hPct!==undefined?(live.ticker.change24hPct>=0?'+':'')+live.ticker.change24hPct.toFixed(2)+'%':'—'}</b><span>real-time ticker</span></div>
       <div><small>YH / YL · PREV DAY</small><b>{fmtPrice(liveContext.yHigh)} / {fmtPrice(liveContext.yLow)}</b><span>previous UTC day · frozen</span></div><div><small>TDH / TDL · TODAY</small><b>{fmtPrice(liveContext.todayHigh)} / {fmtPrice(liveContext.todayLow)}</b><span>current UTC day · live</span></div>
-      <div><small>VWAP</small><b>{fmtPrice(liveContext.vwap)}</b><span>current UTC day · calculated</span></div><div><small>CLUSTER PRESSURE</small><b>{liveContext.routeUp[0]?liveContext.routeUp[0].pressure.toFixed(2):liveContext.routeDown[0]?.pressure.toFixed(2)??'—'}</b><span>structural heuristic · research</span></div>
+      <div><small>VWAP</small><b>{fmtPrice(liveContext.vwap)}</b><span>current UTC day · calculated</span></div><div><small>POC SHIFT</small><b className={liveContext.pocMigration.direction==='UP'?'positive':liveContext.pocMigration.direction==='DOWN'?'negative':'warning'}>{liveContext.pocMigration.direction}{liveContext.pocMigration.deltaPct!==undefined?' '+(liveContext.pocMigration.deltaPct>=0?'+':'')+liveContext.pocMigration.deltaPct.toFixed(2)+'%':''}</b><span>session profile migration · proxy</span></div><div><small>CLUSTER PRESSURE</small><b>{liveContext.routeUp[0]?liveContext.routeUp[0].pressure.toFixed(2):liveContext.routeDown[0]?.pressure.toFixed(2)??'—'}</b><span>structural heuristic · research</span></div>
       <div><small>СЕССИЯ · SESSION</small><b>{liveContext.activeSession??'TRANSITION'}</b><span>Asia / London / New York</span></div>
       <div><small>VOLUME</small><b>{liveContext.volumeRatio?liveContext.volumeRatio.toFixed(2)+'×':'—'}</b><span>current candle vs 20-candle average</span></div>
       <div><small>FEED</small><b className={live.status==='LIVE'&&live.historyReady?'positive':'warning'}>{live.status==='LIVE'?(live.historyReady?'LIVE':'PARTIAL'):live.status}</b><span>{live.historyReady?'history + websocket':'websocket only'} · {live.latencyMs??'—'} ms</span></div>
@@ -222,6 +230,27 @@ export default function App(){
        <div className="level-group sessions"><header><b>СЕССИИ</b><small>SESSION LEVELS</small></header>{sessionLevels.map(level=><div className="level-group-row" key={level.id}><span>{level.label} <small>{level.status}</small></span><b>{fmtPrice(level.price)}</b></div>)}</div>
       </section>
      </>:<section><div className="section-title">СТЕНКИ РЫНКА · MARKET WALLS</div><div className="kv"><span>Верхняя стенка · Upper Wall</span><b>86,978</b></div><div className="kv"><span>Balance</span><b>86,300–86,400</b></div><div className="kv"><span>Нижняя стенка · Lower Wall</span><b>85,851</b></div><div className="kv"><span>Положение цены · Price position</span><b>внутри диапазона · inside range</b></div></section>}
+    {marketMode==='LIVE'&&<section className="volume-profile-panel">
+      <div className="section-title">ОБЪЁМНЫЙ ПРОФИЛЬ · VOLUME PROFILE PROXY</div>
+      <div className="profile-research-note">CANDLE-DERIVED PROXY · не tick-level volume-at-price · research only</div>
+      {currentProfile?<div className="profile-current">
+        <div className="profile-head"><div><b>{currentProfile.label}</b><small>{currentProfile.status} · {profilePosition}</small></div><strong>{fmtPrice(currentProfile.poc)}</strong></div>
+        <div className="profile-level-grid">
+          <div><span>VAH</span><b>{fmtPrice(currentProfile.vah)}</b></div>
+          <div><span>POC</span><b>{fmtPrice(currentProfile.poc)}</b></div>
+          <div><span>VAL</span><b>{fmtPrice(currentProfile.val)}</b></div>
+        </div>
+        <div className="profile-migration">
+          <span>POC MIGRATION</span>
+          <b className={liveContext.pocMigration.direction==='UP'?'positive':liveContext.pocMigration.direction==='DOWN'?'negative':'warning'}>
+            {liveContext.pocMigration.direction}{liveContext.pocMigration.deltaPct!==undefined?' · '+(liveContext.pocMigration.deltaPct>=0?'+':'')+liveContext.pocMigration.deltaPct.toFixed(2)+'%':''}
+          </b>
+          <small>{liveContext.pocMigration.from&&liveContext.pocMigration.to?liveContext.pocMigration.from+' → '+liveContext.pocMigration.to:'нужно минимум 2 session profiles'}</small>
+        </div>
+      </div>:<div className="profile-empty">Недостаточно session candles для профиля.</div>}
+      {compositeProfile&&<div className="profile-composite"><span>12H COMPOSITE</span><b>VAL {fmtPrice(compositeProfile.val)} · POC {fmtPrice(compositeProfile.poc)} · VAH {fmtPrice(compositeProfile.vah)}</b></div>}
+      <small className="profile-safety">Профиль не создаёт ENTRY/CONFIRMED. Он показывает приблизительную область принятия цены по свечному объёму.</small>
+    </section>}
     {marketMode==='LIVE'&&<section className="cluster-map-panel">
       <div className="section-title">КАРТА ЛИКВИДНОСТИ · STRUCTURAL CLUSTERS</div>
       <div className="cluster-research-note">STRUCTURAL / CANDLE-DERIVED · DENSITY ≠ DEFENSE · без fake probability</div>
