@@ -45,6 +45,36 @@ export type RangeFrame={
   positionPct:number;
 };
 
+export type VolumeProfileId='ASIA'|'LONDON'|'NEW_YORK'|'COMPOSITE_12H';
+export type VolumeProfileBin={
+  low:number;
+  high:number;
+  mid:number;
+  volume:number;
+  share:number;
+};
+export type VolumeProfile={
+  id:VolumeProfileId;
+  label:string;
+  start:number;
+  end:number;
+  poc:number;
+  vah:number;
+  val:number;
+  totalVolume:number;
+  bins:VolumeProfileBin[];
+  status:'LIVE'|'FROZEN'|'ROLLING';
+  source:'CANDLE_VOLUME_PROXY';
+};
+export type PocMigration={
+  direction:'UP'|'DOWN'|'FLAT'|'NA';
+  deltaPct?:number;
+  from?:string;
+  to?:string;
+  previousPoc?:number;
+  currentPoc?:number;
+};
+
 export type LiveMarketState={
   code:'WAIT'|'BULL_CANDIDATE'|'BEAR_CANDIDATE'|'BULL_PRESSURE'|'BEAR_PRESSURE';
   labelRu:string;
@@ -63,6 +93,8 @@ export type LiveMarketContext={
   routeUp:LiquidityCluster[];
   routeDown:LiquidityCluster[];
   ranges:RangeFrame[];
+  volumeProfiles:VolumeProfile[];
+  pocMigration:PocMigration;
   marketState:LiveMarketState;
   attackUp:number;
   attackDown:number;
@@ -247,6 +279,78 @@ function makeRangeFrame(id:RangeFrame['id'],label:string,items:Candle[],price:nu
   return{id,label,low:r.low,high:r.high,mid:r.balance,positionPct:clamp((price-r.low)/span*100)};
 }
 
+function buildVolumeProfile(
+  id:VolumeProfileId,label:string,items:Candle[],status:VolumeProfile['status'],targetBins=24
+):VolumeProfile|undefined{
+  if(items.length<4)return undefined;
+  const low=Math.min(...items.map(c=>c.low));
+  const high=Math.max(...items.map(c=>c.high));
+  const span=high-low;
+  if(!Number.isFinite(span)||span<=0)return undefined;
+
+  const binCount=Math.max(12,Math.min(28,targetBins));
+  const step=span/binCount;
+  const volumes=new Array<number>(binCount).fill(0);
+
+  for(const candle of items){
+    const candleLow=Math.max(low,candle.low);
+    const candleHigh=Math.min(high,candle.high);
+    const candleSpan=Math.max(0,candleHigh-candleLow);
+    if(candleSpan<=1e-12){
+      const idx=Math.max(0,Math.min(binCount-1,Math.floor((candle.close-low)/step)));
+      volumes[idx]+=Math.max(0,candle.volume);
+      continue;
+    }
+    const from=Math.max(0,Math.min(binCount-1,Math.floor((candleLow-low)/step)));
+    const to=Math.max(0,Math.min(binCount-1,Math.floor((candleHigh-low)/step)));
+    for(let i=from;i<=to;i++){
+      const binLow=low+i*step;
+      const binHigh=i===binCount-1?high:binLow+step;
+      const overlap=Math.max(0,Math.min(candleHigh,binHigh)-Math.max(candleLow,binLow));
+      if(overlap>0)volumes[i]+=Math.max(0,candle.volume)*(overlap/candleSpan);
+    }
+  }
+
+  const totalVolume=volumes.reduce((s,v)=>s+v,0);
+  if(totalVolume<=0)return undefined;
+  let pocIndex=0;
+  for(let i=1;i<volumes.length;i++)if(volumes[i]>volumes[pocIndex])pocIndex=i;
+
+  let left=pocIndex,right=pocIndex,covered=volumes[pocIndex];
+  const target=totalVolume*.70;
+  while(covered<target&&(left>0||right<binCount-1)){
+    const leftVol=left>0?volumes[left-1]:-1;
+    const rightVol=right<binCount-1?volumes[right+1]:-1;
+    if(rightVol>=leftVol&&right<binCount-1){right++;covered+=volumes[right]}
+    else if(left>0){left--;covered+=volumes[left]}
+    else break;
+  }
+
+  const bins:VolumeProfileBin[]=volumes.map((volume,index)=>{
+    const binLow=low+index*step;
+    const binHigh=index===binCount-1?high:binLow+step;
+    return{low:binLow,high:binHigh,mid:(binLow+binHigh)/2,volume,share:volume/totalVolume};
+  });
+
+  return{
+    id,label,start:items[0].timestamp,end:items[items.length-1].timestamp,
+    poc:bins[pocIndex].mid,val:bins[left].low,vah:bins[right].high,totalVolume,bins,status,
+    source:'CANDLE_VOLUME_PROXY'
+  };
+}
+
+function derivePocMigration(profiles:VolumeProfile[]):PocMigration{
+  const sessionProfiles=profiles.filter(p=>p.id!=='COMPOSITE_12H').sort((a,b)=>a.start-b.start);
+  if(sessionProfiles.length<2)return{direction:'NA'};
+  const previous=sessionProfiles[sessionProfiles.length-2];
+  const current=sessionProfiles[sessionProfiles.length-1];
+  const deltaPct=(current.poc-previous.poc)/Math.max(previous.poc,1e-12)*100;
+  return{
+    direction:Math.abs(deltaPct)<.03?'FLAT':deltaPct>0?'UP':'DOWN',
+    deltaPct,from:previous.label,to:current.label,previousPoc:previous.poc,currentPoc:current.poc
+  };
+}
+
 const SESSION_WINDOWS:Array<{name:SessionName;start:number;end:number}>=[
   {name:'ASIA',start:0,end:8},
   {name:'LONDON',start:7,end:16},
@@ -350,6 +454,7 @@ export function deriveLiveMarketContext(
   };
   if(context.length<192)return{
     sessions:[],levels:[],chronology:[],clusters:[],routeUp:[],routeDown:[],ranges:[],
+    volumeProfiles:[],pocMigration:{direction:'NA'},
     marketState:emptyState,attackUp:0,attackDown:0
   };
 
@@ -376,6 +481,7 @@ export function deriveLiveMarketContext(
   let activeSession:SessionName|undefined;
   const sessions:SessionState[]=[];
   const levels:DisplayLevel[]=[];
+  const sessionProfiles:VolumeProfile[]=[];
 
   if(yr){
     levels.push(
@@ -416,6 +522,8 @@ export function deriveLiveMarketContext(
     if(r){
       const status=frozen?'FROZEN':'LIVE';
       const name=session.name.replace('_',' ');
+      const profile=buildVolumeProfile(session.name,name+' PROFILE',items,status,20);
+      if(profile)sessionProfiles.push(profile);
       levels.push(
         {id:`${session.name}_H`,label:`${name} H`,price:r.high,status,role:'RESISTANCE',availableFrom:frozen?end:now,period:'SESSION',dateLabel:todayLabel},
         {id:`${session.name}_L`,label:`${name} L`,price:r.low,status,role:'SUPPORT',availableFrom:frozen?end:now,period:'SESSION',dateLabel:todayLabel}
@@ -637,9 +745,17 @@ export function deriveLiveMarketContext(
     makeRangeFrame('HALF_SESSION','HALF SESSION',halfItems,currentPrice)
   ].filter((x):x is RangeFrame=>Boolean(x));
 
+  const compositeProfile=buildVolumeProfile('COMPOSITE_12H','12H COMPOSITE',twelveH,'ROLLING',24);
+  const volumeProfiles=[
+    ...(compositeProfile?[compositeProfile]:[]),
+    ...sessionProfiles
+  ];
+  const pocMigration=derivePocMigration(volumeProfiles);
+
   return{
     sessions,levels,chronology:deduped,
     clusters:clusterState.clusters,routeUp,routeDown,ranges,
+    volumeProfiles,pocMigration,
     marketState:deriveMarketState(deduped,now),
     attackUp:clusterState.attackUp,attackDown:clusterState.attackDown,atr:clusterState.atr,
     vwap,open,yHigh:yr?.high,yLow:yr?.low,todayHigh:tr?.high,todayLow:tr?.low,
