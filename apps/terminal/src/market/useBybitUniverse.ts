@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type BybitTicker={
   symbol:string;
@@ -12,17 +12,28 @@ export type BybitTicker={
   fundingRate:number;
 };
 
+let cachedUniverse:BybitTicker[]=[];
+let cachedUniverseAt=0;
+
 export function useBybitUniverse(pollMs=5000){
-  const[items,setItems]=useState<BybitTicker[]>([]);
-  const[status,setStatus]=useState<'LOADING'|'LIVE'|'ERROR'>('LOADING');
+  const[items,setItems]=useState<BybitTicker[]>(cachedUniverse);
+  const[status,setStatus]=useState<'LOADING'|'LIVE'|'ERROR'>(cachedUniverse.length?'LIVE':'LOADING');
   const[error,setError]=useState<string>();
-  const[lastUpdate,setLastUpdate]=useState<number>();
+  const[lastUpdate,setLastUpdate]=useState<number>(cachedUniverseAt||undefined);
+  const inFlightRef=useRef(false);
+  const controllerRef=useRef<AbortController>();
 
   useEffect(()=>{
     let disposed=false;
     const load=async()=>{
+      if(inFlightRef.current||document.hidden)return;
+      inFlightRef.current=true;
+      controllerRef.current?.abort();
+      const controller=new AbortController();
+      controllerRef.current=controller;
+      const timeout=window.setTimeout(()=>controller.abort(),4000);
       try{
-        const res=await fetch('/market-api/v5/market/tickers?category=linear',{cache:'no-store'});
+        const res=await fetch('/market-api/v5/market/tickers?category=linear',{cache:'no-store',signal:controller.signal});
         if(!res.ok)throw new Error('REST '+res.status);
         const json=await res.json();
         if(json?.retCode!==0||!Array.isArray(json?.result?.list))throw new Error(json?.retMsg||'Invalid ticker response');
@@ -41,15 +52,27 @@ export function useBybitUniverse(pollMs=5000){
           }))
           .filter((x:BybitTicker)=>Number.isFinite(x.lastPrice));
         if(disposed)return;
-        setItems(next);setStatus('LIVE');setError(undefined);setLastUpdate(Date.now());
+        const now=Date.now();
+        cachedUniverse=next;cachedUniverseAt=now;
+        setItems(next);setStatus('LIVE');setError(undefined);setLastUpdate(now);
       }catch(err){
-        if(disposed)return;
+        if(disposed||(err as any)?.name==='AbortError')return;
         setStatus('ERROR');setError(String((err as Error)?.message??err));
+      }finally{
+        window.clearTimeout(timeout);
+        if(controllerRef.current===controller)controllerRef.current=undefined;
+        inFlightRef.current=false;
       }
     };
-    load();
-    const timer=window.setInterval(load,pollMs);
-    return()=>{disposed=true;window.clearInterval(timer)};
+    if(!cachedUniverse.length||Date.now()-cachedUniverseAt>pollMs)void load();
+    const timer=window.setInterval(()=>{void load()},pollMs);
+    return()=>{
+      disposed=true;
+      window.clearInterval(timer);
+      controllerRef.current?.abort();
+      controllerRef.current=undefined;
+      inFlightRef.current=false;
+    };
   },[pollMs]);
 
   return{items,status,error,lastUpdate};
