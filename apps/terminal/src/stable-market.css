@@ -329,3 +329,16 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
   .asc-prev-session-list{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media(max-width:710px){.asc-prev-session-list{grid-template-columns:1fr}}
+
+
+/* Live UTC-anchored VWAP is visually distinct from green/red structural levels. */
+.asc-lite-vwap-ticker{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 9px;
+  padding:8px 11px;border:1px solid #8a7535;border-radius:6px;background:rgba(123,95,29,.16);min-width:0}
+.asc-lite-vwap-ticker>b{font-size:12px;font-weight:900;letter-spacing:.045em;color:#f4d35e}
+.asc-lite-vwap-ticker>strong{font-size:15px;font-weight:900;font-variant-numeric:tabular-nums;color:#fff0aa}
+.asc-lite-vwap-ticker>span{font-size:11px;font-weight:900;white-space:nowrap}
+.asc-lite-vwap-ticker>span.above{color:#56d49b}
+.asc-lite-vwap-ticker>span.below{color:#f17b86}
+.asc-lite-vwap-ticker>small{font-size:11px;font-weight:800;color:#ead59b}
+@media(max-width:1200px){.asc-lite-vwap-ticker{order:4;width:100%;justify-content:flex-start}}
+@media(max-width:620px){.asc-lite-vwap-ticker>strong{font-size:14px}}
