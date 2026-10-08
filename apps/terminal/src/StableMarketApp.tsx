@@ -1,5 +1,6 @@
 import {useMemo,useState} from 'react';
 import StableCandleChart from './components/StableCandleChart';
+import SessionClock from './components/SessionClock';
 import {STABLE_TIMEFRAMES,useStableMarket,type StableTimeframe} from './market/useStableMarket';
 
 const FAVORITES=[
@@ -121,6 +122,7 @@ export default function StableMarketApp(){
               className={tf===timeframe?'active':''} onClick={()=>setTimeframe(tf)}>{tf}</button>)}
           </div>
         </div>
+        <SessionClock/>
         <Workspace key={symbol+':'+timeframe} symbol={symbol} timeframe={timeframe}/>
       </section>
     </div>
