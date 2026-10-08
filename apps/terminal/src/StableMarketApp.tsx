@@ -3,6 +3,7 @@ import StableCandleChart from './components/StableCandleChart';
 import {STABLE_TIMEFRAMES,useStableMarket,type StableTimeframe} from './market/useStableMarket';
 import {usePreviousDayLevels,type PreviousDayLevels} from './market/usePreviousDayLevels';
 import {usePreviousSessionLevels,type PreviousSessionLevels} from './market/usePreviousSessionLevels';
+import {useDailyVwap,type DailyVwap} from './market/useDailyVwap';
 
 const FAVORITES=[
   'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT',
@@ -22,10 +23,11 @@ function fmtVolume(value?:number){
   return value.toLocaleString('ru-RU',{maximumFractionDigits:2});
 }
 
-function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus}:{
+function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus,dailyVwap,vwapStatus}:{
   symbol:string;timeframe:StableTimeframe;
   previousDay?:PreviousDayLevels;previousDayStatus:'loading'|'ready'|'error';
   previousSessions?:PreviousSessionLevels;previousSessionsStatus:'loading'|'ready'|'error';
+  dailyVwap?:DailyVwap;vwapStatus:'loading'|'ready'|'error';
 }){
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
   const latest=candles[candles.length-1];
@@ -44,6 +46,16 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
           <small>{new Date(previousDay.dayStartUtc).toLocaleDateString('ru-RU',{timeZone:'UTC',day:'2-digit',month:'2-digit'})} UTC</small>
         </>:<small>{previousDayStatus==='error'?'YH / YL: ожидание данных Bybit':'Загружаем YH / YL…'}</small>}
       </div>
+      <div className="asc-lite-vwap-ticker" title="Дневной VWAP с 00:00 UTC · HLC3 × объём, Bybit 5m">
+        <b>VWAP · UTC</b>
+        {dailyVwap?<>
+          <strong>{fmtPrice(dailyVwap.value)}</strong>
+          <span className={displayPrice!==undefined&&displayPrice>=dailyVwap.value?'above':'below'}>
+            {displayPrice===undefined?'—':displayPrice>=dailyVwap.value?'ЦЕНА ВЫШЕ':'ЦЕНА НИЖЕ'}
+            {displayPrice!==undefined?' · '+Math.abs((displayPrice/dailyVwap.value-1)*100).toFixed(2)+'%':''}
+          </span>
+        </>:<small>{vwapStatus==='error'?'Нет полного VWAP · повтор загрузки':'Расчёт от 00:00…'}</small>}
+      </div>
       <div className="asc-lite-feed">
         <i className={status==='LIVE'?'is-live':'is-wait'}/>
         <b>{status==='LIVE'?'Поток LIVE':status==='RECONNECTING'?'Переподключение':'Подключение'}</b>
@@ -59,7 +71,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
     </div>
     <div className="asc-lite-chart-box">
       <StableCandleChart candles={candles} timeframe={timeframe} previousDay={previousDay}
-        previousSessions={previousSessions}/>
+        previousSessions={previousSessions} dailyVwap={dailyVwap}/>
       {candles.length<20&&<div className="asc-lite-loading" role="status">
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
@@ -83,7 +95,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
       </div>}
     </div>
     <footer className="asc-lite-chart-footer">
-      <span>СВЕЧИ · ОБЪЁМ · СЕССИИ UTC · ASCEND STABLE</span>
+      <span>СВЕЧИ · ОБЪЁМ · VWAP UTC · СЕССИИ · ASCEND STABLE</span>
       <span>{lastUpdate?'Последнее обновление: '+new Date(lastUpdate).toLocaleTimeString('ru-RU'):'Ожидание данных'}</span>
     </footer>
     {error&&candles.length>=20&&<p className="asc-lite-note" role="status">{error} · график продолжает показывать последние полученные свечи</p>}
@@ -95,6 +107,7 @@ export default function StableMarketApp(){
   const[timeframe,setTimeframe]=useState<StableTimeframe>('15m');
   const previousDay=usePreviousDayLevels(symbol);
   const previousSessions=usePreviousSessionLevels(symbol);
+  const vwap=useDailyVwap(symbol);
   const[search,setSearch]=useState('');
   const[inputError,setInputError]=useState('');
   const matches=useMemo(()=>{
@@ -156,7 +169,8 @@ export default function StableMarketApp(){
         </div>
         <Workspace key={symbol+':'+timeframe} symbol={symbol} timeframe={timeframe}
           previousDay={previousDay.levels} previousDayStatus={previousDay.status}
-          previousSessions={previousSessions.levels} previousSessionsStatus={previousSessions.status}/>
+          previousSessions={previousSessions.levels} previousSessionsStatus={previousSessions.status}
+          dailyVwap={vwap.daily} vwapStatus={vwap.status}/>
       </section>
     </div>
   </div>;
