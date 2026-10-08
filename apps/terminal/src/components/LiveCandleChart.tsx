@@ -180,6 +180,7 @@ export default function LiveCandleChart({
     return saved==='OFF'||saved==='EVENTS'||saved==='PANEL'?saved:'EVENTS';
   });
 
+  const chartReady=candles.length>=20;
   const tfSec=tfSeconds[timeframe]??900;
   const showSessionOverlay=tfSec<=7200;
   const showDayOverlay=tfSec<=14400;
@@ -555,6 +556,9 @@ export default function LiveCandleChart({
     setBalancePopupPoint(undefined);
     setHoverTime(undefined);
     setInteractionHint('Перетаскивай график мышью · колесо = zoom');
+    // The chart host is not rendered until enough candle history arrives.
+    // Re-run this effect when history becomes ready, not only on symbol/TF changes.
+    if(!chartReady)return;
     const host=hostRef.current;
     if(!host)return;
     const chart=createChart(host,{
@@ -730,7 +734,7 @@ export default function LiveCandleChart({
     };
   // chart is recreated only when instrument/timeframe changes, not on every tick.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[symbol,timeframe]);
+  },[symbol,timeframe,chartReady]);
 
   useEffect(()=>{
     const series=candleSeriesRef.current;
@@ -1006,7 +1010,7 @@ export default function LiveCandleChart({
       if(rsiChartRef.current===rsiChart)rsiChartRef.current=null;
       rsiSeriesRef.current=null;
     };
-  },[rsiMode,symbol,timeframe]);
+  },[rsiMode,symbol,timeframe,chartReady]);
 
   useEffect(()=>{
     const chart=rsiChartRef.current;
@@ -1092,7 +1096,7 @@ export default function LiveCandleChart({
     window.requestAnimationFrame(()=>{applyingRangeRef.current=false});
   };
 
-  if(candles.length<20)return <div className="live-candle-root loading"><b>ЗАГРУЖАЕМ ИСТОРИЮ СВЕЧЕЙ · LOADING CANDLE HISTORY</b><small>{source} WebSocket уже может быть LIVE, но интерактивный график ждёт REST-историю · candles: {candles.length}</small></div>;
+  if(!chartReady)return <div className="live-candle-root loading"><b>ЗАГРУЖАЕМ ИСТОРИЮ СВЕЧЕЙ · LOADING CANDLE HISTORY</b><small>{source} WebSocket уже может быть LIVE, но интерактивный график ждёт REST-историю · candles: {candles.length}</small></div>;
 
   return <div className={'tv-chart-root '+(rsiMode==='PANEL'?'rsi-panel-mode':'')}>
     <div ref={hostRef} className="tv-chart-host"/>
