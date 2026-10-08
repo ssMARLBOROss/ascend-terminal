@@ -1,4 +1,4 @@
-import {useMemo,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import StableCandleChart from './components/StableCandleChart';
 import {STABLE_TIMEFRAMES,useStableMarket,type StableTimeframe} from './market/useStableMarket';
 import {usePreviousDayLevels,type PreviousDayLevels} from './market/usePreviousDayLevels';
@@ -8,7 +8,10 @@ import {useOrderbookClusters} from './market/useOrderbookClusters';
 import WeekOverlayCompare from './components/WeekOverlayCompare';
 import LiveMarketPanels from './components/LiveMarketPanels';
 import {useLiveMarketMetrics} from './market/useLiveMarketMetrics';
-import {computeFvgZones,selectFvgZones,type FvgViewMode} from './components/fvgOverlay';
+import {computeFvgZones,selectFvgZones} from './components/fvgOverlay';
+import IndicatorManager from './components/IndicatorManager';
+import {loadIndicatorSettings,DEFAULT_INDICATORS,STORAGE_KEY,
+  type IndicatorSettings,type IndicatorKey} from './market/indicatorSettings';
 
 const FAVORITES=[
   'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT',
@@ -28,25 +31,20 @@ function fmtVolume(value?:number){
   return value.toLocaleString('ru-RU',{maximumFractionDigits:2});
 }
 
-function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus,dailyVwap,vwapStatus,liveMetrics}:{
+function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus,dailyVwap,vwapStatus,liveMetrics,settings,onToggle,onUpdate,onReset}:{
   symbol:string;timeframe:StableTimeframe;
   previousDay?:PreviousDayLevels;previousDayStatus:'loading'|'ready'|'error';
   previousSessions?:PreviousSessionLevels;previousSessionsStatus:'loading'|'ready'|'error';
   dailyVwap?:DailyVwap;vwapStatus:'loading'|'ready'|'error';
   liveMetrics:ReturnType<typeof useLiveMarketMetrics>;
+  settings:IndicatorSettings;onToggle:(key:IndicatorKey)=>void;
+  onUpdate:(patch:Partial<IndicatorSettings>)=>void;onReset:()=>void;
 }){
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
-  const[showBook,setShowBook]=useState(true);
-  const[showStops,setShowStops]=useState(false);
-  const[showTpo,setShowTpo]=useState(true);
-  const[showFvg,setShowFvg]=useState(true);
-  const[fvgThreshold,setFvgThreshold]=useState(.02);
-  const[fvgViewMode,setFvgViewMode]=useState<FvgViewMode>('near');
   const[focusRequest,setFocusRequest]=useState(0);
-  const[showWeekCompare,setShowWeekCompare]=useState(false);
-  const liquidity=useOrderbookClusters(symbol,showBook);
-  const fvgZones=useMemo(()=>computeFvgZones(candles,timeframe,fvgThreshold),
-    [candles,timeframe,fvgThreshold]);
+  const liquidity=useOrderbookClusters(symbol,settings.book);
+  const fvgZones=useMemo(()=>computeFvgZones(candles,timeframe,settings.fvgThreshold),
+    [candles,timeframe,settings.fvgThreshold]);
   const fvgOpen=fvgZones.filter(z=>z.status!=='FILLED');
   const bullCount=fvgOpen.filter(z=>z.side==='bull').length;
   const bearCount=fvgOpen.filter(z=>z.side==='bear').length;
@@ -54,7 +52,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const latest=candles[candles.length-1];
   const displayPrice=lastPrice??latest?.close;
   const shownFvg=useMemo(()=>selectFvgZones(
-    fvgZones,displayPrice??0,fvgViewMode),[fvgZones,displayPrice,fvgViewMode]);
+    fvgZones,displayPrice??0,settings.fvgViewMode),[fvgZones,displayPrice,settings.fvgViewMode]);
 
   return <main className="asc-lite-workspace">
     <div className="asc-lite-toolbar">
@@ -85,77 +83,38 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         <small>{candles.length} свечей</small>
       </div>
     </div>
-    <div className="asc-lite-stats">
+    {settings.stats&&<div className="asc-lite-stats">
       <div><small>ПОСЛЕДНЯЯ ЦЕНА</small><strong>{fmtPrice(displayPrice)}</strong></div>
       <div><small>O / ОТКРЫТИЕ СВЕЧИ</small><b>{fmtPrice(latest?.open)}</b></div>
       <div><small>H / МАКСИМУМ СВЕЧИ</small><b>{fmtPrice(latest?.high)}</b></div>
       <div><small>L / МИНИМУМ СВЕЧИ</small><b>{fmtPrice(latest?.low)}</b></div>
       <div><small>ОБЪЁМ СВЕЧИ</small><b>{fmtVolume(latest?.volume)}</b></div>
-    </div>
-    <div className="asc-liquidity-controls" aria-label="Отображение кластеров ликвидности">
-      <div className="asc-liquidity-buttons">
-        <button type="button" aria-pressed={showBook} className={showBook?'active':''}
-          onClick={()=>setShowBook(value=>!value)}>BID / ASK · РЕАЛЬНЫЙ СТАКАН</button>
-        <button type="button" aria-pressed={showStops} className={showStops?'active stops':''}
-          onClick={()=>setShowStops(value=>!value)}>STOP? · РАСЧЁТНЫЕ ЗОНЫ</button>
-        <button type="button" aria-pressed={showTpo} className={showTpo?'active tpo':''}
-          onClick={()=>setShowTpo(value=>!value)}>TPO · POC / VAH / VAL</button>
-        <button type="button" aria-pressed={showFvg} className={showFvg?'active fvg':''}
-          onClick={()=>setShowFvg(value=>!value)}>FVG · ЗОНЫ ИМБАЛАНСА</button>
-      </div>
-      <div className="asc-fvg-controls">
-        <label htmlFor="asc-fvg-min">Мин. FVG</label>
-        <select id="asc-fvg-min" value={fvgThreshold}
-          onChange={event=>setFvgThreshold(Number(event.target.value))}
-          aria-label="Минимальный размер FVG в процентах">
-          <option value={0}>Все</option>
-          <option value={.02}>0,02%</option>
-          <option value={.05}>0,05%</option>
-          <option value={.1}>0,10%</option>
-        </select>
-        <label htmlFor="asc-fvg-view">Режим</label>
-        <select id="asc-fvg-view" value={fvgViewMode}
-          onChange={e=>setFvgViewMode(e.target.value as FvgViewMode)}
-          aria-label="Сколько FVG показывать на свечном графике">
-          <option value="near">БЛИЖАЙШИЕ</option>
-          <option value="all">ВСЕ ЗОНЫ</option>
-        </select>
-        <span>↑ {bullCount} · ↓ {bearCount} · касание {touchedCount} · на графике {shownFvg.length}</span>
-        <button className="asc-fvg-focus" type="button"
-          onClick={()=>setFocusRequest(value=>value+1)}>К ТЕКУЩЕЙ ЦЕНЕ ↗</button>
-      </div>
-      <div className="asc-liquidity-source">
-        {showBook?(liquidity.status==='ready'&&liquidity.snapshot?
-          'BYBIT · СРЕЗ '+new Date(liquidity.snapshot.receivedAt).toLocaleTimeString('ru-RU')+
-          ' · '+liquidity.snapshot.levelsPerSide+' ур./сторону':
-          liquidity.status==='error'?'Bybit: нет стакана · повтор через 20 сек':'Загрузка стакана Bybit…'):
-          'Стакан отключён'}
-      </div>
-    </div>
+    </div>}
+    <IndicatorManager settings={settings} onToggle={onToggle}
+      onUpdate={onUpdate} onReset={onReset}
+      onFocus={()=>setFocusRequest(value=>value+1)}
+      fvgVisible={shownFvg.length}
+      bookState={settings.book?
+        (liquidity.status==='ready'?'ONLINE · '+new Date(liquidity.snapshot!.receivedAt).toLocaleTimeString('ru-RU'):
+          liquidity.status==='error'?'НЕДОСТУПЕН':'ПОДКЛЮЧЕНИЕ'):'ВЫКЛЮЧЕН'}/>
     <div className="asc-lite-chart-box">
       <StableCandleChart candles={candles} timeframe={timeframe} previousDay={previousDay}
         previousSessions={previousSessions} dailyVwap={dailyVwap}
         orderbook={liquidity.status==='ready'?liquidity.snapshot:undefined}
-        showBook={showBook} showStops={showStops}
-        tpo={liveMetrics.tpo.status==='ready'?liveMetrics.tpo.data:undefined} showTpo={showTpo}
-        fvgZones={shownFvg} showFvg={showFvg} focusRequest={focusRequest}/>
+        showBook={settings.book} showStops={settings.stops}
+        tpo={liveMetrics.tpo.status==='ready'?liveMetrics.tpo.data:undefined} showTpo={settings.tpo}
+        fvgZones={shownFvg} showFvg={settings.fvg} focusRequest={focusRequest}
+        showVolume={settings.volume} showVwap={settings.vwap}
+        showSessions={settings.sessions} showSessionClock={settings.sessionClock}
+        showDayLevels={settings.dayLevels} showSessionLevels={settings.sessionLevels}/>
       {candles.length<20&&<div className="asc-lite-loading" role="status">
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
       </div>}
     </div>
-    <div className="asc-week-toggle">
-      <div><strong>НАЛОЖЕНИЕ 7 ДНЕЙ × 7 ДНЕЙ</strong>
-        <small>Две полные недели UTC, одинаковые часы и масштаб в процентах</small>
-      </div>
-      <button type="button" aria-expanded={showWeekCompare}
-        onClick={()=>setShowWeekCompare(value=>!value)}>
-        {showWeekCompare?'СКРЫТЬ СРАВНЕНИЕ −':'ПОКАЗАТЬ СРАВНЕНИЕ +'}
-      </button>
-    </div>
-    {showWeekCompare&&<WeekOverlayCompare symbol={symbol}/>}
-    <LiveMarketPanels symbol={symbol} {...liveMetrics}/>
-    <div className="asc-prev-session-strip" aria-label="Максимумы и минимумы вчерашних сессий">
+    {settings.week&&<WeekOverlayCompare symbol={symbol}/>}
+    <LiveMarketPanels symbol={symbol} {...liveMetrics} visibility={settings}/>
+    {settings.sessionLevels&&<div className="asc-prev-session-strip" aria-label="Максимумы и минимумы вчерашних сессий">
       <div className="asc-prev-session-title">
         <b>ВЧЕРА · СЕССИИ</b>
         <small>{previousSessions?
@@ -171,16 +130,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
           <small>{String(session.from).padStart(2,'0')}:00–{String(session.to).padStart(2,'0')}:00</small>
         </div>)}
       </div>}
-    </div>
-    <div className="asc-fvg-explain">
-      <b>FVG ↑</b> бычья зона · <b>FVG ↓</b> медвежья зона · FRESH / TOUCHED / FILLED.
-      Только 3 закрытые свечи. По умолчанию показано не больше 2 ближайших зон каждого направления.
-      В режиме «Все зоны» можно изучить старые FVG. FVG не сигнал входа.
-    </div>
-    <div className="asc-liquidity-explain">
-      <span><b>BID / ASK</b> — крупнейшие видимые скопления лимитных заявок в текущем снимке стакана (до 200 уровней на сторону). Заявки могут быть отменены.</span>
-      <span><b>STOP?</b> — оценочные зоны рядом с YH/YL и экстремумами вчерашних сессий. Это не подтверждённые стоп-ордера и не данные ликвидаций.</span>
-    </div>
+    </div>}
     <footer className="asc-lite-chart-footer">
       <span>СВЕЧИ · ОБЪЁМ · VWAP UTC · СЕССИИ · ASCEND STABLE</span>
       <span>{lastUpdate?'Последнее обновление: '+new Date(lastUpdate).toLocaleTimeString('ru-RU'):'Ожидание данных'}</span>
@@ -190,12 +140,21 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
 }
 
 export default function StableMarketApp(){
+  const[settings,setSettings]=useState<IndicatorSettings>(loadIndicatorSettings);
+  useEffect(()=>{
+    try{window.localStorage.setItem(STORAGE_KEY,JSON.stringify(settings))}catch{/* private mode */}
+  },[settings]);
+  const toggleIndicator=(key:IndicatorKey)=>
+    setSettings(previous=>({...previous,[key]:!previous[key]}));
+  const updateIndicators=(patch:Partial<IndicatorSettings>)=>
+    setSettings(previous=>({...previous,...patch}));
+  const resetIndicators=()=>setSettings({...DEFAULT_INDICATORS});
   const[symbol,setSymbol]=useState('BTCUSDT');
   const[timeframe,setTimeframe]=useState<StableTimeframe>('15m');
   const previousDay=usePreviousDayLevels(symbol);
   const previousSessions=usePreviousSessionLevels(symbol);
   const vwap=useDailyVwap(symbol);
-  const liveMetrics=useLiveMarketMetrics(symbol);
+  const liveMetrics=useLiveMarketMetrics(symbol,settings);
   const[search,setSearch]=useState('');
   const[inputError,setInputError]=useState('');
   const matches=useMemo(()=>{
@@ -219,7 +178,7 @@ export default function StableMarketApp(){
     choose(candidate);
   };
 
-  return <div className="asc-lite-app">
+  return <div className={'asc-lite-app'+(settings.coins?'':' asc-hide-coins')}>
     <header className="asc-lite-header">
       <div className="asc-lite-brand"><span className="asc-lite-logo">A</span><div><strong>ASCEND</strong><small>MARKET · STABLE BASE V1</small></div></div>
       <div className="asc-lite-header-right"><span>РЫНОК / MARKET</span><b>ГРАФИК + МОНЕТЫ</b></div>
@@ -258,7 +217,9 @@ export default function StableMarketApp(){
         <Workspace key={symbol+':'+timeframe} symbol={symbol} timeframe={timeframe}
           previousDay={previousDay.levels} previousDayStatus={previousDay.status}
           previousSessions={previousSessions.levels} previousSessionsStatus={previousSessions.status}
-          dailyVwap={vwap.daily} vwapStatus={vwap.status} liveMetrics={liveMetrics}/>
+          dailyVwap={vwap.daily} vwapStatus={vwap.status} liveMetrics={liveMetrics}
+          settings={settings} onToggle={toggleIndicator}
+          onUpdate={updateIndicators} onReset={resetIndicators}/>
       </section>
     </div>
   </div>;

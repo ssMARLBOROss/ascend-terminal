@@ -515,3 +515,83 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
 .asc-fvg-focus:hover{background:#1b5266}
 .asc-fvg-controls{flex:1}
 @media(max-width:840px){.asc-fvg-focus{flex:1}}
+
+/* TradingView-style management: one lightweight indicators menu with eye visibility. */
+.asc-hide-coins .asc-lite-layout{grid-template-columns:minmax(0,1fr)}
+.asc-hide-coins .asc-lite-sidebar{display:none}
+.asc-lite-workspace{overflow:visible}
+.asc-indicator-toolbar{position:relative;z-index:60;display:flex;align-items:center;gap:9px;
+  padding:9px 12px;border-block:1px solid #224055;background:#081a28}
+.asc-indicator-toolbar-main{display:flex;align-items:center;gap:10px;min-width:0;width:100%}
+.asc-indicator-open{display:flex;flex-shrink:0;align-items:center;gap:8px;
+  border:1px solid #345d72;border-radius:6px;padding:9px 12px;
+  background:#102b3a;color:#d8ecf7;font-size:12px;font-weight:900}
+.asc-indicator-open.selected{border-color:#6aa0c2;background:#19435a}
+.asc-indicator-icon{font-size:18px;line-height:12px;color:#b4e4f7}
+.asc-indicator-count{display:grid;place-items:center;min-width:19px;height:19px;
+  background:#27668a;border-radius:4px;font-size:10px}
+.asc-indicator-active-strip{display:flex;align-items:center;gap:6px;min-width:0;flex:1;
+  overflow-x:auto;scrollbar-width:thin}
+.asc-indicator-chip{display:flex;align-items:center;gap:6px;flex-shrink:0;
+  border:1px solid #294c60;border-radius:5px;background:#0b2332;
+  color:#a6c5d6;font-size:10px;font-weight:800;padding:7px 8px;white-space:nowrap}
+.asc-indicator-chip i{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.asc-indicator-chip b{font-size:15px;color:#88a4b6;line-height:10px;margin-left:3px}
+.asc-indicator-chip:hover{border-color:#6295b4}
+.asc-indicator-more{font-size:10px;color:#9fc4d5;font-weight:900}
+.asc-indicator-focus{flex-shrink:0;border:1px solid #3b6073;border-radius:6px;
+  padding:9px 12px;background:#0e3040;color:#b9e2ed;font-size:12px;font-weight:900}
+.asc-indicator-focus:hover{background:#164358}
+.asc-indicator-menu{position:absolute;top:calc(100% + 6px);left:8px;width:min(435px,calc(100vw - 28px));
+  background:#0b1c29;border:1px solid #37607c;border-radius:10px;overflow:hidden;
+  box-shadow:0 14px 50px #02080cc7;max-height:min(77vh,730px);
+  display:flex;flex-direction:column;z-index:70;color:#c9dfe9}
+.asc-indicator-menu-head{display:flex;justify-content:space-between;gap:12px;align-items:center;
+  padding:13px 15px;border-bottom:1px solid #244256;background:#0d2638}
+.asc-indicator-menu-head strong{font-size:14px;letter-spacing:.08em;color:#e7f5fc}
+.asc-indicator-menu-head small{display:block;margin-top:3px;font-size:10px;color:#819fad}
+.asc-indicator-menu-head button{background:transparent;color:#b2c7d3;border:0;
+  font-size:17px;padding:6px 9px}
+.asc-indicator-search{display:flex;align-items:center;gap:8px;padding:8px 13px;
+  background:#081825;border-bottom:1px solid #224153}
+.asc-indicator-search span{font-size:19px;color:#81a9bc}
+.asc-indicator-search input{width:100%;border:0;background:transparent;padding:6px 2px;
+  outline:none;color:#e4f2f9;font-size:12px}
+.asc-indicator-list{overflow-y:auto;min-height:60px;flex:1}
+.asc-indicator-group-label{font-size:10px;text-transform:uppercase;letter-spacing:.10em;
+  color:#789bad;background:#0b2230;padding:8px 15px;border-bottom:1px solid #183a4f;font-weight:900}
+.asc-indicator-item{border-bottom:1px solid #1b3849}
+.asc-indicator-item-row{display:flex;align-items:center;gap:10px;padding:8px 13px;min-height:51px}
+.asc-indicator-item-row:hover{background:#123044}
+.asc-indicator-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.asc-indicator-item-name{flex:1;min-width:0}
+.asc-indicator-item-name strong{font-size:12px;color:#dcecf4;display:block}
+.asc-indicator-item-name small{font-size:10px;color:#819caa;display:block;margin-top:2px}
+.asc-indicator-eye,.asc-indicator-gear{flex-shrink:0;display:grid;place-items:center;
+  background:transparent;border:1px solid transparent;border-radius:5px;color:#7892a4;
+  width:31px;height:31px;font-size:17px}
+.asc-indicator-eye.active{color:#79cfef}
+.asc-indicator-eye:hover,.asc-indicator-gear:hover{background:#18394e;border-color:#3b6b84;color:#d5ecf5}
+.asc-indicator-settings{display:grid;grid-template-columns:1fr 1fr;gap:7px 9px;
+  background:#081723;padding:11px 14px 12px 31px;border-top:1px solid #20465b}
+.asc-indicator-settings label{display:flex;flex-direction:column;gap:6px;font-size:10px;
+  color:#93b4c5;font-weight:800}
+.asc-indicator-settings select{min-width:0;max-width:100%;padding:8px;border-radius:5px;
+  border:1px solid #365e73;background:#102c3e;color:#e4f4fb;font-size:11px}
+.asc-indicator-settings small{grid-column:1/-1;color:#7e9ead;font-size:10px}
+.asc-indicator-menu-footer{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:7px;
+  align-items:center;border-top:1px solid #28506a;padding:10px 12px;background:#0c2534}
+.asc-indicator-menu-footer span{margin-right:auto;color:#7699ac;font-size:10px}
+.asc-indicator-menu-footer button{border:1px solid #395e73;padding:7px 9px;border-radius:5px;
+  color:#c6e0ea;background:#143246;font-weight:800;font-size:10px}
+.asc-indicator-menu-note{border-top:1px solid #1c3c50;padding:10px 12px;
+  color:#819faf;font-size:10px;line-height:1.4;background:#081a25}
+.asc-indicator-empty{padding:20px;color:#8aaaba;font-size:12px;text-align:center}
+@media(max-width:700px){
+  .asc-indicator-toolbar{padding:7px}
+  .asc-indicator-open{padding:8px}
+  .asc-indicator-chip{padding:6px}
+  .asc-indicator-focus{padding:8px}
+  .asc-indicator-focus span{display:none}
+  .asc-indicator-menu{left:4px}
+}
