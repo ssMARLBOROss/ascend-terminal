@@ -8,6 +8,7 @@ import {useOrderbookClusters} from './market/useOrderbookClusters';
 import WeekOverlayCompare from './components/WeekOverlayCompare';
 import LiveMarketPanels from './components/LiveMarketPanels';
 import {useLiveMarketMetrics} from './market/useLiveMarketMetrics';
+import {computeFvgZones} from './components/fvgOverlay';
 
 const FAVORITES=[
   'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT',
@@ -38,8 +39,16 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const[showBook,setShowBook]=useState(true);
   const[showStops,setShowStops]=useState(true);
   const[showTpo,setShowTpo]=useState(true);
+  const[showFvg,setShowFvg]=useState(true);
+  const[fvgThreshold,setFvgThreshold]=useState(.02);
   const[showWeekCompare,setShowWeekCompare]=useState(false);
   const liquidity=useOrderbookClusters(symbol,showBook);
+  const fvgZones=useMemo(()=>computeFvgZones(candles,timeframe,fvgThreshold),
+    [candles,timeframe,fvgThreshold]);
+  const fvgOpen=fvgZones.filter(z=>z.status!=='FILLED');
+  const bullCount=fvgOpen.filter(z=>z.side==='bull').length;
+  const bearCount=fvgOpen.filter(z=>z.side==='bear').length;
+  const touchedCount=fvgOpen.filter(z=>z.status==='TOUCHED').length;
   const latest=candles[candles.length-1];
   const displayPrice=lastPrice??latest?.close;
 
@@ -87,6 +96,20 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
           onClick={()=>setShowStops(value=>!value)}>STOP? · РАСЧЁТНЫЕ ЗОНЫ</button>
         <button type="button" aria-pressed={showTpo} className={showTpo?'active tpo':''}
           onClick={()=>setShowTpo(value=>!value)}>TPO · POC / VAH / VAL</button>
+        <button type="button" aria-pressed={showFvg} className={showFvg?'active fvg':''}
+          onClick={()=>setShowFvg(value=>!value)}>FVG · ЗОНЫ ИМБАЛАНСА</button>
+      </div>
+      <div className="asc-fvg-controls">
+        <label htmlFor="asc-fvg-min">Мин. FVG</label>
+        <select id="asc-fvg-min" value={fvgThreshold}
+          onChange={event=>setFvgThreshold(Number(event.target.value))}
+          aria-label="Минимальный размер FVG в процентах">
+          <option value={0}>Все</option>
+          <option value={.02}>0,02%</option>
+          <option value={.05}>0,05%</option>
+          <option value={.1}>0,10%</option>
+        </select>
+        <span>↑ {bullCount} · ↓ {bearCount} · касание {touchedCount}</span>
       </div>
       <div className="asc-liquidity-source">
         {showBook?(liquidity.status==='ready'&&liquidity.snapshot?
@@ -101,7 +124,8 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         previousSessions={previousSessions} dailyVwap={dailyVwap}
         orderbook={liquidity.status==='ready'?liquidity.snapshot:undefined}
         showBook={showBook} showStops={showStops}
-        tpo={liveMetrics.tpo.status==='ready'?liveMetrics.tpo.data:undefined} showTpo={showTpo}/>
+        tpo={liveMetrics.tpo.status==='ready'?liveMetrics.tpo.data:undefined} showTpo={showTpo}
+        fvgZones={fvgZones} showFvg={showFvg}/>
       {candles.length<20&&<div className="asc-lite-loading" role="status">
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
@@ -134,6 +158,10 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
           <small>{String(session.from).padStart(2,'0')}:00–{String(session.to).padStart(2,'0')}:00</small>
         </div>)}
       </div>}
+    </div>
+    <div className="asc-fvg-explain">
+      <b>FVG ↑</b> бычья зона · <b>FVG ↓</b> медвежья зона · FRESH / TOUCHED / FILLED.
+      Только 3 закрытые свечи, касание и заполнение — по закрытым свечам. FVG не сигнал входа.
     </div>
     <div className="asc-liquidity-explain">
       <span><b>BID / ASK</b> — крупнейшие видимые скопления лимитных заявок в текущем снимке стакана (до 200 уровней на сторону). Заявки могут быть отменены.</span>
