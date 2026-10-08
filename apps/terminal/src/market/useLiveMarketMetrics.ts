@@ -111,9 +111,13 @@ const FIELDS={
 
 /** Independent read-only poller, always scoped to the selected instrument. */
 function useMetric<T>(symbol:string,path:string,params:Record<string,string>,delay:number,
-  parser:(data:unknown)=>T):Metric<T>{
+  parser:(data:unknown)=>T,enabled=true):Metric<T>{
   const[state,setState]=useState<Metric<T>>({symbol,status:'loading'});
   useEffect(()=>{
+    if(!enabled){
+      setState({symbol,status:'loading'});
+      return;
+    }
     const controller=new AbortController();
     let timer:number|undefined,busy=false;
     const poll=async()=>{
@@ -152,14 +156,14 @@ function useMetric<T>(symbol:string,path:string,params:Record<string,string>,del
       if(timer!==undefined)window.clearTimeout(timer);
       document.removeEventListener('visibilitychange',onVisible);
     };
-  },[symbol,path,params,delay,parser]);
-  return state.symbol===symbol?state:{symbol,status:'loading'};
+  },[symbol,path,params,delay,parser,enabled]);
+  return state.symbol===symbol&&enabled?state:{symbol,status:'loading'};
 }
 
-export function useLiveMarketMetrics(symbol:string){
-  const tpo=useMetric(symbol,FIELDS.tpo.path,FIELDS.tpo.params,FIELDS.tpo.delay,FIELDS.tpo.parse);
-  const oi=useMetric(symbol,FIELDS.oi.path,FIELDS.oi.params,FIELDS.oi.delay,FIELDS.oi.parse);
-  const longShort=useMetric(symbol,FIELDS.longShort.path,FIELDS.longShort.params,FIELDS.longShort.delay,FIELDS.longShort.parse);
-  const cvd=useMetric(symbol,FIELDS.cvd.path,FIELDS.cvd.params,FIELDS.cvd.delay,FIELDS.cvd.parse);
+export function useLiveMarketMetrics(symbol:string,visibility:{tpo:boolean;oi:boolean;longShort:boolean;cvd:boolean}){
+  const tpo=useMetric(symbol,FIELDS.tpo.path,FIELDS.tpo.params,FIELDS.tpo.delay,FIELDS.tpo.parse,visibility.tpo);
+  const oi=useMetric(symbol,FIELDS.oi.path,FIELDS.oi.params,FIELDS.oi.delay,FIELDS.oi.parse,visibility.oi);
+  const longShort=useMetric(symbol,FIELDS.longShort.path,FIELDS.longShort.params,FIELDS.longShort.delay,FIELDS.longShort.parse,visibility.longShort);
+  const cvd=useMetric(symbol,FIELDS.cvd.path,FIELDS.cvd.params,FIELDS.cvd.delay,FIELDS.cvd.parse,visibility.cvd);
   return {tpo,oi,longShort,cvd};
 }

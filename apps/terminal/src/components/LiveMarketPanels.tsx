@@ -42,19 +42,21 @@ function Unavailable<T>({metric}:{metric:Metric<T>}){
   </div>;
 }
 
-export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd}:{
+export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd,visibility}:{
   symbol:string;tpo:Metric<TpoProfile>;oi:Metric<OpenInterest>;
   longShort:Metric<LongShort>;cvd:Metric<TradeDelta>;
+  visibility:{tpo:boolean;oi:boolean;longShort:boolean;cvd:boolean};
 }){
+  if(!visibility.tpo&&!visibility.oi&&!visibility.longShort&&!visibility.cvd)return null;
   return <section className="asc-live-metrics" aria-label="Онлайн-индикаторы TPO OI Long Short CVD">
     <div className="asc-live-metrics-head">
-      <div><b>РЫНОК · 4 ПОКАЗАТЕЛЯ</b>
+      <div><b>РЫНОК · ОНЛАЙН-ИНДИКАТОРЫ</b>
         <small>{symbol} · BYBIT USDT PERPETUAL · ИССЛЕДОВАНИЕ БЕЗ ВХОДОВ</small>
       </div>
       <span className="asc-live-context-only">БЕЗ ПРИВЯЗКИ К СЕССИЯМ</span>
     </div>
     <div className="asc-live-metrics-grid">
-      <article className="asc-live-metric-card tpo">
+      {visibility.tpo&&<article className="asc-live-metric-card tpo">
         <header><strong>TPO · MARKET PROFILE</strong><Status metric={tpo}/></header>
         {tpo.status==='ready'&&tpo.data?<div className="asc-live-body">
           <div className="asc-live-main"><span>POC</span><b>{money(tpo.data.poc)}</b></div>
@@ -68,8 +70,8 @@ export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd}:{
           <small>48 закрытых 30m свечей · скользящие 24ч</small>
         </div>:<Unavailable metric={tpo}/>}
         <footer>Приближённый профиль по касаниям ценовых корзин; не объём торгов.</footer>
-      </article>
-      <article className="asc-live-metric-card oi">
+      </article>}
+      {visibility.oi&&<article className="asc-live-metric-card oi">
         <header><strong>OPEN INTEREST · OI</strong><Status metric={oi}/></header>
         {oi.status==='ready'&&oi.data?<div className="asc-live-body">
           <div className="asc-live-main"><span>Открытые позиции, {symbol.replace(/USDT$/,'')}</span>
@@ -84,8 +86,8 @@ export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd}:{
           <small>Последние точки OI Bybit · {timestamp(oi.data.timestamp)}</small>
         </div>:<Unavailable metric={oi}/>}
         <footer>Рост OI не означает автоматически LONG; направление определяет цена.</footer>
-      </article>
-      <article className="asc-live-metric-card ls">
+      </article>}
+      {visibility.longShort&&<article className="asc-live-metric-card ls">
         <header><strong>NET LONG / SHORT · ACCOUNTS</strong><Status metric={longShort}/></header>
         {longShort.status==='ready'&&longShort.data?<div className="asc-live-body">
           <div className="asc-live-ls-split">
@@ -105,8 +107,8 @@ export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd}:{
           <small>Доля аккаунтов за 5m · {timestamp(longShort.data.timestamp)}</small>
         </div>:<Unavailable metric={longShort}/>}
         <footer>Это количество long/short-аккаунтов, а не чистый объём позиций.</footer>
-      </article>
-      <article className="asc-live-metric-card cvd">
+      </article>}
+      {visibility.cvd&&<article className="asc-live-metric-card cvd">
         <header><strong>CVD · ПОСЛЕДНИЕ СДЕЛКИ</strong><Status metric={cvd}/></header>
         {cvd.status==='ready'&&cvd.data?<div className="asc-live-body">
           <div className="asc-live-main"><span>Buy − Sell, {symbol.replace(/USDT$/,'')}</span>
@@ -121,7 +123,7 @@ export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd}:{
           <small>{cvd.data.trades} сделок · {timestamp(cvd.data.from)}–{timestamp(cvd.data.to)}</small>
         </div>:<Unavailable metric={cvd}/>}
         <footer>Скользящая дельта до 1000 последних сделок, не непрерывный исторический CVD.</footer>
-      </article>
+      </article>}
     </div>
   </section>;
 }

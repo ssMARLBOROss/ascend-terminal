@@ -37,7 +37,8 @@ export function drawSessionBands(
   host:HTMLElement,
   canvas:HTMLCanvasElement,
   candles:Candle[],
-  timeframe:string
+  timeframe:string,
+  enabled=true
 ){
   const width=host.clientWidth,height=host.clientHeight;
   if(width<1||height<1)return;
@@ -52,7 +53,7 @@ export function drawSessionBands(
   ctx.clearRect(0,0,width,height);
 
   // An intraday window cannot be located precisely inside one daily candle.
-  if(timeframe==='1D'||candles.length<2)return;
+  if(!enabled||timeframe==='1D'||candles.length<2)return;
 
   const logical=chart.timeScale().getVisibleLogicalRange();
   if(!logical)return;

@@ -17,12 +17,14 @@ import {drawSessionBands} from './drawSessionBands';
 type Snapshot={first?:number;last?:number;length:number};
 
 /** Bounded session canvas only; no indicator computations or extra market subscriptions. */
-export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,focusRequest}:{
+export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,focusRequest,showVolume,showVwap,showSessions,showSessionClock,showDayLevels,showSessionLevels}:{
   candles:Candle[];timeframe:string;previousDay?:PreviousDayLevels;
   previousSessions?:PreviousSessionLevels;dailyVwap?:DailyVwap;
   orderbook?:OrderbookSnapshot;showBook:boolean;showStops:boolean;
   tpo?:TpoProfile;showTpo:boolean;fvgZones:FvgZone[];showFvg:boolean;
   focusRequest:number;
+  showVolume:boolean;showVwap:boolean;showSessions:boolean;showSessionClock:boolean;
+  showDayLevels:boolean;showSessionLevels:boolean;
 }){
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
@@ -33,6 +35,8 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
   liquidityViewRef.current={orderbook,showBook,showStops,stopZones,tpo,showTpo};
   const fvgViewRef=useRef({fvgZones,showFvg});
   fvgViewRef.current={fvgZones,showFvg};
+  const sessionsVisibleRef=useRef(showSessions);
+  sessionsVisibleRef.current=showSessions;
   const candlesRef=useRef(candles);
   const redrawRef=useRef<()=>void>(()=>{});
   candlesRef.current=candles;
@@ -90,7 +94,8 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
       overlayFrame=window.requestAnimationFrame(()=>{
         overlayFrame=undefined;
         if(chartRef.current!==chart||!overlayRef.current)return;
-        drawSessionBands(chart,host,overlayRef.current,candlesRef.current,timeframe);
+        drawSessionBands(chart,host,overlayRef.current,candlesRef.current,timeframe,
+          sessionsVisibleRef.current);
         if(priceRef.current&&liquidityOverlayRef.current){
           const view=liquidityViewRef.current;
           drawLiquidityOverlay(chart,priceRef.current,host,liquidityOverlayRef.current,
@@ -146,6 +151,12 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
     redrawRef.current();
   },[focusRequest]);
 
+  // Display switches affect only chart series/overlays, never source data or trade rules.
+  useEffect(()=>{
+    volumeRef.current?.applyOptions({visible:showVolume});
+  },[showVolume,timeframe]);
+  useEffect(()=>{redrawRef.current()},[showSessions]);
+
   // Rolling price-based TPO profile: never modifies or gates ASCEND Core entries.
   // Visually distinct from green/red YH/YL and the golden VWAP.
   useEffect(()=>{
@@ -167,7 +178,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
   useEffect(()=>{
     const line=vwapRef.current;
     if(!line)return;
-    if(!dailyVwap||!candles.length||timeframe==='1D'){
+    if(!showVwap||!dailyVwap||!candles.length||timeframe==='1D'){
       line.setData([]);
       return;
     }
@@ -201,12 +212,12 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
       });
     }
     line.setData(result);
-  },[dailyVwap,timeframe,candles.length,candles[0]?.timestamp,candles[candles.length-1]?.timestamp]);
+  },[showVwap,dailyVwap,timeframe,candles.length,candles[0]?.timestamp,candles[candles.length-1]?.timestamp]);
 
   // Price lines live on the chart series; update only when the previous UTC day changes.
   useEffect(()=>{
     const series=priceRef.current;
-    if(!series||!previousDay)return;
+    if(!series||!showDayLevels||!previousDay)return;
     const highLine=series.createPriceLine({
       price:previousDay.high,color:'#2fd46f',lineWidth:4,
       lineStyle:LineStyle.Solid,axisLabelVisible:true,title:'YH'
@@ -219,13 +230,13 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
       series.removePriceLine(highLine);
       series.removePriceLine(lowLine);
     };
-  },[previousDay]);
+  },[previousDay,showDayLevels]);
 
   // Yesterday's 3 session ranges are frozen lines: no recalculation on ticks.
   // Original YH/YL remain 4px solid; session levels are 2px dashed.
   useEffect(()=>{
     const series=priceRef.current;
-    if(!series||!previousSessions)return;
+    if(!series||!showSessionLevels||!previousSessions)return;
     const abbreviations:Record<string,string>={ASIA:'AS',LONDON:'LD',NEW_YORK:'NY'};
     const lines=previousSessions.sessions.flatMap(session=>{
       const code=abbreviations[session.id]??session.id;
@@ -241,7 +252,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
       ];
     });
     return()=>{for(const line of lines)series.removePriceLine(line)};
-  },[previousSessions]);
+  },[previousSessions,showSessionLevels]);
 
   useEffect(()=>{
     const chart=chartRef.current;
@@ -293,7 +304,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
     <canvas className="asc-lite-session-canvas" ref={overlayRef} aria-hidden="true"/>
     <canvas className="asc-lite-liquidity-canvas" ref={liquidityOverlayRef} aria-hidden="true"/>
     <canvas className="asc-lite-fvg-canvas" ref={fvgOverlayRef} aria-hidden="true"/>
-    <SessionClock embedded/>
-    {timeframe==='1D'&&<span className="asc-session-daily-note">Сессионные зоны по часам показаны на таймфреймах до 4H</span>}
+    {showSessionClock&&<SessionClock embedded/>}
+    {showSessions&&timeframe==='1D'&&<span className="asc-session-daily-note">Сессионные зоны по часам показаны на таймфреймах до 4H</span>}
   </div>;
 }
