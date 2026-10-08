@@ -363,3 +363,45 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
  .asc-liquidity-buttons button{flex:1;min-width:135px;font-size:10px}
  .asc-liquidity-explain span{min-width:100%}
 }
+
+/* Optional seven-days-on-seven-days comparative price trajectory panel. */
+.asc-week-toggle{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+  padding:12px 14px;background:#0b202c;border-top:1px solid #23475b}
+.asc-week-toggle>div{display:flex;flex-direction:column;gap:4px}
+.asc-week-toggle strong{font-size:13px;font-weight:900;letter-spacing:.04em;color:#d7e9f3}
+.asc-week-toggle small{font-size:11px;font-weight:700;color:#92b1c4}
+.asc-week-toggle button{font-size:11px;font-weight:900;padding:8px 12px;border-radius:6px;
+  border:1px solid #3985a1;background:#12374d;color:#c9f3ff}
+.asc-week-toggle button:hover{background:#1b4961}
+.asc-week-comparison{background:#071824;border-top:1px solid #1b4056;padding:12px 15px 16px}
+.asc-week-legend{display:flex;align-items:center;flex-wrap:wrap;gap:12px 20px;margin-bottom:12px}
+.asc-week-key{font-size:12px;font-weight:900;letter-spacing:.02em}
+.asc-week-key:before{content:'';display:inline-block;width:19px;margin-right:8px;
+  height:3px;vertical-align:middle;background:currentColor}
+.asc-week-key.previous{color:#bc95df}
+.asc-week-key.recent{color:#53d7e1}
+.asc-week-legend small{color:#90adbf;font-size:11px;font-weight:700}
+.asc-week-message{padding:18px;color:#adc4d3;font-size:12px;font-weight:700}
+.asc-week-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.asc-week-stat{display:flex;align-items:center;gap:7px 16px;flex-wrap:wrap;
+  border:1px solid #365871;border-left:3px solid #a786c8;border-radius:6px;
+  background:#0a2431;padding:9px 11px}
+.asc-week-stat.recent{border-left-color:#53d7e1}
+.asc-week-stat>div{display:flex;flex-direction:column;gap:4px}
+.asc-week-stat b{font-size:12px;font-weight:900;color:#dceaf0}
+.asc-week-stat small{font-size:11px;color:#9bb7ca;font-weight:700}
+.asc-week-stat>strong{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}
+.asc-week-stat .positive{color:#55d79d}
+.asc-week-stat .negative{color:#f47d90}
+.asc-week-stat>span{font-size:11px;color:#a7c2cf;font-weight:800}
+.asc-week-graph-wrap{overflow:hidden;margin-top:10px}
+.asc-week-graph{display:block;width:100%;height:auto;background:#071925;border:1px solid #18374b;border-radius:6px}
+.asc-week-footer{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  color:#9fbdcb;font-size:11px;font-weight:700;margin-top:9px}
+.asc-week-footer b{color:#e8eff4}
+@media(max-width:700px){
+ .asc-week-summary{grid-template-columns:1fr}
+ .asc-week-toggle button{width:100%}
+ .asc-week-legend{gap:8px 12px}
+ .asc-week-legend small{width:100%}
+}

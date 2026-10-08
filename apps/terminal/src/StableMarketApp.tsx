@@ -5,6 +5,7 @@ import {usePreviousDayLevels,type PreviousDayLevels} from './market/usePreviousD
 import {usePreviousSessionLevels,type PreviousSessionLevels} from './market/usePreviousSessionLevels';
 import {useDailyVwap,type DailyVwap} from './market/useDailyVwap';
 import {useOrderbookClusters} from './market/useOrderbookClusters';
+import WeekOverlayCompare from './components/WeekOverlayCompare';
 
 const FAVORITES=[
   'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT',
@@ -33,6 +34,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
   const[showBook,setShowBook]=useState(true);
   const[showStops,setShowStops]=useState(true);
+  const[showWeekCompare,setShowWeekCompare]=useState(false);
   const liquidity=useOrderbookClusters(symbol,showBook);
   const latest=candles[candles.length-1];
   const displayPrice=lastPrice??latest?.close;
@@ -98,6 +100,16 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         <span>{error??'График появится после получения истории Bybit REST'}</span>
       </div>}
     </div>
+    <div className="asc-week-toggle">
+      <div><strong>НАЛОЖЕНИЕ 7 ДНЕЙ × 7 ДНЕЙ</strong>
+        <small>Две полные недели UTC, одинаковые часы и масштаб в процентах</small>
+      </div>
+      <button type="button" aria-expanded={showWeekCompare}
+        onClick={()=>setShowWeekCompare(value=>!value)}>
+        {showWeekCompare?'СКРЫТЬ СРАВНЕНИЕ −':'ПОКАЗАТЬ СРАВНЕНИЕ +'}
+      </button>
+    </div>
+    {showWeekCompare&&<WeekOverlayCompare symbol={symbol}/>}
     <div className="asc-prev-session-strip" aria-label="Максимумы и минимумы вчерашних сессий">
       <div className="asc-prev-session-title">
         <b>ВЧЕРА · СЕССИИ</b>
