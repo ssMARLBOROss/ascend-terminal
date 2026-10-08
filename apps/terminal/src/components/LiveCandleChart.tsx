@@ -63,6 +63,18 @@ const tfSeconds:Record<string,number>={
   '1H':3600,'2H':7200,'4H':14400,'6H':21600,'12H':43200,'1D':86400,'1W':604800,'1M':2592000
 };
 
+function validLogicalRange(range:{from:number;to:number}|null|undefined,count:number){
+  if(!range||count<=0)return false;
+  const from=Number(range.from),to=Number(range.to),width=to-from;
+  if(!Number.isFinite(from)||!Number.isFinite(to)||!Number.isFinite(width))return false;
+  if(width<5||width>Math.max(1200,count*3))return false;
+  return to>-20&&from<count+20;
+}
+
+const eventPriority:Record<string,number>={
+  SWEEP:0,RECLAIM:1,ACCEPT:2,BREAK:3,PROBE:4,TOUCH:5,CHOCH:6,MSS:7,BOS:8,CONFIRMED:9,ENTRY:10,TP:11,SL:12
+};
+
 const fmtPrice=(v:number)=>{
   const a=Math.abs(v);
   return v.toLocaleString('en-US',{maximumFractionDigits:a>=1000?2:a>=1?4:a>=0.01?6:10});
@@ -166,7 +178,11 @@ export default function LiveCandleChart({
     return saved==='OFF'||saved==='EVENTS'||saved==='PANEL'?saved:'EVENTS';
   });
 
-  const sessions=useMemo(()=>buildSessions(candles),[candles]);
+  const tfSec=tfSeconds[timeframe]??900;
+  const showSessionOverlay=tfSec<=7200;
+  const showDayOverlay=tfSec<=14400;
+  const showProfileOverlay=showProfiles&&tfSec<=14400;
+  const sessions=useMemo(()=>showSessionOverlay?buildSessions(candles):[],[candles,showSessionOverlay]);
   const rsiPoints=useMemo(()=>computeRsi(candles,14),[candles]);
   const rsiSignals=useMemo(()=>deriveRsiSignals(rsiPoints),[rsiPoints]);
   useEffect(()=>{
@@ -182,10 +198,21 @@ export default function LiveCandleChart({
     return map;
   },[candles]);
   useEffect(()=>{candleBySecondRef.current=candleBySecond},[candleBySecond]);
-  const mappedEvents=useMemo(()=>events
-    .filter(e=>['TOUCH','PROBE','SWEEP','BREAK','ACCEPT','RECLAIM','CHOCH','MSS','BOS','CONFIRMED','ENTRY','TP','SL'].includes(e.type))
-    .slice(-100)
-    .map(event=>({event,candleTs:nearestCandleTimestamp(candles,event.timestamp)})),[events,candles]);
+  const mappedEvents=useMemo(()=>{
+    const byCandle=new Map<number,{event:AscendEvent;candleTs:number}>();
+    const source=events
+      .filter(e=>['TOUCH','PROBE','SWEEP','BREAK','ACCEPT','RECLAIM','CHOCH','MSS','BOS','CONFIRMED','ENTRY','TP','SL'].includes(e.type))
+      .slice(-120);
+    for(const event of source){
+      const candleTs=nearestCandleTimestamp(candles,event.timestamp);
+      const existing=byCandle.get(candleTs);
+      if(!existing||(eventPriority[event.type]??99)<(eventPriority[existing.event.type]??99)){
+        byCandle.set(candleTs,{event,candleTs});
+      }
+    }
+    const budget=tfSec>=86400?12:tfSec>=14400?20:tfSec>=3600?28:42;
+    return[...byCandle.values()].sort((a,b)=>a.candleTs-b.candleTs).slice(-budget);
+  },[events,candles,tfSec]);
 
   useEffect(()=>{
     const map=new Map<number,AscendEvent[]>();
@@ -244,31 +271,33 @@ export default function LiveCandleChart({
 
     const timeScale=chart.timeScale();
 
-    // Clear day boundaries.
-    const dayMap=new Map<number,number>();
-    for(const c of candles){
-      const day=dayStartUtc(c.timestamp);
-      if(!dayMap.has(day))dayMap.set(day,c.timestamp);
+    // Clear day boundaries only where they remain readable.
+    if(showDayOverlay){
+      const dayMap=new Map<number,number>();
+      for(const candle of candles){
+        const day=dayStartUtc(candle.timestamp);
+        if(!dayMap.has(day))dayMap.set(day,candle.timestamp);
+      }
+      ctx.save();
+      ctx.font='600 9px Inter,system-ui,sans-serif';
+      for(const [day,firstTs] of dayMap){
+        const x=timeScale.timeToCoordinate(Math.floor(firstTs/1000) as UTCTimestamp);
+        if(x===null||x<-30||x>rect.width+30)continue;
+        ctx.strokeStyle='rgba(132,163,180,.28)';
+        ctx.setLineDash([3,5]);
+        ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,plotBottom);ctx.stroke();
+        ctx.setLineDash([]);
+        const dayLabel=new Date(day).toLocaleDateString('ru-RU',{day:'2-digit',month:'short'}).toUpperCase();
+        ctx.fillStyle='rgba(6,18,27,.88)';
+        ctx.fillRect(x+4,plotBottom-22,52,16);
+        ctx.fillStyle='rgba(178,202,214,.82)';
+        ctx.fillText(dayLabel,x+8,plotBottom-10);
+      }
+      ctx.restore();
     }
-    ctx.save();
-    ctx.font='600 9px Inter,system-ui,sans-serif';
-    for(const [day,firstTs] of dayMap){
-      const x=timeScale.timeToCoordinate(Math.floor(firstTs/1000) as UTCTimestamp);
-      if(x===null||x<-30||x>rect.width+30)continue;
-      ctx.strokeStyle='rgba(132,163,180,.28)';
-      ctx.setLineDash([3,5]);
-      ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,plotBottom);ctx.stroke();
-      ctx.setLineDash([]);
-      const dayLabel=new Date(day).toLocaleDateString('ru-RU',{day:'2-digit',month:'short'}).toUpperCase();
-      ctx.fillStyle='rgba(6,18,27,.88)';
-      ctx.fillRect(x+4,plotBottom-22,52,16);
-      ctx.fillStyle='rgba(178,202,214,.82)';
-      ctx.fillText(dayLabel,x+8,plotBottom-10);
-    }
-    ctx.restore();
 
-    // Session bands: clean, TradingView-like, with local balance rectangles.
-    for(const session of sessions){
+    // Session bands are useful on intraday TF only.
+    if(showSessionOverlay)for(const session of sessions){
       const def=sessionDefs.find(x=>x.name===session.name)!;
       const x1=timeScale.timeToCoordinate(Math.floor(session.first/1000) as UTCTimestamp);
       const x2raw=timeScale.timeToCoordinate(Math.floor(session.last/1000) as UTCTimestamp);
@@ -322,7 +351,7 @@ export default function LiveCandleChart({
     }
 
     // Candle-derived volume profile proxy. This is NOT tick-level exchange volume-at-price.
-    if(showProfiles&&profiles.length){
+    if(showProfileOverlay&&profiles.length){
       const composite=profiles.find(profile=>profile.id==='COMPOSITE_12H');
       if(composite){
         const yVah=series.priceToCoordinate(composite.vah);
@@ -501,14 +530,14 @@ export default function LiveCandleChart({
         ctx.setLineDash([]);
       }
     }
-  },[candles,pinnedTime,sessions,levels,clusters,showClusters,profiles,showProfiles]);
+  },[candles,pinnedTime,sessions,levels,clusters,showClusters,profiles,showProfileOverlay,showDayOverlay,showSessionOverlay]);
   drawOverlayRef.current=drawOverlay;
 
   useEffect(()=>{
     const viewportKey=`${symbol}:${timeframe}`;
     const cachedViewport=viewportCache.get(viewportKey);
     visibleTimeRef.current=null;
-    visibleLogicalRef.current=cachedViewport?.range??null;
+    visibleLogicalRef.current=null;
     followLatestRef.current=cachedViewport?.following??true;
     applyingRangeRef.current=false;
     lastDataLengthRef.current=0;
@@ -642,9 +671,12 @@ export default function LiveCandleChart({
       visibleLogicalRef.current=logical?{from:Number(logical.from),to:Number(logical.to)}:null;
       visibleTimeRef.current=timeRange;
       if(!applyingRangeRef.current&&logical){
-        const lastIndex=Math.max(0,candleCountRef.current-1);
-        followLatestRef.current=Number(logical.to)>=lastIndex+2;
-        viewportCache.set(viewportKey,{range:{from:Number(logical.from),to:Number(logical.to)},following:followLatestRef.current});
+        const normalized={from:Number(logical.from),to:Number(logical.to)};
+        if(validLogicalRange(normalized,candleCountRef.current)){
+          const lastIndex=Math.max(0,candleCountRef.current-1);
+          followLatestRef.current=Number(logical.to)>=lastIndex+2;
+          viewportCache.set(viewportKey,{range:normalized,following:followLatestRef.current});
+        }
       }
       if(logical&&rsiChartRef.current&&!rsiSyncingRef.current){
         rsiSyncingRef.current=true;
@@ -675,7 +707,12 @@ export default function LiveCandleChart({
 
     return()=>{
       const logical=chart.timeScale().getVisibleLogicalRange();
-      if(logical)viewportCache.set(viewportKey,{range:{from:Number(logical.from),to:Number(logical.to)},following:followLatestRef.current});
+      if(logical){
+        const normalized={from:Number(logical.from),to:Number(logical.to)};
+        if(validLogicalRange(normalized,candleCountRef.current)){
+          viewportCache.set(viewportKey,{range:normalized,following:followLatestRef.current});
+        }
+      }
       resize.disconnect();
       chart.unsubscribeCrosshairMove(move);
       chart.unsubscribeClick(click);
