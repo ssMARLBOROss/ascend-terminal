@@ -4,6 +4,7 @@ import {STABLE_TIMEFRAMES,useStableMarket,type StableTimeframe} from './market/u
 import {usePreviousDayLevels,type PreviousDayLevels} from './market/usePreviousDayLevels';
 import {usePreviousSessionLevels,type PreviousSessionLevels} from './market/usePreviousSessionLevels';
 import {useDailyVwap,type DailyVwap} from './market/useDailyVwap';
+import {useOrderbookClusters} from './market/useOrderbookClusters';
 
 const FAVORITES=[
   'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT',
@@ -30,6 +31,9 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   dailyVwap?:DailyVwap;vwapStatus:'loading'|'ready'|'error';
 }){
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
+  const[showBook,setShowBook]=useState(true);
+  const[showStops,setShowStops]=useState(true);
+  const liquidity=useOrderbookClusters(symbol,showBook);
   const latest=candles[candles.length-1];
   const displayPrice=lastPrice??latest?.close;
 
@@ -69,9 +73,26 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
       <div><small>L / МИНИМУМ СВЕЧИ</small><b>{fmtPrice(latest?.low)}</b></div>
       <div><small>ОБЪЁМ СВЕЧИ</small><b>{fmtVolume(latest?.volume)}</b></div>
     </div>
+    <div className="asc-liquidity-controls" aria-label="Отображение кластеров ликвидности">
+      <div className="asc-liquidity-buttons">
+        <button type="button" aria-pressed={showBook} className={showBook?'active':''}
+          onClick={()=>setShowBook(value=>!value)}>BID / ASK · РЕАЛЬНЫЙ СТАКАН</button>
+        <button type="button" aria-pressed={showStops} className={showStops?'active stops':''}
+          onClick={()=>setShowStops(value=>!value)}>STOP? · РАСЧЁТНЫЕ ЗОНЫ</button>
+      </div>
+      <div className="asc-liquidity-source">
+        {showBook?(liquidity.status==='ready'&&liquidity.snapshot?
+          'BYBIT · СРЕЗ '+new Date(liquidity.snapshot.receivedAt).toLocaleTimeString('ru-RU')+
+          ' · '+liquidity.snapshot.levelsPerSide+' ур./сторону':
+          liquidity.status==='error'?'Bybit: нет стакана · повтор через 20 сек':'Загрузка стакана Bybit…'):
+          'Стакан отключён'}
+      </div>
+    </div>
     <div className="asc-lite-chart-box">
       <StableCandleChart candles={candles} timeframe={timeframe} previousDay={previousDay}
-        previousSessions={previousSessions} dailyVwap={dailyVwap}/>
+        previousSessions={previousSessions} dailyVwap={dailyVwap}
+        orderbook={liquidity.status==='ready'?liquidity.snapshot:undefined}
+        showBook={showBook} showStops={showStops}/>
       {candles.length<20&&<div className="asc-lite-loading" role="status">
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
@@ -93,6 +114,10 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
           <small>{String(session.from).padStart(2,'0')}:00–{String(session.to).padStart(2,'0')}:00</small>
         </div>)}
       </div>}
+    </div>
+    <div className="asc-liquidity-explain">
+      <span><b>BID / ASK</b> — крупнейшие видимые скопления лимитных заявок в текущем снимке стакана (до 200 уровней на сторону). Заявки могут быть отменены.</span>
+      <span><b>STOP?</b> — оценочные зоны рядом с YH/YL и экстремумами вчерашних сессий. Это не подтверждённые стоп-ордера и не данные ликвидаций.</span>
     </div>
     <footer className="asc-lite-chart-footer">
       <span>СВЕЧИ · ОБЪЁМ · VWAP UTC · СЕССИИ · ASCEND STABLE</span>

@@ -342,3 +342,24 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
 .asc-lite-vwap-ticker>small{font-size:11px;font-weight:800;color:#ead59b}
 @media(max-width:1200px){.asc-lite-vwap-ticker{order:4;width:100%;justify-content:flex-start}}
 @media(max-width:620px){.asc-lite-vwap-ticker>strong{font-size:14px}}
+
+/* Liquidity layers: live depth and inferred stop-search zones are separately labelled. */
+.asc-liquidity-controls{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
+  padding:9px 13px;background:#091924;border-bottom:1px solid #254357}
+.asc-liquidity-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.asc-liquidity-buttons button{border:1px solid #355366;background:#102737;color:#8ca8ba;
+  border-radius:6px;padding:8px 11px;font-size:11px;font-weight:900;letter-spacing:.02em}
+.asc-liquidity-buttons button.active{border-color:#33846f;background:rgba(24,92,72,.37);color:#76e7b6}
+.asc-liquidity-buttons button.active.stops{border-color:#a1854e;background:rgba(110,75,38,.32);color:#eed29d}
+.asc-liquidity-source{color:#92b1c2;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}
+.asc-lite-liquidity-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none}
+.asc-liquidity-explain{display:flex;align-items:flex-start;gap:10px 20px;flex-wrap:wrap;
+  border-top:1px solid #1e4358;background:#0a1b28;padding:8px 13px;
+  color:#93acb9;font-size:11px;line-height:1.5}
+.asc-liquidity-explain span{flex:1;min-width:220px}
+.asc-liquidity-explain b{color:#cee5ef}
+@media(max-width:680px){
+ .asc-liquidity-buttons{width:100%}
+ .asc-liquidity-buttons button{flex:1;min-width:135px;font-size:10px}
+ .asc-liquidity-explain span{min-width:100%}
+}
