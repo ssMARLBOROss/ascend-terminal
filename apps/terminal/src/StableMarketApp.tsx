@@ -1,6 +1,7 @@
 import {useMemo,useState} from 'react';
 import StableCandleChart from './components/StableCandleChart';
 import {STABLE_TIMEFRAMES,useStableMarket,type StableTimeframe} from './market/useStableMarket';
+import {usePreviousDayLevels,type PreviousDayLevels} from './market/usePreviousDayLevels';
 
 const FAVORITES=[
   'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT',
@@ -20,7 +21,10 @@ function fmtVolume(value?:number){
   return value.toLocaleString('ru-RU',{maximumFractionDigits:2});
 }
 
-function Workspace({symbol,timeframe}:{symbol:string;timeframe:StableTimeframe}){
+function Workspace({symbol,timeframe,previousDay,previousDayStatus}:{
+  symbol:string;timeframe:StableTimeframe;
+  previousDay?:PreviousDayLevels;previousDayStatus:'loading'|'ready'|'error';
+}){
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
   const latest=candles[candles.length-1];
   const displayPrice=lastPrice??latest?.close;
@@ -30,6 +34,13 @@ function Workspace({symbol,timeframe}:{symbol:string;timeframe:StableTimeframe})
       <div className="asc-lite-pair">
         <strong>{symbol}</strong>
         <span>BYBIT · USDT PERPETUAL · REAL DATA</span>
+      </div>
+      <div className="asc-lite-daily-levels" title="Максимум и минимум предыдущего закрытого дня · 00:00–00:00 UTC">
+        {previousDay?<>
+          <span className="asc-lite-daily-level high"><b>YH</b><strong>{fmtPrice(previousDay.high)}</strong></span>
+          <span className="asc-lite-daily-level low"><b>YL</b><strong>{fmtPrice(previousDay.low)}</strong></span>
+          <small>{new Date(previousDay.dayStartUtc).toLocaleDateString('ru-RU',{timeZone:'UTC',day:'2-digit',month:'2-digit'})} UTC</small>
+        </>:<small>{previousDayStatus==='error'?'YH / YL: ожидание данных Bybit':'Загружаем YH / YL…'}</small>}
       </div>
       <div className="asc-lite-feed">
         <i className={status==='LIVE'?'is-live':'is-wait'}/>
@@ -45,7 +56,7 @@ function Workspace({symbol,timeframe}:{symbol:string;timeframe:StableTimeframe})
       <div><small>ОБЪЁМ СВЕЧИ</small><b>{fmtVolume(latest?.volume)}</b></div>
     </div>
     <div className="asc-lite-chart-box">
-      <StableCandleChart candles={candles} timeframe={timeframe}/>
+      <StableCandleChart candles={candles} timeframe={timeframe} previousDay={previousDay}/>
       {candles.length<20&&<div className="asc-lite-loading" role="status">
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
@@ -62,6 +73,7 @@ function Workspace({symbol,timeframe}:{symbol:string;timeframe:StableTimeframe})
 export default function StableMarketApp(){
   const[symbol,setSymbol]=useState('BTCUSDT');
   const[timeframe,setTimeframe]=useState<StableTimeframe>('15m');
+  const previousDay=usePreviousDayLevels(symbol);
   const[search,setSearch]=useState('');
   const[inputError,setInputError]=useState('');
   const matches=useMemo(()=>{
@@ -121,7 +133,8 @@ export default function StableMarketApp(){
               className={tf===timeframe?'active':''} onClick={()=>setTimeframe(tf)}>{tf}</button>)}
           </div>
         </div>
-        <Workspace key={symbol+':'+timeframe} symbol={symbol} timeframe={timeframe}/>
+        <Workspace key={symbol+':'+timeframe} symbol={symbol} timeframe={timeframe}
+          previousDay={previousDay.levels} previousDayStatus={previousDay.status}/>
       </section>
     </div>
   </div>;
