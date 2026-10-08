@@ -111,25 +111,78 @@ export default function IndicatorManager({
                   <Eye enabled={settings[item.key]}/>
                 </button>
               </div>
-              {item.key==='fvg'&&expanded==='fvg'&&<div className="asc-indicator-settings">
-                <label>Мин. размер зоны
+              {item.key==='fvg'&&expanded==='fvg'&&<div className="asc-indicator-settings asc-fvg-full-settings">
+                <div className="asc-fvg-settings-section">ТАЙМФРЕЙМЫ FVG</div>
+                <div className="asc-fvg-tf-grid">
+                  {(['1m','3m','5m','15m','30m'] as const).map(tf=>
+                    <label key={tf} className="asc-fvg-tf-item">
+                      <input type="checkbox" checked={settings.fvgTimeframes[tf]}
+                        onChange={e=>onUpdate({fvgTimeframes:{
+                          ...settings.fvgTimeframes,[tf]:e.target.checked}})}/>
+                      {tf}
+                    </label>)}
+                </div>
+                <div className="asc-fvg-settings-section">НАПРАВЛЕНИЕ И РАСЧЁТ</div>
+                {([
+                  ['fvgBullish','Бычьи FVG'],
+                  ['fvgBearish','Медвежьи FVG'],
+                  ['fvgAdaptiveAtr','Показывать размер через ATR'],
+                  ['fvgMidline','Линия 50%'],
+                  ['fvgShowFill','Глубина заполнения'],
+                  ['fvgShowCreated','Время создания'],
+                  ['fvgShowRetest','Время первого ретеста'],
+                  ['fvgShowHistorical','Исторические зоны'],
+                  ['fvgHighlightStructural','Выделение после MSS (при наличии данных)'],
+                  ['fvgOnlyActive','Только активные зоны']
+                ] as const).map(([key,label])=>
+                  <label className="asc-fvg-check" key={key}>
+                    <input type="checkbox" checked={settings[key]}
+                      onChange={e=>onUpdate({[key]:e.target.checked})}/>
+                    <span>{label}</span>
+                  </label>)}
+                <label>ATR length
+                  <select value={settings.fvgAtrLength}
+                    onChange={e=>onUpdate({fvgAtrLength:Number(e.target.value)})}>
+                    {[7,10,14,20,28].map(v=><option key={v} value={v}>{v}</option>)}
+                  </select>
+                </label>
+                <label>Заполнение
+                  <select value={settings.fvgFillMode}
+                    onChange={e=>onUpdate({fvgFillMode:e.target.value as 'wick'|'close'})}>
+                    <option value="wick">По теням · Wick</option>
+                    <option value="close">По закрытиям · Close</option>
+                  </select>
+                </label>
+                <label>Минимальный размер
                   <select value={settings.fvgThreshold}
                     onChange={e=>onUpdate({fvgThreshold:Number(e.target.value)})}>
-                    <option value={0}>Все</option>
+                    <option value={0}>Любой</option>
                     <option value={.02}>0,02%</option>
                     <option value={.05}>0,05%</option>
                     <option value={.1}>0,10%</option>
                   </select>
                 </label>
-                <label>Отображение
+                <label>Какие зоны показывать
                   <select value={settings.fvgViewMode}
                     onChange={e=>onUpdate({fvgViewMode:e.target.value as 'near'|'all'})}>
-                    <option value="near">Ближайшие зоны</option>
-                    <option value="all">Все зоны</option>
+                    <option value="near">Ближайшие к цене</option>
+                    <option value="all">Последние по времени</option>
                   </select>
                 </label>
-                <small>Отображается {fvgVisible} зон · сигналы Core не меняются</small>
-              </div>}
+                <label>Прозрачность · {settings.fvgOpacity}%
+                  <input type="range" min="0" max="100" step="5"
+                    value={settings.fvgOpacity} onChange={e=>onUpdate({
+                      fvgOpacity:Number(e.target.value)})}/>
+                </label>
+                <label>Максимум зон
+                  <select value={settings.fvgMaxZones}
+                    onChange={e=>onUpdate({fvgMaxZones:Number(e.target.value)})}>
+                    {[2,4,6,8,12,16,24,40].map(v=><option key={v} value={v}>{v}</option>)}
+                  </select>
+                </label>
+                <small>На графике {fvgVisible} FVG. Структурная подсветка пока неактивна:
+                  подтверждения от Structure Engine не подключены к этому экрану.</small>
+              </div>
             </div>)}
           </div>;
         })}
