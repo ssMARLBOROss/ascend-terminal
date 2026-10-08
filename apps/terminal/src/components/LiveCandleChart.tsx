@@ -54,7 +54,7 @@ const sessionDefs=[
   {name:'NEW YORK' as const,start:13,end:22,fill:'rgba(181,116,52,.05)',line:'rgba(206,145,74,.27)'}
 ];
 
-type CachedViewport={range:{from:number;to:number};following:boolean};
+type CachedViewport={range:{from:number;to:number};timeRange?:{from:number;to:number};following:boolean};
 type RsiMode='OFF'|'EVENTS'|'PANEL';
 const viewportCache=new Map<string,CachedViewport>();
 
@@ -68,7 +68,9 @@ function validLogicalRange(range:{from:number;to:number}|null|undefined,count:nu
   const from=Number(range.from),to=Number(range.to),width=to-from;
   if(!Number.isFinite(from)||!Number.isFinite(to)||!Number.isFinite(width))return false;
   if(width<5||width>Math.max(1200,count*3))return false;
-  return to>-20&&from<count+20;
+  // A logical range that sits entirely to the right/left of the loaded data produces a blank chart.
+  // Require actual overlap with at least one loaded bar.
+  return to>=0&&from<=count-1;
 }
 
 const eventPriority:Record<string,number>={
@@ -541,6 +543,9 @@ export default function LiveCandleChart({
     followLatestRef.current=cachedViewport?.following??true;
     applyingRangeRef.current=false;
     lastDataLengthRef.current=0;
+    firstTimestampRef.current=undefined;
+    lastTimestampRef.current=undefined;
+    candleCountRef.current=0;
     setPinnedTime(undefined);
     setSelectedMarketEvent(undefined);
     setEventPopupPoint(undefined);
@@ -675,7 +680,8 @@ export default function LiveCandleChart({
         if(validLogicalRange(normalized,candleCountRef.current)){
           const lastIndex=Math.max(0,candleCountRef.current-1);
           followLatestRef.current=Number(logical.to)>=lastIndex+2;
-          viewportCache.set(viewportKey,{range:normalized,following:followLatestRef.current});
+          const tr=chart.timeScale().getVisibleRange();
+          viewportCache.set(viewportKey,{range:normalized,timeRange:tr&&typeof tr.from==='number'&&typeof tr.to==='number'?{from:Number(tr.from),to:Number(tr.to)}:undefined,following:followLatestRef.current});
         }
       }
       if(logical&&rsiChartRef.current&&!rsiSyncingRef.current){
@@ -710,7 +716,8 @@ export default function LiveCandleChart({
       if(logical){
         const normalized={from:Number(logical.from),to:Number(logical.to)};
         if(validLogicalRange(normalized,candleCountRef.current)){
-          viewportCache.set(viewportKey,{range:normalized,following:followLatestRef.current});
+          const tr=chart.timeScale().getVisibleRange();
+          viewportCache.set(viewportKey,{range:normalized,timeRange:tr&&typeof tr.from==='number'&&typeof tr.to==='number'?{from:Number(tr.from),to:Number(tr.to)}:undefined,following:followLatestRef.current});
         }
       }
       resize.disconnect();
@@ -776,11 +783,15 @@ export default function LiveCandleChart({
       }else{
         const viewportKeyNow=`${symbol}:${timeframe}`;
         const cached=viewportCache.get(viewportKeyNow);
-        if(cached?.range&&validLogicalRange(cached.range,candles.length)){
-          chart.timeScale().setVisibleLogicalRange(cached.range);
+        const firstSec=Math.floor(candles[0].timestamp/1000);
+        const lastSec=Math.floor(candles[candles.length-1].timestamp/1000);
+        const cachedTimeOk=Boolean(cached?.timeRange&&cached.timeRange.to>=firstSec&&cached.timeRange.from<=lastSec);
+        if(cachedTimeOk&&cached?.timeRange){
+          chart.timeScale().setVisibleRange({from:cached.timeRange.from as UTCTimestamp,to:cached.timeRange.to as UTCTimestamp});
           followLatestRef.current=cached.following;
         }else{
-          if(cached)viewportCache.delete(viewportKeyNow);
+          if(cached&&!cachedTimeOk)viewportCache.delete(viewportKeyNow);
+          chart.timeScale().fitContent();
           const width=Math.min(windowSize,Math.max(40,candles.length));
           const to=candles.length-1+6;
           chart.timeScale().setVisibleLogicalRange({from:Math.max(0,to-width),to});
@@ -951,7 +962,8 @@ export default function LiveCandleChart({
       try{
         chartRef.current.timeScale().setVisibleLogicalRange({from:Number(range.from),to:Number(range.to)});
         visibleLogicalRef.current={from:Number(range.from),to:Number(range.to)};
-        viewportCache.set(`${symbol}:${timeframe}`,{range:{from:Number(range.from),to:Number(range.to)},following:followLatestRef.current});
+        const tr=chartRef.current?.timeScale().getVisibleRange();
+        viewportCache.set(`${symbol}:${timeframe}`,{range:{from:Number(range.from),to:Number(range.to)},timeRange:tr&&typeof tr.from==='number'&&typeof tr.to==='number'?{from:Number(tr.from),to:Number(tr.to)}:undefined,following:followLatestRef.current});
       }catch{}
       window.setTimeout(()=>{rsiSyncingRef.current=false},0);
     };
