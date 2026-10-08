@@ -54,7 +54,7 @@ export function drawSessionBands(
   if(!logical)return;
   const timeScale=chart.timeScale();
   const plotWidth=Math.min(width,timeScale.width());
-  const plotTop=137; // Reserve room for the slightly larger, bolder session ribbon.
+  const plotTop=155; // Keep labels below the larger session ribbon.
   const plotBottom=Math.max(plotTop,height-28);
   if(plotBottom<=plotTop||plotWidth<=0)return;
 
@@ -92,16 +92,16 @@ export function drawSessionBands(
     ctx.beginPath();ctx.moveTo(Math.round(x)+.5,plotTop);ctx.lineTo(Math.round(x)+.5,plotBottom);ctx.stroke();
     ctx.setLineDash([]);
     if(label){
-      ctx.font='700 11px Inter,system-ui,sans-serif';
-      const length=ctx.measureText(label).width+16;
+      ctx.font='800 13px Inter,system-ui,sans-serif';
+      const length=ctx.measureText(label).width+20;
       const row=topOffset===0?0:1;
       // Omit only the text if there is not enough space; keep session boundaries.
       if(x+length+3<=plotWidth&&x>=lastLabelEnd[row]+8){
         const y=plotTop+5+topOffset;
         ctx.fillStyle='rgba(5,16,24,.93)';
-        ctx.fillRect(x+3,y,length,20);
+        ctx.fillRect(x+3,y,length,23);
         ctx.fillStyle=color;
-        ctx.fillText(label,x+11,y+14);
+        ctx.fillText(label,x+11,y+17);
         lastLabelEnd[row]=x+length+3;
       }
     }
@@ -126,7 +126,7 @@ export function drawSessionBands(
       const closeAt=day+session.to*HOUR_MS;
       line(openAt,theme.short+' '+pad(session.from),theme.line,0);
       // Close is a dashed boundary, labelled on the lower row to avoid collisions.
-      line(closeAt,pad(session.to),theme.line,21);
+      line(closeAt,pad(session.to),theme.line,26);
     }
   }
 }

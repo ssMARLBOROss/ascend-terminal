@@ -29,7 +29,7 @@ export default function StableCandleChart({candles,timeframe}:{candles:Candle[];
       height:Math.max(1,host.clientHeight),
       layout:{
         background:{type:ColorType.Solid,color:'#07121c'},
-        textColor:'#c7d5df',fontFamily:'Inter,system-ui,sans-serif',fontSize:13
+        textColor:'#d6e4ed',fontFamily:'Inter,system-ui,sans-serif',fontSize:14
       },
       grid:{
         vertLines:{color:'rgba(40,74,95,.24)'},

@@ -254,3 +254,34 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
   .asc-session-ribbon-card span,.asc-session-ribbon-card em{font-size:10px}
   .asc-session-ribbon-transitions span{font-size:10px}
 }
+
+/* Readability V2: bigger session text, stronger weight; no extra polling or computation. */
+.asc-session-ribbon-head strong{font-size:14px;font-weight:900;letter-spacing:.02em}
+.asc-session-ribbon-head button{font-size:12px;font-weight:800}
+.asc-session-ribbon-card b{font-size:14px;font-weight:900}
+.asc-session-ribbon-card span{font-size:13px;font-weight:700;line-height:1.35}
+.asc-session-ribbon-card em{font-size:13px;font-weight:800;line-height:1.35}
+.asc-session-ribbon-transitions span{font-size:12px;font-weight:800;line-height:1.25}
+.asc-session-ribbon-card{padding:8px 10px}
+.asc-session-ribbon-cards{gap:8px}
+.asc-session-ribbon{gap:8px}
+.asc-session-panel.in-chart.compact{padding:9px 12px}
+.asc-lite-stats small{font-size:12px;font-weight:800}
+.asc-lite-stats b{font-size:16px;font-weight:800}
+.asc-lite-pair span{font-size:12px;font-weight:700}
+.asc-lite-feed b,.asc-lite-feed small{font-size:13px;font-weight:800}
+.asc-lite-timeframe-bar small{font-size:11px;font-weight:800}
+.asc-lite-chart-footer{font-size:12px;font-weight:700}
+.asc-session-panel.in-chart.expanded .asc-session-head strong{font-size:15px;font-weight:900}
+.asc-session-panel.in-chart.expanded .asc-session-card-top b{font-size:15px;font-weight:900}
+.asc-session-panel.in-chart.expanded .asc-session-countdown span,
+.asc-session-panel.in-chart.expanded .asc-session-countdown b,
+.asc-session-panel.in-chart.expanded .asc-session-transition span,
+.asc-session-panel.in-chart.expanded .asc-session-transition b,
+.asc-session-panel.in-chart.expanded .asc-session-transition small{font-size:13px;font-weight:800}
+@media(max-width:680px){
+ .asc-session-ribbon-head strong{font-size:12px}
+ .asc-session-ribbon-card b{font-size:13px}
+ .asc-session-ribbon-card span,.asc-session-ribbon-card em{font-size:12px}
+ .asc-session-ribbon-transitions span{font-size:11px}
+}
