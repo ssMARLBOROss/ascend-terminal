@@ -148,3 +148,31 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
  .asc-session-time-ticks{font-size:7px}
  .asc-session-timeline{padding:9px 7px}
 }
+
+
+/* Compact by default so session metadata never hides the live chart below the fold. */
+.asc-session-expand{border:1px solid #295470;background:#103148;color:#a7d3e5;border-radius:6px;font-size:10px;padding:6px 9px;white-space:nowrap}
+.asc-session-expand:hover{border-color:#57a1bc;color:#e0f8ff}
+.asc-session-panel.compact{padding:9px 12px}
+.asc-session-panel.compact .asc-session-head small{display:none}
+.asc-session-panel.compact .asc-session-cards{margin-top:8px}
+.asc-session-panel.compact .asc-session-card{padding:7px 9px}
+.asc-session-panel.compact .asc-session-card-top small,
+.asc-session-panel.compact .asc-session-kyiv,
+.asc-session-panel.compact .asc-session-progress,
+.asc-session-panel.compact .asc-session-timeline,
+.asc-session-panel.compact .asc-session-disclaimer{display:none}
+.asc-session-panel.compact .asc-session-card-top b{font-size:11px}
+.asc-session-panel.compact .asc-session-range{margin-top:7px;align-items:center}
+.asc-session-panel.compact .asc-session-range strong{font-size:13px}
+.asc-session-panel.compact .asc-session-countdown{margin-top:6px}
+.asc-session-panel.compact .asc-session-transition{padding:6px 8px;flex-direction:row;gap:6px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.asc-session-panel.compact .asc-session-transition span{font-size:9px}
+.asc-session-panel.compact .asc-session-transition b{font-size:10px}
+.asc-session-panel.compact .asc-session-transition small{font-size:9px}
+.asc-session-panel.compact .asc-session-transitions{margin-top:7px}
+.asc-session-panel.compact .asc-session-bottom{margin-top:7px}
+@media(max-width:700px){
+ .asc-session-panel.compact .asc-session-cards{grid-template-columns:1fr}
+ .asc-session-panel.compact .asc-session-transitions{grid-template-columns:1fr}
+}

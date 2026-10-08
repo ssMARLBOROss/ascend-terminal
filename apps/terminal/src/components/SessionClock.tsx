@@ -45,6 +45,7 @@ function kyivInterval(utcDay:number,from:number,to:number){
 type SessionState='ACTIVE'|'UPCOMING'|'ENDED';
 
 export default function SessionClock(){
+  const[expanded,setExpanded]=useState(false);
   const[nowMs,setNowMs]=useState(()=>Date.now());
   useEffect(()=>{
     const update=()=>setNowMs(Date.now());
@@ -88,13 +89,14 @@ export default function SessionClock(){
       utcNow:clockUtc(utcMinute),active:sessions.filter(s=>s.state==='ACTIVE').map(s=>s.name)};
   },[nowMs]);
 
-  return <section className="asc-session-panel" aria-label="Торговые сессии и переходы">
+  return <section className={"asc-session-panel "+(expanded?"expanded":"compact")} aria-label="Торговые сессии и переходы">
     <div className="asc-session-head">
       <div><strong>ТОРГОВЫЕ СЕССИИ · SESSION MAP</strong>
         <small>Наблюдаемые окна ASCEND · UTC постоянно, Киев с переходом на летнее/зимнее время</small>
       </div>
       <div className="asc-session-clocks">
         <span>UTC <b>{model.utcNow}</b></span><span>КИЕВ <b>{model.kyivNow}</b></span>
+        <button type="button" className="asc-session-expand" aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded?"СВЕРНУТЬ":"РАЗВЕРНУТЬ"} {expanded?"−":"+"}</button>
       </div>
     </div>
     <div className="asc-session-cards">
