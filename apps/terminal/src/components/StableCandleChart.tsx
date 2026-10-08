@@ -5,14 +5,16 @@ import {
 } from 'lightweight-charts';
 import type {Candle} from '@ascend/contracts';
 import type {PreviousDayLevels} from '../market/usePreviousDayLevels';
+import type {PreviousSessionLevels} from '../market/usePreviousSessionLevels';
 import SessionClock from './SessionClock';
 import {drawSessionBands} from './drawSessionBands';
 
 type Snapshot={first?:number;last?:number;length:number};
 
 /** Bounded session canvas only; no indicator computations or extra market subscriptions. */
-export default function StableCandleChart({candles,timeframe,previousDay}:{
+export default function StableCandleChart({candles,timeframe,previousDay,previousSessions}:{
   candles:Candle[];timeframe:string;previousDay?:PreviousDayLevels;
+  previousSessions?:PreviousSessionLevels;
 }){
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
@@ -112,6 +114,28 @@ export default function StableCandleChart({candles,timeframe,previousDay}:{
       series.removePriceLine(lowLine);
     };
   },[previousDay]);
+
+  // Yesterday's 3 session ranges are frozen lines: no recalculation on ticks.
+  // Original YH/YL remain 4px solid; session levels are 2px dashed.
+  useEffect(()=>{
+    const series=priceRef.current;
+    if(!series||!previousSessions)return;
+    const abbreviations:Record<string,string>={ASIA:'AS',LONDON:'LD',NEW_YORK:'NY'};
+    const lines=previousSessions.sessions.flatMap(session=>{
+      const code=abbreviations[session.id]??session.id;
+      return [
+        series.createPriceLine({
+          price:session.high,color:'#25ac67',lineWidth:2,
+          lineStyle:LineStyle.Dashed,axisLabelVisible:true,title:code+'-H'
+        }),
+        series.createPriceLine({
+          price:session.low,color:'#d65060',lineWidth:2,
+          lineStyle:LineStyle.Dashed,axisLabelVisible:true,title:code+'-L'
+        })
+      ];
+    });
+    return()=>{for(const line of lines)series.removePriceLine(line)};
+  },[previousSessions]);
 
   useEffect(()=>{
     const chart=chartRef.current;

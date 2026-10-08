@@ -2,6 +2,7 @@ import {useMemo,useState} from 'react';
 import StableCandleChart from './components/StableCandleChart';
 import {STABLE_TIMEFRAMES,useStableMarket,type StableTimeframe} from './market/useStableMarket';
 import {usePreviousDayLevels,type PreviousDayLevels} from './market/usePreviousDayLevels';
+import {usePreviousSessionLevels,type PreviousSessionLevels} from './market/usePreviousSessionLevels';
 
 const FAVORITES=[
   'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT',
@@ -21,9 +22,10 @@ function fmtVolume(value?:number){
   return value.toLocaleString('ru-RU',{maximumFractionDigits:2});
 }
 
-function Workspace({symbol,timeframe,previousDay,previousDayStatus}:{
+function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus}:{
   symbol:string;timeframe:StableTimeframe;
   previousDay?:PreviousDayLevels;previousDayStatus:'loading'|'ready'|'error';
+  previousSessions?:PreviousSessionLevels;previousSessionsStatus:'loading'|'ready'|'error';
 }){
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
   const latest=candles[candles.length-1];
@@ -56,10 +58,28 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus}:{
       <div><small>ОБЪЁМ СВЕЧИ</small><b>{fmtVolume(latest?.volume)}</b></div>
     </div>
     <div className="asc-lite-chart-box">
-      <StableCandleChart candles={candles} timeframe={timeframe} previousDay={previousDay}/>
+      <StableCandleChart candles={candles} timeframe={timeframe} previousDay={previousDay}
+        previousSessions={previousSessions}/>
       {candles.length<20&&<div className="asc-lite-loading" role="status">
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
+      </div>}
+    </div>
+    <div className="asc-prev-session-strip" aria-label="Максимумы и минимумы вчерашних сессий">
+      <div className="asc-prev-session-title">
+        <b>ВЧЕРА · СЕССИИ</b>
+        <small>{previousSessions?
+          new Date(previousSessions.dayStartUtc).toLocaleDateString('ru-RU',{timeZone:'UTC',day:'2-digit',month:'2-digit'})+' · UTC · 5m Bybit':
+          previousSessionsStatus==='error'?'Ожидание полной истории Bybit · повтор автоматически':'Загрузка уровней…'}</small>
+      </div>
+      {previousSessions&&<div className="asc-prev-session-list">
+        {previousSessions.sessions.map(session=><div key={session.id}
+          className={'asc-prev-session-item '+session.id.toLowerCase()}>
+          <b>{session.name}</b>
+          <span><em>H</em> {fmtPrice(session.high)}</span>
+          <span><em>L</em> {fmtPrice(session.low)}</span>
+          <small>{String(session.from).padStart(2,'0')}:00–{String(session.to).padStart(2,'0')}:00</small>
+        </div>)}
       </div>}
     </div>
     <footer className="asc-lite-chart-footer">
@@ -74,6 +94,7 @@ export default function StableMarketApp(){
   const[symbol,setSymbol]=useState('BTCUSDT');
   const[timeframe,setTimeframe]=useState<StableTimeframe>('15m');
   const previousDay=usePreviousDayLevels(symbol);
+  const previousSessions=usePreviousSessionLevels(symbol);
   const[search,setSearch]=useState('');
   const[inputError,setInputError]=useState('');
   const matches=useMemo(()=>{
@@ -134,7 +155,8 @@ export default function StableMarketApp(){
           </div>
         </div>
         <Workspace key={symbol+':'+timeframe} symbol={symbol} timeframe={timeframe}
-          previousDay={previousDay.levels} previousDayStatus={previousDay.status}/>
+          previousDay={previousDay.levels} previousDayStatus={previousDay.status}
+          previousSessions={previousSessions.levels} previousSessionsStatus={previousSessions.status}/>
       </section>
     </div>
   </div>;

@@ -306,3 +306,26 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
  .asc-lite-daily-level strong{font-size:13px}
  .asc-lite-daily-levels{gap:5px}
 }
+
+/* Previous day's three frozen UTC session ranges. Positioned below, not over candles. */
+.asc-prev-session-strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:9px 12px;border-top:1px solid #24465b;background:#071925}
+.asc-prev-session-title{display:flex;flex-direction:column;gap:3px;min-width:145px}
+.asc-prev-session-title b{font-size:12px;font-weight:900;letter-spacing:.06em;color:#d9eaf1}
+.asc-prev-session-title small{font-size:10px;font-weight:700;color:#95b0c2}
+.asc-prev-session-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;flex:1;min-width:0}
+.asc-prev-session-item{display:flex;align-items:center;gap:5px 9px;flex-wrap:wrap;
+  padding:7px 9px;border:1px solid #315a75;border-left:3px solid #4b9bca;
+  border-radius:5px;background:#0b2330;min-width:0}
+.asc-prev-session-item.london{border-left-color:#ad83cd}
+.asc-prev-session-item.new_york{border-left-color:#d9aa68}
+.asc-prev-session-item>b{font-size:12px;font-weight:900;min-width:49px}
+.asc-prev-session-item span{color:#ebf2f7;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.asc-prev-session-item span em{font-size:12px;font-weight:900;font-style:normal;color:#34d47c}
+.asc-prev-session-item span:nth-of-type(2) em{color:#ff5969}
+.asc-prev-session-item small{color:#8daabe;font-size:10px;font-weight:700}
+@media(max-width:1050px){
+  .asc-prev-session-title{min-width:0;width:100%}
+  .asc-prev-session-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:710px){.asc-prev-session-list{grid-template-columns:1fr}}
