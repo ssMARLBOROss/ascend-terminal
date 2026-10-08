@@ -5,7 +5,7 @@ import {resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 
 const output=resolve(tmpdir(),'ascend-fvg-context-engine-test.mjs');
-await build({entryPoints:['apps/terminal/src/market/fvgContextEngine.ts'],
+await build({entryPoints:['src/market/fvgContextEngine.ts'],
   outfile:output,platform:'node',format:'esm',bundle:true,logLevel:'silent'});
 const {computeFvgContext,distanceToFvg,summariseFvg}=await import(pathToFileURL(output).href);
 const STEP=300000,START=1750000000000;
