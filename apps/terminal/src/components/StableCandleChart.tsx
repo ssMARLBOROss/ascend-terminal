@@ -10,18 +10,20 @@ import type {DailyVwap} from '../market/useDailyVwap';
 import type {OrderbookSnapshot} from '../market/useOrderbookClusters';
 import type {TpoProfile} from '../market/useLiveMarketMetrics';
 import {drawLiquidityOverlay,estimateStopZones} from './drawLiquidityOverlay';
-import {drawFvgOverlay,type FvgZone} from './fvgOverlay';
+import {drawFvgOverlay,type FvgAppearance} from './fvgOverlay';
+import type {FvgRecord} from '../market/fvgContextEngine';
 import SessionClock from './SessionClock';
 import {drawSessionBands} from './drawSessionBands';
 
 type Snapshot={first?:number;last?:number;length:number};
 
 /** Bounded session canvas only; no indicator computations or extra market subscriptions. */
-export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,focusRequest,showVolume,showVwap,showSessions,showSessionClock,showDayLevels,showSessionLevels}:{
+export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,fvgAppearance,focusRequest,showVolume,showVwap,showSessions,showSessionClock,showDayLevels,showSessionLevels}:{
   candles:Candle[];timeframe:string;previousDay?:PreviousDayLevels;
   previousSessions?:PreviousSessionLevels;dailyVwap?:DailyVwap;
   orderbook?:OrderbookSnapshot;showBook:boolean;showStops:boolean;
-  tpo?:TpoProfile;showTpo:boolean;fvgZones:FvgZone[];showFvg:boolean;
+  tpo?:TpoProfile;showTpo:boolean;fvgZones:FvgRecord[];showFvg:boolean;
+  fvgAppearance:FvgAppearance;
   focusRequest:number;
   showVolume:boolean;showVwap:boolean;showSessions:boolean;showSessionClock:boolean;
   showDayLevels:boolean;showSessionLevels:boolean;
@@ -33,8 +35,8 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
   const stopZones=useMemo(()=>estimateStopZones(previousDay,previousSessions),[previousDay,previousSessions]);
   const liquidityViewRef=useRef({orderbook,showBook,showStops,stopZones,tpo,showTpo});
   liquidityViewRef.current={orderbook,showBook,showStops,stopZones,tpo,showTpo};
-  const fvgViewRef=useRef({fvgZones,showFvg});
-  fvgViewRef.current={fvgZones,showFvg};
+  const fvgViewRef=useRef({fvgZones,showFvg,fvgAppearance});
+  fvgViewRef.current={fvgZones,showFvg,fvgAppearance};
   const sessionsVisibleRef=useRef(showSessions);
   sessionsVisibleRef.current=showSessions;
   const candlesRef=useRef(candles);
@@ -104,7 +106,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
         if(priceRef.current&&fvgOverlayRef.current){
           const view=fvgViewRef.current;
           drawFvgOverlay(chart,priceRef.current,host,fvgOverlayRef.current,
-            view.fvgZones,view.showFvg,candlesRef.current.length-1);
+            candlesRef.current,timeframe,view.fvgZones,view.showFvg,view.fvgAppearance);
         }
       });
     };
@@ -136,7 +138,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
 
   // Book snapshots and frozen historical reference zones redraw only the overlay.
   // No candle updates, zoom reset, or new chart subscriptions.
-  useEffect(()=>{redrawRef.current()},[orderbook,showBook,showStops,stopZones,tpo,showTpo,fvgZones,showFvg]);
+  useEffect(()=>{redrawRef.current()},[orderbook,showBook,showStops,stopZones,tpo,showTpo,fvgZones,showFvg,fvgAppearance]);
 
   // User-controlled recenter. Does not reset pan/zoom on subsequent live ticks.
   useEffect(()=>{

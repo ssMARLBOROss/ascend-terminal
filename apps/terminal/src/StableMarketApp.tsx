@@ -8,7 +8,9 @@ import {useOrderbookClusters} from './market/useOrderbookClusters';
 import WeekOverlayCompare from './components/WeekOverlayCompare';
 import LiveMarketPanels from './components/LiveMarketPanels';
 import {useLiveMarketMetrics} from './market/useLiveMarketMetrics';
-import {computeFvgZones,selectFvgZones} from './components/fvgOverlay';
+import {selectFvgZones,type FvgAppearance} from './components/fvgOverlay';
+import {useFvgResearch} from './market/useFvgResearch';
+import FvgDetailsPanel from './components/FvgDetailsPanel';
 import IndicatorManager from './components/IndicatorManager';
 import {loadIndicatorSettings,DEFAULT_INDICATORS,STORAGE_KEY,
   type IndicatorSettings,type IndicatorKey} from './market/indicatorSettings';
@@ -42,17 +44,27 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
 }){
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
   const[focusRequest,setFocusRequest]=useState(0);
+  const[selectedFvgId,setSelectedFvgId]=useState<string>();
   const liquidity=useOrderbookClusters(symbol,settings.book);
-  const fvgZones=useMemo(()=>computeFvgZones(candles,timeframe,settings.fvgThreshold),
-    [candles,timeframe,settings.fvgThreshold]);
-  const fvgOpen=fvgZones.filter(z=>z.status!=='FILLED');
-  const bullCount=fvgOpen.filter(z=>z.side==='bull').length;
-  const bearCount=fvgOpen.filter(z=>z.side==='bear').length;
-  const touchedCount=fvgOpen.filter(z=>z.status==='TOUCHED').length;
+  const engineSettings=useMemo(()=>({
+    atrLength:settings.fvgAtrLength,fillMode:settings.fvgFillMode,
+    minGapPercent:settings.fvgThreshold
+  }),[settings.fvgAtrLength,settings.fvgFillMode,settings.fvgThreshold]);
+  const fvgResearch=useFvgResearch(symbol,timeframe,candles,settings.fvgTimeframes,
+    engineSettings,previousDay,previousSessions);
   const latest=candles[candles.length-1];
   const displayPrice=lastPrice??latest?.close;
+  const fvgAppearance=useMemo<FvgAppearance>(()=>({
+    bullish:settings.fvgBullish,bearish:settings.fvgBearish,
+    midline:settings.fvgMidline,showFill:settings.fvgShowFill,
+    showCreated:settings.fvgShowCreated,showRetest:settings.fvgShowRetest,
+    showHistorical:settings.fvgShowHistorical,activeOnly:settings.fvgOnlyActive,
+    opacity:settings.fvgOpacity,maxZones:settings.fvgMaxZones,
+    selectedId:selectedFvgId
+  }),[settings,selectedFvgId]);
   const shownFvg=useMemo(()=>selectFvgZones(
-    fvgZones,displayPrice??0,settings.fvgViewMode),[fvgZones,displayPrice,settings.fvgViewMode]);
+    fvgResearch.zones,displayPrice??0,settings.fvgViewMode,fvgAppearance
+  ),[fvgResearch.zones,displayPrice,settings.fvgViewMode,fvgAppearance]);
 
   return <main className="asc-lite-workspace">
     <div className="asc-lite-toolbar">
@@ -103,7 +115,8 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         orderbook={liquidity.status==='ready'?liquidity.snapshot:undefined}
         showBook={settings.book} showStops={settings.stops}
         tpo={liveMetrics.tpo.status==='ready'?liveMetrics.tpo.data:undefined} showTpo={settings.tpo}
-        fvgZones={shownFvg} showFvg={settings.fvg} focusRequest={focusRequest}
+        fvgZones={shownFvg} showFvg={settings.fvg} fvgAppearance={fvgAppearance}
+        focusRequest={focusRequest}
         showVolume={settings.volume} showVwap={settings.vwap}
         showSessions={settings.sessions} showSessionClock={settings.sessionClock}
         showDayLevels={settings.dayLevels} showSessionLevels={settings.sessionLevels}/>
@@ -112,6 +125,11 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         <span>{error??'График появится после получения истории Bybit REST'}</span>
       </div>}
     </div>
+    {settings.fvg&&<FvgDetailsPanel symbol={symbol}
+      records={fvgResearch.zones} journal={fvgResearch.journal}
+      selectedId={selectedFvgId} onSelect={setSelectedFvgId}
+      price={displayPrice} zoneTimeframes={fvgResearch.loadedTimeframes}
+      errors={fvgResearch.errors}/>}
     {settings.week&&<WeekOverlayCompare symbol={symbol}/>}
     <LiveMarketPanels symbol={symbol} {...liveMetrics} visibility={settings}/>
     {settings.sessionLevels&&<div className="asc-prev-session-strip" aria-label="Максимумы и минимумы вчерашних сессий">

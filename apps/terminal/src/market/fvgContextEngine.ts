@@ -91,9 +91,10 @@ export function computeFvgContext(
     const tr=Math.max(current.high-current.low,
       Math.abs(current.high-prev),Math.abs(current.low-prev));
     chain++;
-    if(chain<=window)running+=tr;
+    if(chain<window)running+=tr;
+    else if(chain===window)running=(running+tr)/window;
     else running=(running*(window-1)+tr)/window;
-    const atr=chain>=window?(chain===window?running/window:running):null;
+    const atr=chain>=window?running:null;
     atrSeries[i]=atr;
 
     for(const z of output){

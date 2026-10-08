@@ -182,7 +182,7 @@ export default function IndicatorManager({
                 </label>
                 <small>На графике {fvgVisible} FVG. Структурная подсветка пока неактивна:
                   подтверждения от Structure Engine не подключены к этому экрану.</small>
-              </div>
+              </div>}
             </div>)}
           </div>;
         })}
