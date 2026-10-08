@@ -100,12 +100,12 @@ export default function StableCandleChart({candles,timeframe,previousDay}:{
     const series=priceRef.current;
     if(!series||!previousDay)return;
     const highLine=series.createPriceLine({
-      price:previousDay.high,color:'#f2b66c',lineWidth:2,
-      lineStyle:LineStyle.Dashed,axisLabelVisible:true,title:'YH'
+      price:previousDay.high,color:'#2fd46f',lineWidth:4,
+      lineStyle:LineStyle.Solid,axisLabelVisible:true,title:'YH'
     });
     const lowLine=series.createPriceLine({
-      price:previousDay.low,color:'#63d5e1',lineWidth:2,
-      lineStyle:LineStyle.Dashed,axisLabelVisible:true,title:'YL'
+      price:previousDay.low,color:'#ff4d57',lineWidth:4,
+      lineStyle:LineStyle.Solid,axisLabelVisible:true,title:'YL'
     });
     return()=>{
       series.removePriceLine(highLine);
