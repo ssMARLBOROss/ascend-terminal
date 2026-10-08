@@ -4,12 +4,18 @@ import {
   type IChartApi,type ISeriesApi,type UTCTimestamp
 } from 'lightweight-charts';
 import type {Candle} from '@ascend/contracts';
+import SessionClock from './SessionClock';
+import {drawSessionBands} from './drawSessionBands';
 
 type Snapshot={first?:number;last?:number;length:number};
 
-/** No overlays, indicator recomputations, crosshair mirroring or range listeners. */
-export default function StableCandleChart({candles}:{candles:Candle[]}){
+/** Bounded session canvas only; no indicator computations or extra market subscriptions. */
+export default function StableCandleChart({candles,timeframe}:{candles:Candle[];timeframe:string}){
   const hostRef=useRef<HTMLDivElement|null>(null);
+  const overlayRef=useRef<HTMLCanvasElement|null>(null);
+  const candlesRef=useRef(candles);
+  const redrawRef=useRef<()=>void>(()=>{});
+  candlesRef.current=candles;
   const chartRef=useRef<IChartApi|null>(null);
   const priceRef=useRef<ISeriesApi<'Candlestick'>|null>(null);
   const volumeRef=useRef<ISeriesApi<'Histogram'>|null>(null);
@@ -51,21 +57,40 @@ export default function StableCandleChart({candles}:{candles:Candle[]}){
     volumeRef.current=volume;
     snapshotRef.current={length:0};
 
+    // Coalesce pan/zoom/resize and live-candle requests into one canvas frame.
+    let overlayFrame:number|undefined;
+    const scheduleOverlay=()=>{
+      if(overlayFrame!==undefined)return;
+      overlayFrame=window.requestAnimationFrame(()=>{
+        overlayFrame=undefined;
+        if(chartRef.current!==chart||!overlayRef.current)return;
+        drawSessionBands(chart,host,overlayRef.current,candlesRef.current,timeframe);
+      });
+    };
+    redrawRef.current=scheduleOverlay;
+    chart.timeScale().subscribeVisibleLogicalRangeChange(scheduleOverlay);
     const resize=new ResizeObserver(()=>{
       if(chartRef.current!==chart)return;
       const width=host.clientWidth,height=host.clientHeight;
-      if(width>0&&height>0)chart.applyOptions({width,height});
+      if(width>0&&height>0){
+        chart.applyOptions({width,height});
+        scheduleOverlay();
+      }
     });
     resize.observe(host);
+    scheduleOverlay();
     return()=>{
       resize.disconnect();
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(scheduleOverlay);
+      if(overlayFrame!==undefined)window.cancelAnimationFrame(overlayFrame);
+      redrawRef.current=()=>{};
       chartRef.current=null;
       priceRef.current=null;
       volumeRef.current=null;
       snapshotRef.current={length:0};
       chart.remove();
     };
-  },[]);
+  },[timeframe]);
 
   useEffect(()=>{
     const chart=chartRef.current;
@@ -109,7 +134,13 @@ export default function StableCandleChart({candles}:{candles:Candle[]}){
       chart.timeScale().setVisibleLogicalRange({from,to:candles.length+5});
     }
     snapshotRef.current={first,last,length:candles.length};
+    redrawRef.current();
   },[candles]);
 
-  return <div className="asc-lite-chart-host" ref={hostRef} role="img" aria-label="Живой свечной график Bybit с объёмом"/>;
+  return <div className="asc-lite-chart-stage">
+    <div className="asc-lite-chart-host" ref={hostRef} role="img" aria-label="Живой свечной график Bybit с объёмом и зонами сессий"/>
+    <canvas className="asc-lite-session-canvas" ref={overlayRef} aria-hidden="true"/>
+    <SessionClock embedded/>
+    {timeframe==='1D'&&<span className="asc-session-daily-note">Сессионные зоны по часам показаны на таймфреймах до 4H</span>}
+  </div>;
 }
