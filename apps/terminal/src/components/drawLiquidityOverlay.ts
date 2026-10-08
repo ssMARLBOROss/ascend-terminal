@@ -2,6 +2,7 @@ import type {IChartApi,ISeriesApi} from 'lightweight-charts';
 import type {PreviousDayLevels} from '../market/usePreviousDayLevels';
 import type {PreviousSessionLevels} from '../market/usePreviousSessionLevels';
 import type {OrderbookSnapshot} from '../market/useOrderbookClusters';
+import type {TpoProfile} from '../market/useLiveMarketMetrics';
 
 export type StopZone={
   id:string;side:'high'|'low';low:number;high:number;center:number;
@@ -57,7 +58,9 @@ export function drawLiquidityOverlay(
   orderbook:OrderbookSnapshot|undefined,
   stopZones:StopZone[],
   showBook:boolean,
-  showStops:boolean
+  showStops:boolean,
+  tpo:TpoProfile|undefined,
+  showTpo:boolean
 ){
   const width=host.clientWidth,height=host.clientHeight;
   if(width<1||height<1)return;
@@ -81,6 +84,18 @@ export function drawLiquidityOverlay(
   ctx.beginPath();
   ctx.rect(0,top,plotWidth,bottom-top);
   ctx.clip();
+
+  // Faint, price-anchored rolling Value Area. Prices come from closed bars.
+  if(showTpo&&tpo&&tpo.vah>tpo.val){
+    const upper=priceY(tpo.vah),lower=priceY(tpo.val);
+    if(upper!==null&&lower!==null){
+      const y=Math.min(upper,lower),h=Math.abs(lower-upper);
+      if(Number.isFinite(y)&&Number.isFinite(h)&&h>0){
+        ctx.fillStyle='rgba(156,109,211,.050)';
+        ctx.fillRect(0,y,plotWidth,h);
+      }
+    }
+  }
 
   if(showStops){
     for(const z of stopZones){

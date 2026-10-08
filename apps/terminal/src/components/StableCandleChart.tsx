@@ -8,6 +8,7 @@ import type {PreviousDayLevels} from '../market/usePreviousDayLevels';
 import type {PreviousSessionLevels} from '../market/usePreviousSessionLevels';
 import type {DailyVwap} from '../market/useDailyVwap';
 import type {OrderbookSnapshot} from '../market/useOrderbookClusters';
+import type {TpoProfile} from '../market/useLiveMarketMetrics';
 import {drawLiquidityOverlay,estimateStopZones} from './drawLiquidityOverlay';
 import SessionClock from './SessionClock';
 import {drawSessionBands} from './drawSessionBands';
@@ -15,17 +16,18 @@ import {drawSessionBands} from './drawSessionBands';
 type Snapshot={first?:number;last?:number;length:number};
 
 /** Bounded session canvas only; no indicator computations or extra market subscriptions. */
-export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops}:{
+export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo}:{
   candles:Candle[];timeframe:string;previousDay?:PreviousDayLevels;
   previousSessions?:PreviousSessionLevels;dailyVwap?:DailyVwap;
   orderbook?:OrderbookSnapshot;showBook:boolean;showStops:boolean;
+  tpo?:TpoProfile;showTpo:boolean;
 }){
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
   const liquidityOverlayRef=useRef<HTMLCanvasElement|null>(null);
   const stopZones=useMemo(()=>estimateStopZones(previousDay,previousSessions),[previousDay,previousSessions]);
-  const liquidityViewRef=useRef({orderbook,showBook,showStops,stopZones});
-  liquidityViewRef.current={orderbook,showBook,showStops,stopZones};
+  const liquidityViewRef=useRef({orderbook,showBook,showStops,stopZones,tpo,showTpo});
+  liquidityViewRef.current={orderbook,showBook,showStops,stopZones,tpo,showTpo};
   const candlesRef=useRef(candles);
   const redrawRef=useRef<()=>void>(()=>{});
   candlesRef.current=candles;
@@ -87,7 +89,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
         if(priceRef.current&&liquidityOverlayRef.current){
           const view=liquidityViewRef.current;
           drawLiquidityOverlay(chart,priceRef.current,host,liquidityOverlayRef.current,
-            view.orderbook,view.stopZones,view.showBook,view.showStops);
+            view.orderbook,view.stopZones,view.showBook,view.showStops,view.tpo,view.showTpo);
         }
       });
     };
@@ -119,7 +121,23 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
 
   // Book snapshots and frozen historical reference zones redraw only the overlay.
   // No candle updates, zoom reset, or new chart subscriptions.
-  useEffect(()=>{redrawRef.current()},[orderbook,showBook,showStops,stopZones]);
+  useEffect(()=>{redrawRef.current()},[orderbook,showBook,showStops,stopZones,tpo,showTpo]);
+
+  // Rolling price-based TPO profile: never modifies or gates ASCEND Core entries.
+  // Visually distinct from green/red YH/YL and the golden VWAP.
+  useEffect(()=>{
+    const series=priceRef.current;
+    if(!series||!showTpo||!tpo)return;
+    const lines=[
+      series.createPriceLine({price:tpo.poc,color:'#cf9af2',lineWidth:2,
+        lineStyle:LineStyle.Solid,axisLabelVisible:true,title:'TPO POC'}),
+      series.createPriceLine({price:tpo.vah,color:'#b8a4ed',lineWidth:1,
+        lineStyle:LineStyle.Dotted,axisLabelVisible:true,title:'VAH'}),
+      series.createPriceLine({price:tpo.val,color:'#b8a4ed',lineWidth:1,
+        lineStyle:LineStyle.Dotted,axisLabelVisible:true,title:'VAL'})
+    ];
+    return()=>{for(const line of lines)series.removePriceLine(line)};
+  },[tpo,showTpo]);
 
   // Project independently sourced 5m VWAP onto existing chart timestamps.
   // Do not add extra 5m timestamps to the shared time axis (no candle spacing shift).

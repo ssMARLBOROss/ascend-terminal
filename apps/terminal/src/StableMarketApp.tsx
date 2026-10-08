@@ -6,7 +6,8 @@ import {usePreviousSessionLevels,type PreviousSessionLevels} from './market/useP
 import {useDailyVwap,type DailyVwap} from './market/useDailyVwap';
 import {useOrderbookClusters} from './market/useOrderbookClusters';
 import WeekOverlayCompare from './components/WeekOverlayCompare';
-import MarketResearchPanel from './components/MarketResearchPanel';
+import LiveMarketPanels from './components/LiveMarketPanels';
+import {useLiveMarketMetrics} from './market/useLiveMarketMetrics';
 
 const FAVORITES=[
   'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT',
@@ -26,17 +27,18 @@ function fmtVolume(value?:number){
   return value.toLocaleString('ru-RU',{maximumFractionDigits:2});
 }
 
-function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus,dailyVwap,vwapStatus}:{
+function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus,dailyVwap,vwapStatus,liveMetrics}:{
   symbol:string;timeframe:StableTimeframe;
   previousDay?:PreviousDayLevels;previousDayStatus:'loading'|'ready'|'error';
   previousSessions?:PreviousSessionLevels;previousSessionsStatus:'loading'|'ready'|'error';
   dailyVwap?:DailyVwap;vwapStatus:'loading'|'ready'|'error';
+  liveMetrics:ReturnType<typeof useLiveMarketMetrics>;
 }){
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
   const[showBook,setShowBook]=useState(true);
   const[showStops,setShowStops]=useState(true);
+  const[showTpo,setShowTpo]=useState(true);
   const[showWeekCompare,setShowWeekCompare]=useState(false);
-  const[showResearch,setShowResearch]=useState(false);
   const liquidity=useOrderbookClusters(symbol,showBook);
   const latest=candles[candles.length-1];
   const displayPrice=lastPrice??latest?.close;
@@ -83,6 +85,8 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
           onClick={()=>setShowBook(value=>!value)}>BID / ASK · РЕАЛЬНЫЙ СТАКАН</button>
         <button type="button" aria-pressed={showStops} className={showStops?'active stops':''}
           onClick={()=>setShowStops(value=>!value)}>STOP? · РАСЧЁТНЫЕ ЗОНЫ</button>
+        <button type="button" aria-pressed={showTpo} className={showTpo?'active tpo':''}
+          onClick={()=>setShowTpo(value=>!value)}>TPO · POC / VAH / VAL</button>
       </div>
       <div className="asc-liquidity-source">
         {showBook?(liquidity.status==='ready'&&liquidity.snapshot?
@@ -96,7 +100,8 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
       <StableCandleChart candles={candles} timeframe={timeframe} previousDay={previousDay}
         previousSessions={previousSessions} dailyVwap={dailyVwap}
         orderbook={liquidity.status==='ready'?liquidity.snapshot:undefined}
-        showBook={showBook} showStops={showStops}/>
+        showBook={showBook} showStops={showStops}
+        tpo={liveMetrics.tpo.status==='ready'?liveMetrics.tpo.data:undefined} showTpo={showTpo}/>
       {candles.length<20&&<div className="asc-lite-loading" role="status">
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
@@ -112,16 +117,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
       </button>
     </div>
     {showWeekCompare&&<WeekOverlayCompare symbol={symbol}/>}
-    <div className="asc-research-toggle">
-      <div><strong>РЫНOЧНЫЙ ПРОФИЛЬ / OI / L/S / CVD</strong>
-        <small>Контекст рынка и история решений 06:00–08:00 UTC · без торговых сигналов</small>
-      </div>
-      <button type="button" aria-expanded={showResearch}
-        onClick={()=>setShowResearch(value=>!value)}>
-        {showResearch?'СКРЫТЬ ИССЛЕДОВАНИЕ −':'ОТКРЫТЬ ИССЛЕДОВАНИЕ +'}
-      </button>
-    </div>
-    {showResearch&&<MarketResearchPanel symbol={symbol}/>}
+    <LiveMarketPanels symbol={symbol} {...liveMetrics}/>
     <div className="asc-prev-session-strip" aria-label="Максимумы и минимумы вчерашних сессий">
       <div className="asc-prev-session-title">
         <b>ВЧЕРА · СЕССИИ</b>
@@ -157,6 +153,7 @@ export default function StableMarketApp(){
   const previousDay=usePreviousDayLevels(symbol);
   const previousSessions=usePreviousSessionLevels(symbol);
   const vwap=useDailyVwap(symbol);
+  const liveMetrics=useLiveMarketMetrics(symbol);
   const[search,setSearch]=useState('');
   const[inputError,setInputError]=useState('');
   const matches=useMemo(()=>{
@@ -219,7 +216,7 @@ export default function StableMarketApp(){
         <Workspace key={symbol+':'+timeframe} symbol={symbol} timeframe={timeframe}
           previousDay={previousDay.levels} previousDayStatus={previousDay.status}
           previousSessions={previousSessions.levels} previousSessionsStatus={previousSessions.status}
-          dailyVwap={vwap.daily} vwapStatus={vwap.status}/>
+          dailyVwap={vwap.daily} vwapStatus={vwap.status} liveMetrics={liveMetrics}/>
       </section>
     </div>
   </div>;

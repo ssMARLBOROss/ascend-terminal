@@ -446,3 +446,51 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
  .asc-research-grid{grid-template-columns:1fr}
  .asc-research-toggle button{width:100%}
 }
+
+/* Online market context (four independent REST sources), separate from signals. */
+.asc-liquidity-buttons button.active.tpo{color:#efceff;border-color:#9367bc;background:rgba(107,59,145,.28)}
+.asc-live-metrics{border-top:1px solid #2d5065;padding:13px;background:#081925}
+.asc-live-metrics-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+  gap:8px;margin-bottom:12px}
+.asc-live-metrics-head>div{display:flex;flex-direction:column;gap:3px}
+.asc-live-metrics-head b{color:#e2eff7;font-size:13px;font-weight:900;letter-spacing:.04em}
+.asc-live-metrics-head small{color:#82a3b8;font-size:10px;font-weight:750}
+.asc-live-context-only{border:1px solid #2e6b60;border-radius:5px;background:rgba(36,111,84,.20);
+  padding:5px 9px;color:#86d5bb;font-size:10px;font-weight:900}
+.asc-live-metrics-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.asc-live-metric-card{display:flex;flex-direction:column;gap:10px;min-width:0;
+  padding:11px 12px;background:#0b2330;border:1px solid #2b4d64;border-top:3px solid #bd92ea;border-radius:6px}
+.asc-live-metric-card.oi{border-top-color:#58bedc}
+.asc-live-metric-card.ls{border-top-color:#a6a2f0}
+.asc-live-metric-card.cvd{border-top-color:#e7b56c}
+.asc-live-metric-card header{display:flex;flex-direction:column;gap:5px}
+.asc-live-metric-card header strong{font-size:11px;color:#e1ecf2;letter-spacing:.025em}
+.asc-live-status{font-size:10px;font-weight:800;letter-spacing:.01em}
+.asc-live-status.ready{color:#65d3aa}
+.asc-live-status.loading{color:#b9c1cb}
+.asc-live-status.error{color:#e6a082}
+.asc-live-body{display:flex;flex-direction:column;gap:9px;min-height:135px}
+.asc-live-main{display:flex;flex-direction:column;gap:5px}
+.asc-live-main span{font-size:10px;color:#96afc0}
+.asc-live-main b{font-size:19px;color:#e7f6fa;font-weight:900;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.asc-live-values{display:flex;justify-content:space-between;gap:7px;flex-wrap:wrap;align-items:center;font-size:11px}
+.asc-live-values span{color:#a9c5d1}
+.asc-live-values b{font-weight:900}
+.asc-live-up{color:#69d9a6!important}.asc-live-down{color:#f38795!important}
+.asc-live-body>small{font-size:10px;line-height:1.4;color:#819fac}
+.asc-live-metric-card footer{margin-top:auto;color:#849cae;font-size:10px;line-height:1.45;border-top:1px solid #294051;padding-top:8px}
+.asc-live-unavailable{min-height:136px;display:grid;place-items:center;text-align:center;
+  color:#9bb5c4;font-size:12px;line-height:1.5}
+.asc-live-sparkline{width:100%;height:53px;display:block;background:rgba(3,12,21,.35);border-radius:4px}
+.asc-live-no-plot{color:#89a3b3;font-size:11px}
+.asc-live-ls-split{display:flex;justify-content:space-between;gap:7px}
+.asc-live-ls-split>div{display:flex;flex-direction:column;gap:4px}
+.asc-live-ls-split>div:last-child{text-align:right}
+.asc-live-ls-split span{font-size:10px;color:#8bb6c3;font-weight:900}
+.asc-live-ls-split b{font-size:19px;color:#d8effa;font-weight:900;font-variant-numeric:tabular-nums}
+.asc-live-ls-bar{height:8px;overflow:hidden;border-radius:5px;background:#d26378}
+.asc-live-ls-bar>div{height:100%;background:#36b78e}
+.asc-live-area-bar{display:flex;align-items:center;gap:5px;color:#bc9bdf;font-size:10px;font-weight:900}
+.asc-live-area-bar>div{height:2px;flex:1;background:#8c5cbb}
+@media(max-width:1250px){.asc-live-metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:730px){.asc-live-metrics-grid{grid-template-columns:1fr}}
