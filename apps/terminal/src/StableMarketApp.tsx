@@ -1,6 +1,5 @@
 import {useMemo,useState} from 'react';
 import StableCandleChart from './components/StableCandleChart';
-import SessionClock from './components/SessionClock';
 import {STABLE_TIMEFRAMES,useStableMarket,type StableTimeframe} from './market/useStableMarket';
 
 const FAVORITES=[
@@ -46,14 +45,14 @@ function Workspace({symbol,timeframe}:{symbol:string;timeframe:StableTimeframe})
       <div><small>ОБЪЁМ СВЕЧИ</small><b>{fmtVolume(latest?.volume)}</b></div>
     </div>
     <div className="asc-lite-chart-box">
-      <StableCandleChart candles={candles}/>
+      <StableCandleChart candles={candles} timeframe={timeframe}/>
       {candles.length<20&&<div className="asc-lite-loading" role="status">
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
       </div>}
     </div>
     <footer className="asc-lite-chart-footer">
-      <span>СВЕЧИ + ОБЪЁМ · ПЕРВОЕ СТАБИЛЬНОЕ ЯДРО ИНТЕРФЕЙСА</span>
+      <span>СВЕЧИ · ОБЪЁМ · СЕССИИ UTC · ASCEND STABLE</span>
       <span>{lastUpdate?'Последнее обновление: '+new Date(lastUpdate).toLocaleTimeString('ru-RU'):'Ожидание данных'}</span>
     </footer>
     {error&&candles.length>=20&&<p className="asc-lite-note" role="status">{error} · график продолжает показывать последние полученные свечи</p>}
@@ -122,7 +121,6 @@ export default function StableMarketApp(){
               className={tf===timeframe?'active':''} onClick={()=>setTimeframe(tf)}>{tf}</button>)}
           </div>
         </div>
-        <SessionClock/>
         <Workspace key={symbol+':'+timeframe} symbol={symbol} timeframe={timeframe}/>
       </section>
     </div>
