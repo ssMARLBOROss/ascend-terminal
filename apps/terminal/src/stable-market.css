@@ -508,3 +508,10 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
   background:#0a2329;font-size:11px;color:#91bdba;line-height:1.45}
 .asc-fvg-explain b:first-child{color:#5ad5a2}
 .asc-fvg-explain b:nth-child(2){color:#f5a0b1}
+
+/* Clutter-reduction: compact controls and always-visible recenter action. */
+.asc-fvg-focus{border:1px solid #3b738a;border-radius:5px;padding:7px 10px;
+  background:#103646;color:#e1f5ff;white-space:nowrap;font-size:11px;font-weight:900}
+.asc-fvg-focus:hover{background:#1b5266}
+.asc-fvg-controls{flex:1}
+@media(max-width:840px){.asc-fvg-focus{flex:1}}

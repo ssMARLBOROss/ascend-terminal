@@ -8,7 +8,7 @@ import {useOrderbookClusters} from './market/useOrderbookClusters';
 import WeekOverlayCompare from './components/WeekOverlayCompare';
 import LiveMarketPanels from './components/LiveMarketPanels';
 import {useLiveMarketMetrics} from './market/useLiveMarketMetrics';
-import {computeFvgZones} from './components/fvgOverlay';
+import {computeFvgZones,selectFvgZones,type FvgViewMode} from './components/fvgOverlay';
 
 const FAVORITES=[
   'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT',
@@ -37,10 +37,12 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
 }){
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
   const[showBook,setShowBook]=useState(true);
-  const[showStops,setShowStops]=useState(true);
+  const[showStops,setShowStops]=useState(false);
   const[showTpo,setShowTpo]=useState(true);
   const[showFvg,setShowFvg]=useState(true);
   const[fvgThreshold,setFvgThreshold]=useState(.02);
+  const[fvgViewMode,setFvgViewMode]=useState<FvgViewMode>('near');
+  const[focusRequest,setFocusRequest]=useState(0);
   const[showWeekCompare,setShowWeekCompare]=useState(false);
   const liquidity=useOrderbookClusters(symbol,showBook);
   const fvgZones=useMemo(()=>computeFvgZones(candles,timeframe,fvgThreshold),
@@ -51,6 +53,8 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const touchedCount=fvgOpen.filter(z=>z.status==='TOUCHED').length;
   const latest=candles[candles.length-1];
   const displayPrice=lastPrice??latest?.close;
+  const shownFvg=useMemo(()=>selectFvgZones(
+    fvgZones,displayPrice??0,fvgViewMode),[fvgZones,displayPrice,fvgViewMode]);
 
   return <main className="asc-lite-workspace">
     <div className="asc-lite-toolbar">
@@ -109,7 +113,16 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
           <option value={.05}>0,05%</option>
           <option value={.1}>0,10%</option>
         </select>
-        <span>↑ {bullCount} · ↓ {bearCount} · касание {touchedCount}</span>
+        <label htmlFor="asc-fvg-view">Режим</label>
+        <select id="asc-fvg-view" value={fvgViewMode}
+          onChange={e=>setFvgViewMode(e.target.value as FvgViewMode)}
+          aria-label="Сколько FVG показывать на свечном графике">
+          <option value="near">БЛИЖАЙШИЕ</option>
+          <option value="all">ВСЕ ЗОНЫ</option>
+        </select>
+        <span>↑ {bullCount} · ↓ {bearCount} · касание {touchedCount} · на графике {shownFvg.length}</span>
+        <button className="asc-fvg-focus" type="button"
+          onClick={()=>setFocusRequest(value=>value+1)}>К ТЕКУЩЕЙ ЦЕНЕ ↗</button>
       </div>
       <div className="asc-liquidity-source">
         {showBook?(liquidity.status==='ready'&&liquidity.snapshot?
@@ -125,7 +138,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         orderbook={liquidity.status==='ready'?liquidity.snapshot:undefined}
         showBook={showBook} showStops={showStops}
         tpo={liveMetrics.tpo.status==='ready'?liveMetrics.tpo.data:undefined} showTpo={showTpo}
-        fvgZones={fvgZones} showFvg={showFvg}/>
+        fvgZones={shownFvg} showFvg={showFvg} focusRequest={focusRequest}/>
       {candles.length<20&&<div className="asc-lite-loading" role="status">
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
@@ -161,7 +174,8 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
     </div>
     <div className="asc-fvg-explain">
       <b>FVG ↑</b> бычья зона · <b>FVG ↓</b> медвежья зона · FRESH / TOUCHED / FILLED.
-      Только 3 закрытые свечи, касание и заполнение — по закрытым свечам. FVG не сигнал входа.
+      Только 3 закрытые свечи. По умолчанию показано не больше 2 ближайших зон каждого направления.
+      В режиме «Все зоны» можно изучить старые FVG. FVG не сигнал входа.
     </div>
     <div className="asc-liquidity-explain">
       <span><b>BID / ASK</b> — крупнейшие видимые скопления лимитных заявок в текущем снимке стакана (до 200 уровней на сторону). Заявки могут быть отменены.</span>

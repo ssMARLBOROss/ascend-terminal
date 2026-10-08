@@ -17,11 +17,12 @@ import {drawSessionBands} from './drawSessionBands';
 type Snapshot={first?:number;last?:number;length:number};
 
 /** Bounded session canvas only; no indicator computations or extra market subscriptions. */
-export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg}:{
+export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,focusRequest}:{
   candles:Candle[];timeframe:string;previousDay?:PreviousDayLevels;
   previousSessions?:PreviousSessionLevels;dailyVwap?:DailyVwap;
   orderbook?:OrderbookSnapshot;showBook:boolean;showStops:boolean;
   tpo?:TpoProfile;showTpo:boolean;fvgZones:FvgZone[];showFvg:boolean;
+  focusRequest:number;
 }){
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
@@ -98,7 +99,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
         if(priceRef.current&&fvgOverlayRef.current){
           const view=fvgViewRef.current;
           drawFvgOverlay(chart,priceRef.current,host,fvgOverlayRef.current,
-            view.fvgZones,view.showFvg);
+            view.fvgZones,view.showFvg,candlesRef.current.length-1);
         }
       });
     };
@@ -131,6 +132,19 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
   // Book snapshots and frozen historical reference zones redraw only the overlay.
   // No candle updates, zoom reset, or new chart subscriptions.
   useEffect(()=>{redrawRef.current()},[orderbook,showBook,showStops,stopZones,tpo,showTpo,fvgZones,showFvg]);
+
+  // User-controlled recenter. Does not reset pan/zoom on subsequent live ticks.
+  useEffect(()=>{
+    if(focusRequest===0)return;
+    const chart=chartRef.current;
+    const length=candlesRef.current.length;
+    if(!chart||length<1)return;
+    chart.timeScale().setVisibleLogicalRange({
+      from:Math.max(0,length-100),to:length+5
+    });
+    priceRef.current?.priceScale().applyOptions({autoScale:true});
+    redrawRef.current();
+  },[focusRequest]);
 
   // Rolling price-based TPO profile: never modifies or gates ASCEND Core entries.
   // Visually distinct from green/red YH/YL and the golden VWAP.

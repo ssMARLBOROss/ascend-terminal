@@ -81,18 +81,32 @@ export function computeFvgZones(
   return zones;
 }
 
-/** Show recent unfilled zones and limited just-filled history to reduce clutter. */
-export function visibleFvgZones(all:FvgZone[],limit=12):FvgZone[]{
-  const open=all.filter(z=>z.status!=='FILLED').slice(-limit);
-  const recent=all.filter(z=>z.status==='FILLED').slice(-3);
-  return [...open,...recent].sort((a,b)=>a.formedAt-b.formedAt);
+export type FvgViewMode='near'|'all';
+
+/**
+ * Default: up to two closest bullish and two closest bearish *active* zones.
+ * No filled zones are carried into the focus view. All mode exposes
+ * recent closed gaps explicitly for retrospective inspection.
+ */
+export function selectFvgZones(all:FvgZone[],price:number,mode:FvgViewMode):FvgZone[]{
+  if(mode==='all'){
+    const active=all.filter(z=>z.status!=='FILLED').slice(-32);
+    const filled=all.filter(z=>z.status==='FILLED').slice(-6);
+    return [...active,...filled].sort((a,b)=>a.formedAt-b.formedAt);
+  }
+  if(!Number.isFinite(price)||price<=0)return [];
+  const distance=(z:FvgZone)=>price<z.low?z.low-price:price>z.high?price-z.high:0;
+  const ranked=(side:FvgSide)=>all.filter(z=>z.side===side&&z.status!=='FILLED')
+    .sort((a,b)=>distance(a)-distance(b)||b.formedAt-a.formedAt)
+    .slice(0,2);
+  return [...ranked('bull'),...ranked('bear')].sort((a,b)=>a.formedAt-b.formedAt);
 }
 
 /** Separate canvas overlay: follows chart time and price scales while zooming/panning. */
 export function drawFvgOverlay(
   chart:IChartApi,price:ISeriesApi<'Candlestick'>,
   host:HTMLElement,canvas:HTMLCanvasElement,
-  zones:FvgZone[],enabled:boolean
+  zones:FvgZone[],enabled:boolean,latestIndex:number
 ){
   const width=host.clientWidth,height=host.clientHeight;
   if(width<1||height<1)return;
@@ -109,11 +123,13 @@ export function drawFvgOverlay(
   if(plotWidth<=90||bottom<=top)return;
   ctx.save();
   ctx.beginPath();ctx.rect(0,top,plotWidth,bottom-top);ctx.clip();
-  for(const zone of visibleFvgZones(zones)){
+  for(const zone of zones){
     const from=scale.logicalToCoordinate((zone.formedIndex+.5) as any);
     if(from===null)continue;
-    const end=zone.filledIndex===undefined?plotWidth-2:
-      scale.logicalToCoordinate((zone.filledIndex+.5) as any);
+    // Avoid extending old FVGs into empty future chart space.
+    // Untouched zones stop at the LAST REAL CANDLE, not the screen edge.
+    const endLogical=zone.filledIndex===undefined?latestIndex+.8:zone.filledIndex+.5;
+    const end=scale.logicalToCoordinate(endLogical as any);
     if(end===null)continue;
     const left=Math.max(0,Number(from));
     const right=Math.min(plotWidth-2,Number(end));
@@ -152,7 +168,8 @@ export function drawFvgOverlay(
     ctx.font='800 10px Inter,system-ui,sans-serif';
     const labelWidth=ctx.measureText(tag).width+10;
     if(right-left>labelWidth+9&&y<bottom-8&&y+h>top+8){
-      const lx=Math.max(left+4,Math.min(right-labelWidth-3,plotWidth-labelWidth-6));
+      // Anchor labels to the zone's start, not in the empty future region.
+      const lx=Math.max(left+4,Math.min(right-labelWidth-3,left+8));
       const ly=Math.max(top+2,Math.min(bottom-17,y-18));
       ctx.fillStyle='rgba(5,18,29,.91)';
       ctx.fillRect(lx,ly,labelWidth,16);
