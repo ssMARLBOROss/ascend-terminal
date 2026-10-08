@@ -1,112 +1,52 @@
 import type {Candle} from '@ascend/contracts';
 import type {IChartApi,ISeriesApi} from 'lightweight-charts';
-
-export type FvgSide='bull'|'bear';
-export type FvgStatus='FRESH'|'TOUCHED'|'FILLED';
-export type FvgZone={
-  id:string;side:FvgSide;low:number;high:number;
-  formedAt:number;formedIndex:number;gapPercent:number;
-  status:FvgStatus;touchedAt?:number;filledAt?:number;filledIndex?:number;
-  remainingLow:number;remainingHigh:number;
-};
-
-const INTERVAL_MS:Record<string,number>={
-  '1m':60000,'3m':180000,'5m':300000,'15m':900000,
-  '30m':1800000,'1H':3600000,'4H':14400000,'1D':86400000
-};
-
-/**
- * Three-CLOSED-candle wick-to-wick Fair Value Gaps.
- * Bullish: third.low > first.high.
- * Bearish: third.high < first.low.
- * Formed only when the third candle has closed; touch/fill use subsequent
- * CLOSED candles only. No look-ahead or future candle interpolation.
- */
-export function computeFvgZones(
-  candles:Candle[],timeframe:string,minGapPct=.02,now=Date.now()
-):FvgZone[]{
-  const step=INTERVAL_MS[timeframe];
-  if(!step||!Number.isFinite(minGapPct)||minGapPct<0)return [];
-  const zones:FvgZone[]=[];
-  const valid=(c:Candle)=>Number.isFinite(c.timestamp)&&
-    [c.open,c.high,c.low,c.close].every(Number.isFinite)&&
-    c.low>0&&c.high>=c.low&&c.high>=Math.max(c.open,c.close)&&
-    c.low<=Math.min(c.open,c.close);
-  for(let i=0;i<candles.length;i++){
-    const current=candles[i];
-    if(current.timestamp+step>now)break; // ongoing bar is excluded entirely
-    if(!valid(current))continue;
-    // Update previously discovered zones before detecting a new gap.
-    for(const zone of zones){
-      if(zone.status==='FILLED'||i<=zone.formedIndex)continue;
-      if(zone.side==='bull'){
-        if(current.low<=zone.high){
-          if(zone.touchedAt===undefined)zone.touchedAt=current.timestamp;
-          zone.remainingHigh=Math.max(zone.low,Math.min(zone.remainingHigh,current.low));
-          zone.status='TOUCHED';
-          if(current.low<=zone.low){
-            zone.status='FILLED';
-            zone.filledAt=current.timestamp;
-            zone.filledIndex=i;
-          }
-        }
-      }else if(current.high>=zone.low){
-        if(zone.touchedAt===undefined)zone.touchedAt=current.timestamp;
-        zone.remainingLow=Math.min(zone.high,Math.max(zone.remainingLow,current.high));
-        zone.status='TOUCHED';
-        if(current.high>=zone.high){
-          zone.status='FILLED';
-          zone.filledAt=current.timestamp;
-          zone.filledIndex=i;
-        }
-      }
-    }
-    if(i<2)continue;
-    const first=candles[i-2],middle=candles[i-1];
-    if(!valid(first)||!valid(middle)||
-      middle.timestamp-first.timestamp!==step||
-      current.timestamp-middle.timestamp!==step)continue;
-    let side:FvgSide,low:number,high:number;
-    if(current.low>first.high){
-      side='bull';low=first.high;high=current.low;
-    }else if(current.high<first.low){
-      side='bear';low=current.high;high=first.low;
-    }else continue;
-    const gapPercent=(high-low)/middle.close*100;
-    if(gapPercent<minGapPct)continue;
-    zones.push({id:String(current.timestamp)+':'+side,side,low,high,
-      formedAt:current.timestamp+step,formedIndex:i,gapPercent,
-      status:'FRESH',remainingLow:low,remainingHigh:high});
-  }
-  return zones;
-}
+import {distanceToFvg,type FvgRecord} from '../market/fvgContextEngine';
 
 export type FvgViewMode='near'|'all';
-
-/**
- * Default: up to two closest bullish and two closest bearish *active* zones.
- * No filled zones are carried into the focus view. All mode exposes
- * recent closed gaps explicitly for retrospective inspection.
- */
-export function selectFvgZones(all:FvgZone[],price:number,mode:FvgViewMode):FvgZone[]{
-  if(mode==='all'){
-    const active=all.filter(z=>z.status!=='FILLED').slice(-32);
-    const filled=all.filter(z=>z.status==='FILLED').slice(-6);
-    return [...active,...filled].sort((a,b)=>a.formedAt-b.formedAt);
-  }
+export type FvgAppearance={
+  bullish:boolean;bearish:boolean;midline:boolean;showFill:boolean;
+  showCreated:boolean;showRetest:boolean;showHistorical:boolean;
+  activeOnly:boolean;opacity:number;maxZones:number;selectedId?:string;
+};
+export function selectFvgZones(
+  records:FvgRecord[],price:number,mode:FvgViewMode,
+  settings:FvgAppearance
+):FvgRecord[]{
+  const candidates=records.filter(z=>
+    (z.side==='bull'?settings.bullish:settings.bearish)&&
+    (settings.showHistorical||!['FILLED','INVALID'].includes(z.status))&&
+    (!settings.activeOnly||!['FILLED','INVALID'].includes(z.status)));
+  if(mode==='all')
+    return candidates.slice(-settings.maxZones).sort((a,b)=>a.formedAt-b.formedAt);
   if(!Number.isFinite(price)||price<=0)return [];
-  const distance=(z:FvgZone)=>price<z.low?z.low-price:price>z.high?price-z.high:0;
-  const ranked=(side:FvgSide)=>all.filter(z=>z.side===side&&z.status!=='FILLED')
-    .sort((a,b)=>distance(a)-distance(b)||b.formedAt-a.formedAt)
-    .slice(0,2);
-  return [...ranked('bull'),...ranked('bear')].sort((a,b)=>a.formedAt-b.formedAt);
+  const half=Math.max(1,Math.floor(settings.maxZones/2));
+  const rank=(side:'bull'|'bear')=>candidates.filter(z=>z.side===side)
+    .sort((a,b)=>(distanceToFvg(a,price)??Infinity)-
+      (distanceToFvg(b,price)??Infinity)||b.formedAt-a.formedAt).slice(0,half);
+  const selected=candidates.find(z=>z.id===settings.selectedId);
+  const items=[...rank('bull'),...rank('bear')];
+  if(selected&&!items.some(z=>z.id===selected.id))items.push(selected);
+  return items.sort((a,b)=>a.formedAt-b.formedAt);
 }
+function logicalIndex(candles:Candle[],timestamp:number,step:number):number{
+  if(!candles.length)return 0;
+  if(timestamp<=candles[0].timestamp)return (timestamp-candles[0].timestamp)/step;
+  const last=candles.length-1;
+  if(timestamp>=candles[last].timestamp)return last+
+    (timestamp-candles[last].timestamp)/step;
+  let l=0,r=last;
+  while(r-l>1){const m=(l+r)>>1;if(candles[m].timestamp<=timestamp)l=m;else r=m}
+  const diff=candles[r].timestamp-candles[l].timestamp;
+  return l+(diff>0?(timestamp-candles[l].timestamp)/diff:0);
+}
+const STEPS:Record<string,number>={'1m':60000,'3m':180000,'5m':300000,
+  '15m':900000,'30m':1800000,'1H':3600000,'4H':14400000,'1D':86400000};
 
-/** Separate canvas overlay: follows chart time and price scales while zooming/panning. */
+/** Price-and-time-coordinate-only canvas, no mutation of chart data. */
 export function drawFvgOverlay(
   chart:IChartApi,price:ISeriesApi<'Candlestick'>,
   host:HTMLElement,canvas:HTMLCanvasElement,
-  zones:FvgZone[],enabled:boolean,latestIndex:number
+  chartBars:Candle[],chartTf:string,zones:FvgRecord[],enabled:boolean,view:FvgAppearance
 ){
   const width=host.clientWidth,height=host.clientHeight;
   if(width<1||height<1)return;
@@ -115,66 +55,73 @@ export function drawFvgOverlay(
   if(canvas.width!==pw||canvas.height!==ph){canvas.width=pw;canvas.height=ph}
   const ctx=canvas.getContext('2d');
   if(!ctx)return;
-  ctx.setTransform(ratio,0,0,ratio,0,0);
-  ctx.clearRect(0,0,width,height);
-  if(!enabled||!zones.length)return;
+  ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,width,height);
+  if(!enabled||!chartBars.length||!zones.length)return;
   const scale=chart.timeScale();
   const plotWidth=Math.min(width,scale.width()),top=155,bottom=height-28;
+  const step=STEPS[chartTf]??60000;
   if(plotWidth<=90||bottom<=top)return;
-  ctx.save();
-  ctx.beginPath();ctx.rect(0,top,plotWidth,bottom-top);ctx.clip();
-  for(const zone of zones){
-    const from=scale.logicalToCoordinate((zone.formedIndex+.5) as any);
-    if(from===null)continue;
-    // Avoid extending old FVGs into empty future chart space.
-    // Untouched zones stop at the LAST REAL CANDLE, not the screen edge.
-    const endLogical=zone.filledIndex===undefined?latestIndex+.8:zone.filledIndex+.5;
-    const end=scale.logicalToCoordinate(endLogical as any);
-    if(end===null)continue;
-    const left=Math.max(0,Number(from));
-    const right=Math.min(plotWidth-2,Number(end));
+  ctx.save();ctx.beginPath();ctx.rect(0,top,plotWidth,bottom-top);ctx.clip();
+  const latest=chartBars[chartBars.length-1].timestamp+step;
+  for(const z of zones){
+    if(z.formedAt>latest)continue;
+    const start=logicalIndex(chartBars,z.formedAt,step);
+    const endAt=z.filledAt??latest;
+    const end=logicalIndex(chartBars,Math.min(endAt,latest),step);
+    const sx=scale.logicalToCoordinate(start as any),ex=scale.logicalToCoordinate(end as any);
+    if(sx===null||ex===null)continue;
+    const left=Math.max(0,Number(sx)),right=Math.min(plotWidth-2,Number(ex));
     if(right<=left||right<0)continue;
-    const upper=price.priceToCoordinate(zone.high);
-    const lower=price.priceToCoordinate(zone.low);
-    if(upper===null||lower===null)continue;
-    const y=Math.min(upper,lower),h=Math.max(3,Math.abs(lower-upper));
-    if(!Number.isFinite(y)||!Number.isFinite(h))continue;
-    const bull=zone.side==='bull',filled=zone.status==='FILLED';
-    const touched=zone.status==='TOUCHED';
+    const high=price.priceToCoordinate(z.high),low=price.priceToCoordinate(z.low);
+    if(high===null||low===null)continue;
+    const upper=Math.min(high,low),h=Math.max(2,Math.abs(low-high));
+    if(upper>bottom||upper+h<top)continue;
+    const chosen=z.id===view.selectedId;
+    const bull=z.side==='bull',filled=['FILLED','INVALID'].includes(z.status);
     const base=bull?'50,194,146':'236,102,132';
-    const opacity=filled?.045:touched?.08:.145;
-    ctx.fillStyle='rgba('+base+','+opacity+')';
-    ctx.fillRect(left,y,right-left,h);
-    ctx.strokeStyle='rgba('+base+','+(filled?.24:touched?.53:.83)+')';
-    ctx.lineWidth=filled?1:1.35;
-    ctx.setLineDash(filled?[3,5]:[]);
-    ctx.strokeRect(left+.5,y+.5,Math.max(0,right-left-1),Math.max(2,h-1));
+    const alpha=view.opacity/100*(filled?.10:chosen?.52:.28);
+    ctx.fillStyle='rgba('+base+','+alpha.toFixed(3)+')';
+    ctx.fillRect(left,upper,right-left,h);
+    ctx.strokeStyle='rgba('+base+','+(chosen?.97:filled?.30:.74)+')';
+    ctx.lineWidth=chosen?2.4:1.1;ctx.setLineDash(filled?[4,5]:[]);
+    ctx.strokeRect(left+.5,upper+.5,Math.max(0,right-left-1),Math.max(1,h-1));
     ctx.setLineDash([]);
-    // On a partial mitigation, the remaining unfilled interval is brighter.
-    if(touched){
-      const remainUpper=price.priceToCoordinate(zone.remainingHigh);
-      const remainLower=price.priceToCoordinate(zone.remainingLow);
-      if(remainUpper!==null&&remainLower!==null){
-        const ry=Math.min(remainUpper,remainLower);
-        const rh=Math.abs(remainLower-remainUpper);
-        if(rh>1){
-          ctx.fillStyle='rgba('+base+',.16)';
-          ctx.fillRect(left,ry,right-left,rh);
-        }
+    if(view.midline){
+      const y=price.priceToCoordinate(z.midpoint);
+      if(y!==null){
+        ctx.strokeStyle='rgba('+base+',.70)';
+        ctx.lineWidth=1;ctx.setLineDash([3,5]);ctx.beginPath();
+        ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();ctx.setLineDash([]);
       }
     }
-    const tag=(bull?'FVG ↑ ':'FVG ↓ ')+
-      (filled?'FILLED':touched?'TOUCHED':'FRESH');
+    if(view.showFill&&z.maxFillPct>0&&z.maxFillPct<100){
+      const fillH=h*z.maxFillPct/100;
+      ctx.fillStyle='rgba('+base+',.20)';
+      ctx.fillRect(left,bull?upper:upper+h-fillH,right-left,fillH);
+    }
+    const header=(bull?'BULL ':'BEAR ')+z.timeframe+
+      ' · '+(z.atrMultiple===null?'ATR —':z.atrMultiple.toFixed(2)+' ATR');
+    const extra=view.showFill?Math.round(z.maxFillPct)+'%':'';
+    const tag=header+(extra?' · '+extra:'')+' · '+z.status;
     ctx.font='800 10px Inter,system-ui,sans-serif';
-    const labelWidth=ctx.measureText(tag).width+10;
-    if(right-left>labelWidth+9&&y<bottom-8&&y+h>top+8){
-      // Anchor labels to the zone's start, not in the empty future region.
-      const lx=Math.max(left+4,Math.min(right-labelWidth-3,left+8));
-      const ly=Math.max(top+2,Math.min(bottom-17,y-18));
-      ctx.fillStyle='rgba(5,18,29,.91)';
-      ctx.fillRect(lx,ly,labelWidth,16);
-      ctx.fillStyle=bull?'#71e4bd':'#f8a4b4';
-      ctx.fillText(tag,lx+5,ly+12);
+    const textWidth=ctx.measureText(tag).width+10;
+    if(right-left>textWidth+12){
+      const y=Math.max(top+2,Math.min(bottom-18,upper-18));
+      const x=Math.max(left+3,Math.min(right-textWidth-3,left+8));
+      ctx.fillStyle='rgba(6,17,26,.90)';ctx.fillRect(x,y,textWidth,16);
+      ctx.fillStyle=bull?'#7ce6b9':'#f8a6b6';ctx.fillText(tag,x+5,y+12);
+    }
+    if(chosen&&right-left>70){
+      ctx.font='10px Inter,system-ui,sans-serif';
+      const details=[
+        view.showCreated?'CREATE '+new Date(z.formedAt).toISOString().slice(11,16):'',
+        view.showRetest&&z.firstTouchAt?'RETEST '+new Date(z.firstTouchAt).toISOString().slice(11,16):''
+      ].filter(Boolean).join(' · ');
+      if(details){
+        ctx.fillStyle='rgba(7,19,30,.92)';ctx.fillRect(left+5,Math.max(top+2,upper+6),
+          Math.min(right-left-10,ctx.measureText(details).width+12),16);
+        ctx.fillStyle='#d1e5eb';ctx.fillText(details,left+10,Math.max(top+14,upper+18));
+      }
     }
   }
   ctx.restore();
