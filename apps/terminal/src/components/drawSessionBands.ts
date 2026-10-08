@@ -155,8 +155,25 @@ export function drawSessionBands(
   // Visible days only; at 1m this is typically one day, at 4H a few weeks.
   // Maximum 52 iterations protects canvas from unexpected giant history spans.
   const count=Math.min(52,Math.max(0,Math.floor((endDay-startDay)/DAY_MS)+1));
+  const todayStart=Math.floor(Date.now()/DAY_MS)*DAY_MS;
   for(let i=0;i<count;i++){
     const day=startDay+i*DAY_MS;
+    const isPrevious=day<todayStart;
+    if(isPrevious){
+      // Only historic candle area is subdued; active UTC day stays untouched.
+      // This is visual contrast, not a change to candle values or price levels.
+      const a=toX(day),b=toX(day+DAY_MS);
+      if(a!==null&&b!==null){
+        const left=Math.max(0,Math.min(a,b));
+        const right=Math.min(plotWidth,Math.max(a,b));
+        if(right>left){
+          ctx.fillStyle='rgba(2,9,17,.20)';
+          ctx.fillRect(left,0,right-left,plotBottom);
+        }
+      }
+    }
+    ctx.save();
+    if(isPrevious)ctx.globalAlpha=.50; // Faded session bands/labels/rollovers for past days.
     for(const session of SESSION_WINDOWS){
       const theme=COLORS[session.id];
       shade(day+session.from*HOUR_MS,day+session.to*HOUR_MS,theme.fill);
@@ -173,7 +190,8 @@ export function drawSessionBands(
       // Close is a dashed boundary, labelled on the lower row to avoid collisions.
       line(closeAt,pad(session.to),theme.line,26);
     }
-    // Draw last so the midnight boundary is visibly stronger than Asia open.
+    // Draw last so midnight stands out independently of the Asia opening.
     dayBoundary(day);
+    ctx.restore();
   }
 }
