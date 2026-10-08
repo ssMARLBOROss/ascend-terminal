@@ -1,0 +1,1163 @@
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {
+  ColorType,
+  CrosshairMode,
+  LineStyle,
+  createChart,
+  type IChartApi,
+  type ISeriesApi,
+  type UTCTimestamp
+} from 'lightweight-charts';
+import type {AscendEvent,AscendTimeframe,Candle} from '@ascend/contracts';
+import type {DisplayLevel,LiquidityCluster,VolumeProfile} from '../market/engine';
+import {eventLevelId,eventLevelNameRu,eventShortLabel,eventTitleRu} from '../market/eventLabels';
+import {computeRsi,deriveRsiSignals,type RsiSignal} from '../market/rsi';
+
+type ChartProps={
+  candles:Candle[];
+  levels:DisplayLevel[];
+  lastPrice?:number;
+  status:string;
+  source:string;
+  latencyMs?:number;
+  symbol:string;
+  timeframe:AscendTimeframe;
+  windowSize?:number;
+  onLoadOlder?:()=>Promise<void>;
+  loadingOlder?:boolean;
+  hasOlder?:boolean;
+  focusTimestamp?:number;
+  focusNonce?:number;
+  events?:AscendEvent[];
+  clusters?:LiquidityCluster[];
+  showClusters?:boolean;
+  profiles?:VolumeProfile[];
+  showProfiles?:boolean;
+};
+
+type SessionSlice={
+  id:string;
+  name:'ASIA'|'LONDON'|'NEW YORK';
+  start:number;
+  end:number;
+  first:number;
+  last:number;
+  high:number;
+  low:number;
+  mid:number;
+  status:'LIVE'|'FROZEN';
+};
+
+const sessionDefs=[
+  {name:'ASIA' as const,start:0,end:8,fill:'rgba(39,110,168,.055)',line:'rgba(64,145,201,.28)'},
+  {name:'LONDON' as const,start:7,end:16,fill:'rgba(119,83,171,.05)',line:'rgba(145,108,198,.25)'},
+  {name:'NEW YORK' as const,start:13,end:22,fill:'rgba(181,116,52,.05)',line:'rgba(206,145,74,.27)'}
+];
+
+type CachedViewport={range:{from:number;to:number};timeRange?:{from:number;to:number};following:boolean};
+type RsiMode='OFF'|'EVENTS'|'PANEL';
+const viewportCache=new Map<string,CachedViewport>();
+
+const tfSeconds:Record<string,number>={
+  '1m':60,'3m':180,'5m':300,'10m':600,'15m':900,'30m':1800,'45m':2700,
+  '1H':3600,'2H':7200,'4H':14400,'6H':21600,'12H':43200,'1D':86400,'1W':604800,'1M':2592000
+};
+
+function validLogicalRange(range:{from:number;to:number}|null|undefined,count:number){
+  if(!range||count<=0)return false;
+  const from=Number(range.from),to=Number(range.to),width=to-from;
+  if(!Number.isFinite(from)||!Number.isFinite(to)||!Number.isFinite(width))return false;
+  if(width<5||width>Math.max(1200,count*3))return false;
+  // A logical range that sits entirely to the right/left of the loaded data produces a blank chart.
+  // Require actual overlap with at least one loaded bar.
+  return to>=0&&from<=count-1;
+}
+
+const eventPriority:Record<string,number>={
+  SWEEP:0,RECLAIM:1,ACCEPT:2,BREAK:3,PROBE:4,TOUCH:5,CHOCH:6,MSS:7,BOS:8,CONFIRMED:9,ENTRY:10,TP:11,SL:12
+};
+
+const fmtPrice=(v:number)=>{
+  const a=Math.abs(v);
+  return v.toLocaleString('en-US',{maximumFractionDigits:a>=1000?2:a>=1?4:a>=0.01?6:10});
+};
+const payloadNumber=(event:AscendEvent|undefined,key:string)=>{
+  const value=event?.payload?.[key];
+  return typeof value==='number'&&Number.isFinite(value)?value:undefined;
+};
+
+function nearestCandleTimestamp(candles:Candle[],ts:number){
+  if(!candles.length)return ts;
+  let lo=0,hi=candles.length-1,best=candles[0].timestamp;
+  while(lo<=hi){
+    const mid=(lo+hi)>>1;
+    const value=candles[mid].timestamp;
+    if(Math.abs(value-ts)<Math.abs(best-ts))best=value;
+    if(value<ts)lo=mid+1;
+    else if(value>ts)hi=mid-1;
+    else return value;
+  }
+  return best;
+}
+
+function dayStartUtc(ts:number){
+  const d=new Date(ts);
+  return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());
+}
+
+function buildSessions(candles:Candle[]):SessionSlice[]{
+  if(!candles.length)return[];
+  const days=[...new Set(candles.map(c=>dayStartUtc(c.timestamp)))].sort((a,b)=>a-b);
+  const now=Date.now();
+  const result:SessionSlice[]=[];
+  for(const day of days){
+    for(const def of sessionDefs){
+      const start=day+def.start*3600000;
+      const end=day+def.end*3600000;
+      if(start>now)continue;
+      const items=candles.filter(c=>c.timestamp>=start&&c.timestamp<Math.min(end,now+1));
+      if(!items.length)continue;
+      const high=Math.max(...items.map(c=>c.high));
+      const low=Math.min(...items.map(c=>c.low));
+      result.push({
+        id:`${day}-${def.name}`,
+        name:def.name,
+        start,end,
+        first:items[0].timestamp,
+        last:items[items.length-1].timestamp,
+        high,low,mid:(high+low)/2,
+        status:now>=end?'FROZEN':'LIVE'
+      });
+    }
+  }
+  return result;
+}
+
+export default function LiveCandleChart({
+  candles,levels,lastPrice,status,source,latencyMs,symbol,timeframe,windowSize=250,
+  onLoadOlder,loadingOlder=false,hasOlder=true,focusTimestamp,focusNonce,events=[],clusters=[],showClusters=true,
+  profiles=[],showProfiles=true
+}:ChartProps){
+  const hostRef=useRef<HTMLDivElement|null>(null);
+  const overlayRef=useRef<HTMLCanvasElement|null>(null);
+  const chartRef=useRef<IChartApi|null>(null);
+  const rsiHostRef=useRef<HTMLDivElement|null>(null);
+  const rsiChartRef=useRef<IChartApi|null>(null);
+  const rsiSeriesRef=useRef<ISeriesApi<'Line'>|null>(null);
+  const rsiSyncingRef=useRef(false);
+  const crosshairSyncRef=useRef(false);
+  const rsiBySecondRef=useRef(new Map<number,number>());
+  const candleBySecondRef=useRef(new Map<number,Candle>());
+  const candleSeriesRef=useRef<ISeriesApi<'Candlestick'>|null>(null);
+  const volumeSeriesRef=useRef<ISeriesApi<'Histogram'>|null>(null);
+  const priceLinesRef=useRef<any[]>([]);
+  const visibleTimeRef=useRef<any>(null);
+  const visibleLogicalRef=useRef<{from:number;to:number}|null>(null);
+  const followLatestRef=useRef(true);
+  const applyingRangeRef=useRef(false);
+  const lastDataLengthRef=useRef(0);
+  const firstTimestampRef=useRef<number>();
+  const lastTimestampRef=useRef<number>();
+  const candleCountRef=useRef(candles.length);
+  const pinnedTimeRef=useRef<number|undefined>();
+  const eventAtSecondRef=useRef(new Map<number,AscendEvent[]>());
+  const rsiAtSecondRef=useRef(new Map<number,RsiSignal[]>());
+  const rsiModeRef=useRef<RsiMode>('EVENTS');
+  const sessionsRef=useRef<SessionSlice[]>([]);
+  const drawOverlayRef=useRef<()=>void>(()=>{});
+  const [hoverTime,setHoverTime]=useState<number>();
+  const [pinnedTime,setPinnedTime]=useState<number>();
+  const [selectedMarketEvent,setSelectedMarketEvent]=useState<AscendEvent>();
+  const [selectedRsiSignal,setSelectedRsiSignal]=useState<RsiSignal>();
+  const [rsiPopupPoint,setRsiPopupPoint]=useState<{x:number;y:number}>();
+  const [eventPopupPoint,setEventPopupPoint]=useState<{x:number;y:number}>();
+  const [selectedBalance,setSelectedBalance]=useState<SessionSlice>();
+  const [balancePopupPoint,setBalancePopupPoint]=useState<{x:number;y:number}>();
+  const [interactionHint,setInteractionHint]=useState('Перетаскивай график мышью · колесо = zoom');
+  const [rsiMode,setRsiMode]=useState<RsiMode>(()=>{
+    if(typeof window==='undefined')return'EVENTS';
+    const saved=window.localStorage.getItem('ascend:rsi-mode');
+    return saved==='OFF'||saved==='EVENTS'||saved==='PANEL'?saved:'EVENTS';
+  });
+
+  const tfSec=tfSeconds[timeframe]??900;
+  const showSessionOverlay=tfSec<=7200;
+  const showDayOverlay=tfSec<=14400;
+  const showProfileOverlay=showProfiles&&tfSec<=14400;
+  const sessions=useMemo(()=>showSessionOverlay?buildSessions(candles):[],[candles,showSessionOverlay]);
+  const rsiPoints=useMemo(()=>computeRsi(candles,14),[candles]);
+  const rsiSignals=useMemo(()=>deriveRsiSignals(rsiPoints),[rsiPoints]);
+  useEffect(()=>{
+    const map=new Map<number,number>();
+    rsiPoints.forEach(p=>map.set(Math.floor(p.timestamp/1000),p.value));
+    rsiBySecondRef.current=map;
+  },[rsiPoints]);
+  useEffect(()=>{rsiModeRef.current=rsiMode;if(typeof window!=='undefined')window.localStorage.setItem('ascend:rsi-mode',rsiMode)},[rsiMode]);
+  useEffect(()=>{sessionsRef.current=sessions},[sessions]);
+  const candleBySecond=useMemo(()=>{
+    const map=new Map<number,Candle>();
+    candles.forEach(c=>map.set(Math.floor(c.timestamp/1000),c));
+    return map;
+  },[candles]);
+  useEffect(()=>{candleBySecondRef.current=candleBySecond},[candleBySecond]);
+  const mappedEvents=useMemo(()=>{
+    const byCandle=new Map<number,{event:AscendEvent;candleTs:number}>();
+    const source=events
+      .filter(e=>['TOUCH','PROBE','SWEEP','BREAK','ACCEPT','RECLAIM','CHOCH','MSS','BOS','CONFIRMED','ENTRY','TP','SL'].includes(e.type))
+      .slice(-120);
+    for(const event of source){
+      const candleTs=nearestCandleTimestamp(candles,event.timestamp);
+      const existing=byCandle.get(candleTs);
+      if(!existing||(eventPriority[event.type]??99)<(eventPriority[existing.event.type]??99)){
+        byCandle.set(candleTs,{event,candleTs});
+      }
+    }
+    const budget=tfSec>=86400?12:tfSec>=14400?20:tfSec>=3600?28:42;
+    return[...byCandle.values()].sort((a,b)=>a.candleTs-b.candleTs).slice(-budget);
+  },[events,candles,tfSec]);
+
+  useEffect(()=>{
+    const map=new Map<number,AscendEvent[]>();
+    for(const item of mappedEvents){
+      const sec=Math.floor(item.candleTs/1000);
+      const list=map.get(sec)??[];
+      list.push(item.event);
+      map.set(sec,list);
+    }
+    for(const list of map.values()){
+      list.sort((a,b)=>{
+        const p:Record<string,number>={SWEEP:0,PROBE:1,BREAK:2,RECLAIM:3,ACCEPT:4,TOUCH:5,CHOCH:6,MSS:7,BOS:8,CONFIRMED:9,ENTRY:10,TP:11,SL:12};
+        return(p[a.type]??99)-(p[b.type]??99);
+      });
+    }
+    eventAtSecondRef.current=map;
+  },[mappedEvents]);
+  useEffect(()=>{
+    const map=new Map<number,RsiSignal[]>();
+    for(const signal of rsiSignals){
+      const sec=Math.floor(nearestCandleTimestamp(candles,signal.timestamp)/1000);
+      const list=map.get(sec)??[];
+      list.push(signal);
+      map.set(sec,list);
+    }
+    rsiAtSecondRef.current=map;
+  },[rsiSignals,candles]);
+  useEffect(()=>{candleCountRef.current=candles.length},[candles.length]);
+  useEffect(()=>{pinnedTimeRef.current=pinnedTime},[pinnedTime]);
+
+  const selectedCandle=(pinnedTime?candleBySecond.get(Math.floor(pinnedTime/1000)):undefined)
+    ??(hoverTime?candleBySecond.get(Math.floor(hoverTime/1000)):undefined);
+  const currentRsi=rsiPoints.length?rsiPoints[rsiPoints.length-1].value:undefined;
+  const levelsSignature=useMemo(()=>levels.map(level=>`${level.id}:${level.price.toFixed(8)}:${level.status}`).join('|'),[levels]);
+
+  const drawOverlay=useCallback(()=>{
+    const canvas=overlayRef.current;
+    const host=hostRef.current;
+    const chart=chartRef.current;
+    const series=candleSeriesRef.current;
+    if(!canvas||!host||!chart||!series)return;
+    const rect=host.getBoundingClientRect();
+    if(rect.width<=0||rect.height<=0)return;
+    const dpr=Math.max(1,window.devicePixelRatio||1);
+    if(canvas.width!==Math.round(rect.width*dpr)||canvas.height!==Math.round(rect.height*dpr)){
+      canvas.width=Math.round(rect.width*dpr);
+      canvas.height=Math.round(rect.height*dpr);
+      canvas.style.width=`${rect.width}px`;
+      canvas.style.height=`${rect.height}px`;
+    }
+    const ctx=canvas.getContext('2d');
+    if(!ctx)return;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,rect.width,rect.height);
+    const plotBottom=Math.max(0,rect.height-27);
+
+    const timeScale=chart.timeScale();
+
+    // Clear day boundaries only where they remain readable.
+    if(showDayOverlay){
+      const dayMap=new Map<number,number>();
+      for(const candle of candles){
+        const day=dayStartUtc(candle.timestamp);
+        if(!dayMap.has(day))dayMap.set(day,candle.timestamp);
+      }
+      ctx.save();
+      ctx.font='600 9px Inter,system-ui,sans-serif';
+      for(const [day,firstTs] of dayMap){
+        const x=timeScale.timeToCoordinate(Math.floor(firstTs/1000) as UTCTimestamp);
+        if(x===null||x<-30||x>rect.width+30)continue;
+        ctx.strokeStyle='rgba(132,163,180,.28)';
+        ctx.setLineDash([3,5]);
+        ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,plotBottom);ctx.stroke();
+        ctx.setLineDash([]);
+        const dayLabel=new Date(day).toLocaleDateString('ru-RU',{day:'2-digit',month:'short'}).toUpperCase();
+        ctx.fillStyle='rgba(6,18,27,.88)';
+        ctx.fillRect(x+4,plotBottom-22,52,16);
+        ctx.fillStyle='rgba(178,202,214,.82)';
+        ctx.fillText(dayLabel,x+8,plotBottom-10);
+      }
+      ctx.restore();
+    }
+
+    // Session bands are useful on intraday TF only.
+    if(showSessionOverlay)for(const session of sessions){
+      const def=sessionDefs.find(x=>x.name===session.name)!;
+      const x1=timeScale.timeToCoordinate(Math.floor(session.first/1000) as UTCTimestamp);
+      const x2raw=timeScale.timeToCoordinate(Math.floor(session.last/1000) as UTCTimestamp);
+      if(x1===null||x2raw===null)continue;
+      const count=Math.max(1,candles.filter(c=>c.timestamp>=session.first&&c.timestamp<=session.last).length-1);
+      const step=Math.max(4,Math.abs(x2raw-x1)/count);
+      const x2=x2raw+step;
+      if(x2<0||x1>rect.width)continue;
+
+      ctx.fillStyle=def.fill;
+      ctx.fillRect(x1,0,Math.max(2,x2-x1),plotBottom);
+      ctx.strokeStyle=def.line;
+      ctx.setLineDash([2,5]);
+      ctx.beginPath();ctx.moveTo(x1,0);ctx.lineTo(x1,plotBottom);ctx.stroke();
+      ctx.setLineDash([]);
+
+      const bandLabel=session.name==='NEW YORK'?'NEW YORK':session.name;
+      const label=`${bandLabel}${session.status==='LIVE'?' · LIVE':''}`;
+      ctx.font='700 8px "Segoe UI",system-ui,sans-serif';
+      const labelW=Math.min(Math.max(52,ctx.measureText(label).width+12),Math.max(52,x2-x1-6));
+      ctx.fillStyle=session.status==='LIVE'?'rgba(10,59,69,.88)':'rgba(7,25,36,.78)';
+      ctx.strokeStyle=session.status==='LIVE'?'rgba(78,201,180,.55)':def.line;
+      ctx.fillRect(x1+4,7,labelW,18);
+      ctx.strokeRect(x1+4,7,labelW,18);
+      ctx.fillStyle=session.status==='LIVE'?'rgba(206,246,236,.92)':'rgba(142,164,176,.76)';
+      ctx.fillText(label,x1+10,19);
+
+      const yh=series.priceToCoordinate(session.high);
+      const yl=series.priceToCoordinate(session.low);
+      const ym=series.priceToCoordinate(session.mid);
+      if(yh===null||yl===null||ym===null)continue;
+      const top=Math.min(yh,yl),height=Math.abs(yl-yh);
+      if(top>plotBottom||top+height<0)continue;
+
+      ctx.fillStyle=session.status==='LIVE'?'rgba(50,190,163,.035)':'rgba(87,113,128,.025)';
+      ctx.strokeStyle=session.status==='LIVE'?'rgba(79,211,183,.27)':'rgba(111,137,151,.16)';
+      ctx.setLineDash(session.status==='LIVE'?[5,5]:[3,6]);
+      ctx.fillRect(x1,top,Math.max(2,x2-x1),height);
+      ctx.strokeRect(x1,top,Math.max(2,x2-x1),height);
+      ctx.setLineDash([3,6]);
+      ctx.strokeStyle=session.status==='LIVE'?'rgba(98,224,198,.34)':'rgba(126,149,160,.2)';
+      ctx.beginPath();ctx.moveTo(x1,ym);ctx.lineTo(x2,ym);ctx.stroke();
+      ctx.setLineDash([]);
+
+      if(x2-x1>68){
+        const short=`BALANCE ${session.status}`;
+        ctx.font='600 7px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle=session.status==='LIVE'?'rgba(140,226,208,.82)':'rgba(125,148,159,.58)';
+        ctx.fillText(short,x1+6,Math.max(38,Math.min(plotBottom-8,top+12)));
+      }
+    }
+
+    // Candle-derived volume profile proxy. This is NOT tick-level exchange volume-at-price.
+    if(showProfileOverlay&&profiles.length){
+      const composite=profiles.find(profile=>profile.id==='COMPOSITE_12H');
+      if(composite){
+        const yVah=series.priceToCoordinate(composite.vah);
+        const yVal=series.priceToCoordinate(composite.val);
+        const yPoc=series.priceToCoordinate(composite.poc);
+        const xStart=timeScale.timeToCoordinate(Math.floor(composite.start/1000) as UTCTimestamp);
+        if(yVah!==null&&yVal!==null&&yPoc!==null){
+          const top=Math.min(yVah,yVal);
+          const height=Math.max(2,Math.abs(yVal-yVah));
+          const x=Math.max(0,xStart??0);
+          const width=Math.max(0,rect.width-132-x);
+          ctx.fillStyle='rgba(148,156,166,.035)';
+          ctx.fillRect(x,top,width,height);
+          ctx.strokeStyle='rgba(174,183,193,.25)';
+          ctx.setLineDash([4,5]);
+          ctx.beginPath();ctx.moveTo(x,yPoc);ctx.lineTo(rect.width-132,yPoc);ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+
+      for(const profile of profiles.filter(profile=>profile.id!=='COMPOSITE_12H')){
+        const x1=timeScale.timeToCoordinate(Math.floor(profile.start/1000) as UTCTimestamp);
+        const x2=timeScale.timeToCoordinate(Math.floor(profile.end/1000) as UTCTimestamp);
+        if(x1===null||x2===null||x2<0||x1>rect.width)continue;
+        const available=Math.max(42,Math.abs(x2-x1));
+        const maxWidth=Math.min(82,Math.max(42,available*.42));
+        const maxShare=Math.max(...profile.bins.map(bin=>bin.share),1e-9);
+
+        for(const bin of profile.bins){
+          const yHigh=series.priceToCoordinate(bin.high);
+          const yLow=series.priceToCoordinate(bin.low);
+          if(yHigh===null||yLow===null)continue;
+          const y=Math.min(yHigh,yLow);
+          const h=Math.max(1,Math.abs(yLow-yHigh));
+          if(y>plotBottom||y+h<0)continue;
+          const w=Math.max(1,(bin.share/maxShare)*maxWidth);
+          const inValueArea=bin.mid>=profile.val&&bin.mid<=profile.vah;
+          ctx.fillStyle=inValueArea?'rgba(154,168,178,.24)':'rgba(111,127,138,.12)';
+          ctx.fillRect(x1,y,w,h);
+        }
+
+        const yPoc=series.priceToCoordinate(profile.poc);
+        const yVah=series.priceToCoordinate(profile.vah);
+        const yVal=series.priceToCoordinate(profile.val);
+        if(yPoc!==null){
+          ctx.strokeStyle=profile.status==='LIVE'?'rgba(241,171,76,.86)':'rgba(208,151,76,.62)';
+          ctx.setLineDash([]);
+          ctx.beginPath();ctx.moveTo(x1,yPoc);ctx.lineTo(x1+maxWidth+8,yPoc);ctx.stroke();
+          if(profile.status==='LIVE'){
+            ctx.font='700 7px "Segoe UI",system-ui,sans-serif';
+            ctx.fillStyle='rgba(241,191,116,.9)';
+            ctx.fillText('POC',x1+maxWidth+11,yPoc+3);
+          }
+        }
+        if(profile.status==='LIVE'){
+          ctx.font='600 6.5px "Segoe UI",system-ui,sans-serif';
+          ctx.fillStyle='rgba(160,178,187,.78)';
+          if(yVah!==null)ctx.fillText('VAH',x1+maxWidth+11,yVah+3);
+          if(yVal!==null)ctx.fillText('VAL',x1+maxWidth+11,yVal+3);
+        }
+      }
+    }
+
+    // Structural liquidity clusters — candle-derived research zones, not an order-book map.
+    if(showClusters){
+      const upperRoute=clusters
+        .filter(cluster=>cluster.side==='UPPER'&&cluster.status!=='BROKEN')
+        .sort((a,b)=>a.mid-b.mid);
+      const lowerRoute=clusters
+        .filter(cluster=>cluster.side==='LOWER'&&cluster.status!=='BROKEN')
+        .sort((a,b)=>b.mid-a.mid);
+      const routeName=new Map<string,string>();
+      upperRoute.slice(0,4).forEach((cluster,index)=>routeName.set(cluster.id,`U${index+1}`));
+      lowerRoute.slice(0,4).forEach((cluster,index)=>routeName.set(cluster.id,`L${index+1}`));
+
+      const visibleClusters=clusters
+        .filter(cluster=>cluster.status!=='BROKEN'&&routeName.has(cluster.id))
+        .sort((a,b)=>a.distancePct-b.distancePct)
+        .slice(0,6);
+
+      const occupiedY:number[]=[];
+      for(const cluster of visibleClusters){
+        const yHigh=series.priceToCoordinate(cluster.high);
+        const yLow=series.priceToCoordinate(cluster.low);
+        if(yHigh===null||yLow===null)continue;
+        const top=Math.min(yHigh,yLow);
+        const height=Math.max(3,Math.abs(yLow-yHigh));
+        if(top>plotBottom||top+height<0)continue;
+
+        const isUpper=cluster.side==='UPPER';
+        const underAttack=cluster.status==='UNDER_ATTACK';
+        ctx.fillStyle=isUpper
+          ? (underAttack?'rgba(216,143,61,.075)':'rgba(190,113,72,.04)')
+          : (underAttack?'rgba(48,184,153,.07)':'rgba(48,143,163,.04)');
+        ctx.strokeStyle=isUpper
+          ? (underAttack?'rgba(230,166,78,.65)':'rgba(197,125,84,.34)')
+          : (underAttack?'rgba(79,211,180,.62)':'rgba(69,157,181,.34)');
+        ctx.setLineDash(underAttack?[5,3]:[3,5]);
+        ctx.fillRect(0,top,Math.max(0,rect.width-132),height);
+        ctx.strokeRect(0,top,Math.max(0,rect.width-132),height);
+        ctx.setLineDash([]);
+
+        const verdict=cluster.pressure>=1.4?'STRONG ATTACK':cluster.pressure>=1.1?'BREAK PRESSURE':cluster.pressure>=.7?'CONFLICT':'DEFENSE';
+        const code=routeName.get(cluster.id)??'LC';
+        let y=Math.max(36,Math.min(plotBottom-30,top+height/2-9));
+        while(occupiedY.some(prev=>Math.abs(prev-y)<30))y=Math.min(plotBottom-30,y+30);
+        occupiedY.push(y);
+        const x=Math.max(8,rect.width-272);
+        const w=132;
+
+        ctx.fillStyle='rgba(5,18,27,.93)';
+        ctx.strokeStyle=isUpper?'rgba(211,151,89,.58)':'rgba(71,184,164,.54)';
+        ctx.fillRect(x,y,w,26);
+        ctx.strokeRect(x,y,w,26);
+        ctx.font='800 7px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle=isUpper?'rgba(239,199,149,.94)':'rgba(152,233,214,.94)';
+        ctx.fillText(`${code} · ${verdict}`,x+6,y+10);
+        ctx.font='600 6.2px "Segoe UI",system-ui,sans-serif';
+        ctx.fillStyle='rgba(164,188,199,.82)';
+        ctx.fillText(`DEN ${cluster.density} · DEF ${cluster.defense} · ATT ${cluster.attack}`,x+6,y+20);
+      }
+    }
+
+    // Compact level labels at the right edge with collision avoidance.
+    const levelPriority:Record<string,number>={
+      YH:0,YL:1,TDH:2,TDL:3,ONH:4,ONL:5,RTH_HIGH:6,RTH_LOW:7,IBH:8,IBL:9,VWAP:10,OPEN:11
+    };
+    const visibleLevels=levels
+      .filter(level=>levelPriority[level.id]!==undefined)
+      .map(level=>({level,y:series.priceToCoordinate(level.price),priority:levelPriority[level.id]}))
+      .filter(item=>item.y!==null&&item.y!>28&&item.y!<plotBottom-4)
+      .sort((a,b)=>a.priority-b.priority)
+      .slice(0,12);
+
+    const placed:{y:number;target:number;level:DisplayLevel}[]=[];
+    for(const item of visibleLevels){
+      let y=Number(item.y);
+      const minGap=18;
+      for(const p of placed){
+        if(Math.abs(y-p.y)<minGap)y=p.y+(y>=p.y?minGap:-minGap);
+      }
+      y=Math.max(34,Math.min(plotBottom-10,y));
+      placed.push({y,target:Number(item.y),level:item.level});
+    }
+    placed.sort((a,b)=>a.y-b.y);
+    for(let i=1;i<placed.length;i++){
+      if(placed[i].y-placed[i-1].y<18)placed[i].y=Math.min(plotBottom-10,placed[i-1].y+18);
+    }
+
+    ctx.font='700 8px "Segoe UI",system-ui,sans-serif';
+    for(const item of placed){
+      const x=Math.max(6,rect.width-126);
+      const label=`${item.level.label} · ${item.level.status==='FROZEN'?'F':'L'}  ${fmtPrice(item.level.price)}`;
+      const w=118;
+      if(Math.abs(item.y-item.target)>1){
+        ctx.strokeStyle=item.level.status==='FROZEN'?'rgba(204,164,84,.45)':'rgba(71,174,212,.42)';
+        ctx.setLineDash([2,3]);
+        ctx.beginPath();ctx.moveTo(x-14,item.target);ctx.lineTo(x-3,item.y);ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.fillStyle=item.level.status==='FROZEN'?'rgba(117,87,31,.93)':'rgba(8,78,105,.94)';
+      ctx.strokeStyle=item.level.status==='FROZEN'?'rgba(218,177,92,.78)':'rgba(77,188,227,.75)';
+      ctx.fillRect(x,item.y-8,w,16);
+      ctx.strokeRect(x,item.y-8,w,16);
+      ctx.fillStyle='#e7f0f3';
+      ctx.fillText(label,x+5,item.y+3);
+    }
+
+    // Pinned candle marker.
+    if(pinnedTime){
+      const x=timeScale.timeToCoordinate(Math.floor(pinnedTime/1000) as UTCTimestamp);
+      if(x!==null){
+        ctx.strokeStyle='rgba(223,237,243,.65)';
+        ctx.setLineDash([2,3]);
+        ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,plotBottom);ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+  },[candles,pinnedTime,sessions,levels,clusters,showClusters,profiles,showProfileOverlay,showDayOverlay,showSessionOverlay]);
+  drawOverlayRef.current=drawOverlay;
+
+  useEffect(()=>{
+    const viewportKey=`${symbol}:${timeframe}`;
+    const cachedViewport=viewportCache.get(viewportKey);
+    visibleTimeRef.current=null;
+    visibleLogicalRef.current=null;
+    followLatestRef.current=cachedViewport?.following??true;
+    applyingRangeRef.current=false;
+    lastDataLengthRef.current=0;
+    firstTimestampRef.current=undefined;
+    lastTimestampRef.current=undefined;
+    candleCountRef.current=0;
+    setPinnedTime(undefined);
+    setSelectedMarketEvent(undefined);
+    setEventPopupPoint(undefined);
+    setSelectedRsiSignal(undefined);
+    setRsiPopupPoint(undefined);
+    setSelectedBalance(undefined);
+    setBalancePopupPoint(undefined);
+    setHoverTime(undefined);
+    setInteractionHint('Перетаскивай график мышью · колесо = zoom');
+    const host=hostRef.current;
+    if(!host)return;
+    const chart=createChart(host,{
+      width:host.clientWidth,
+      height:host.clientHeight,
+      layout:{background:{type:ColorType.Solid,color:'#050d13'},textColor:'#7892a1',fontFamily:'Inter,system-ui,sans-serif',fontSize:11},
+      grid:{vertLines:{color:'rgba(30,55,71,.25)'},horzLines:{color:'rgba(30,55,71,.32)'}},
+      crosshair:{
+        mode:CrosshairMode.Normal,
+        vertLine:{color:'rgba(163,196,211,.5)',width:1,style:LineStyle.Dashed,labelBackgroundColor:'#163446'},
+        horzLine:{color:'rgba(163,196,211,.42)',width:1,style:LineStyle.Dashed,labelBackgroundColor:'#163446'}
+      },
+      rightPriceScale:{borderColor:'#183548',scaleMargins:{top:.08,bottom:.22}},
+      timeScale:{borderColor:'#183548',timeVisible:true,secondsVisible:false,rightOffset:8,barSpacing:8,minBarSpacing:2,fixLeftEdge:false,lockVisibleTimeRangeOnResize:true},
+      handleScroll:{mouseWheel:false,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},
+      handleScale:{axisPressedMouseMove:true,mouseWheel:true,pinch:true},
+      kineticScroll:{mouse:true,touch:true},
+      localization:{locale:'ru-RU'}
+    });
+    chartRef.current=chart;
+
+    const series=chart.addCandlestickSeries({
+      upColor:'#25aa82',downColor:'#c75265',
+      borderUpColor:'#48d5a9',borderDownColor:'#e27485',
+      wickUpColor:'#48d5a9',wickDownColor:'#e27485',
+      priceLineVisible:true,lastValueVisible:true
+    });
+    candleSeriesRef.current=series;
+
+    const volume=chart.addHistogramSeries({
+      priceFormat:{type:'volume'},priceScaleId:'volume',lastValueVisible:false,priceLineVisible:false
+    });
+    volume.priceScale().applyOptions({scaleMargins:{top:.82,bottom:0}});
+    volumeSeriesRef.current=volume;
+
+    const move=(param:any)=>{
+      if(!param?.time){
+        if(!crosshairSyncRef.current){
+          try{(rsiChartRef.current as any)?.clearCrosshairPosition?.()}catch{}
+        }
+        return;
+      }
+      const sec=typeof param.time==='number'?param.time:undefined;
+      if(!sec)return;
+      if(!pinnedTimeRef.current)setHoverTime(sec*1000);
+      const rsiValue=rsiBySecondRef.current.get(sec);
+      if(rsiValue!==undefined&&rsiChartRef.current&&rsiSeriesRef.current&&!crosshairSyncRef.current){
+        crosshairSyncRef.current=true;
+        try{(rsiChartRef.current as any).setCrosshairPosition?.(rsiValue,param.time,rsiSeriesRef.current)}catch{}
+        window.setTimeout(()=>{crosshairSyncRef.current=false},0);
+      }
+    };
+
+    const click=(param:any)=>{
+      if(!param?.time)return;
+      const sec=typeof param.time==='number'?param.time:undefined;
+      if(!sec)return;
+      const eventList=eventAtSecondRef.current.get(sec)??[];
+      const point=param.point;
+      if(eventList.length){
+        const chosen=eventList[0];
+        setSelectedMarketEvent(chosen);
+        setSelectedRsiSignal(undefined);
+        setRsiPopupPoint(undefined);
+        if(point&&hostRef.current){
+          const rect=hostRef.current.getBoundingClientRect();
+          setEventPopupPoint({
+            x:Math.max(8,Math.min(Number(point.x)+12,Math.max(8,rect.width-340))),
+            y:Math.max(58,Math.min(Number(point.y)+12,Math.max(58,rect.height-235)))
+          });
+        }
+        setPinnedTime(sec*1000);
+        setHoverTime(sec*1000);
+        return;
+      }
+      const rsiList=rsiAtSecondRef.current.get(sec)??[];
+      if(rsiModeRef.current!=='OFF'&&rsiList.length&&point&&hostRef.current){
+        const chosen=rsiList[0];
+        const rect=hostRef.current.getBoundingClientRect();
+        setSelectedRsiSignal(chosen);
+        setRsiPopupPoint({
+          x:Math.max(8,Math.min(Number(point.x)+12,Math.max(8,rect.width-310))),
+          y:Math.max(58,Math.min(Number(point.y)+12,Math.max(58,rect.height-190)))
+        });
+        setSelectedMarketEvent(undefined);
+        setEventPopupPoint(undefined);
+        setPinnedTime(sec*1000);
+        setHoverTime(sec*1000);
+        return;
+      }
+      setSelectedMarketEvent(undefined);
+      setEventPopupPoint(undefined);
+      setSelectedRsiSignal(undefined);
+      setRsiPopupPoint(undefined);
+
+      const candleTs=sec*1000;
+      const clickPrice=point?series.coordinateToPrice(Number(point.y)):null;
+      const balance=[...sessionsRef.current]
+        .sort((a,b)=>(a.status==='LIVE'?0:1)-(b.status==='LIVE'?0:1))
+        .find(s=>candleTs>=s.first&&candleTs<=s.last&&clickPrice!==null&&clickPrice<=s.high&&clickPrice>=s.low);
+      if(balance&&point&&hostRef.current){
+        const rect=hostRef.current.getBoundingClientRect();
+        setSelectedBalance(balance);
+        setBalancePopupPoint({
+          x:Math.max(8,Math.min(Number(point.x)+12,Math.max(8,rect.width-300))),
+          y:Math.max(58,Math.min(Number(point.y)+12,Math.max(58,rect.height-205)))
+        });
+      }else{
+        setSelectedBalance(undefined);
+        setBalancePopupPoint(undefined);
+      }
+      setPinnedTime(prev=>prev===sec*1000?undefined:sec*1000);
+      setHoverTime(sec*1000);
+    };
+
+    const visible=(range:any)=>{
+      const logical=chart.timeScale().getVisibleLogicalRange();
+      const timeRange=chart.timeScale().getVisibleRange();
+      visibleLogicalRef.current=logical?{from:Number(logical.from),to:Number(logical.to)}:null;
+      visibleTimeRef.current=timeRange;
+      if(!applyingRangeRef.current&&logical){
+        const normalized={from:Number(logical.from),to:Number(logical.to)};
+        if(validLogicalRange(normalized,candleCountRef.current)){
+          const lastIndex=Math.max(0,candleCountRef.current-1);
+          followLatestRef.current=Number(logical.to)>=lastIndex+2;
+          const tr=chart.timeScale().getVisibleRange();
+          viewportCache.set(viewportKey,{range:normalized,timeRange:tr&&typeof tr.from==='number'&&typeof tr.to==='number'?{from:Number(tr.from),to:Number(tr.to)}:undefined,following:followLatestRef.current});
+        }
+      }
+      if(logical&&rsiChartRef.current&&!rsiSyncingRef.current){
+        rsiSyncingRef.current=true;
+        try{rsiChartRef.current.timeScale().setVisibleLogicalRange({from:Number(logical.from),to:Number(logical.to)})}catch{}
+        window.setTimeout(()=>{rsiSyncingRef.current=false},0);
+      }
+      drawOverlayRef.current();
+
+      // Older history is loaded only by explicit user action.
+      // Auto-loading here caused extra REST work and races on symbol/timeframe switches.
+    };
+
+    const visibleTime=()=>{
+      visibleTimeRef.current=chart.timeScale().getVisibleRange();
+      drawOverlayRef.current();
+    };
+    chart.subscribeCrosshairMove(move);
+    chart.subscribeClick(click);
+    chart.timeScale().subscribeVisibleLogicalRangeChange(visible);
+    chart.timeScale().subscribeVisibleTimeRangeChange(visibleTime);
+
+    const resize=new ResizeObserver(()=>{
+      if(!hostRef.current)return;
+      chart.applyOptions({width:hostRef.current.clientWidth,height:hostRef.current.clientHeight});
+      drawOverlayRef.current();
+    });
+    resize.observe(host);
+
+    return()=>{
+      const logical=chart.timeScale().getVisibleLogicalRange();
+      if(logical){
+        const normalized={from:Number(logical.from),to:Number(logical.to)};
+        if(validLogicalRange(normalized,candleCountRef.current)){
+          const tr=chart.timeScale().getVisibleRange();
+          viewportCache.set(viewportKey,{range:normalized,timeRange:tr&&typeof tr.from==='number'&&typeof tr.to==='number'?{from:Number(tr.from),to:Number(tr.to)}:undefined,following:followLatestRef.current});
+        }
+      }
+      resize.disconnect();
+      chart.unsubscribeCrosshairMove(move);
+      chart.unsubscribeClick(click);
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(visible);
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(visibleTime);
+      chart.remove();
+      chartRef.current=null;candleSeriesRef.current=null;volumeSeriesRef.current=null;
+    };
+  // chart is recreated only when instrument/timeframe changes, not on every tick.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[symbol,timeframe]);
+
+  useEffect(()=>{
+    const series=candleSeriesRef.current;
+    const volume=volumeSeriesRef.current;
+    const chart=chartRef.current;
+    if(!series||!volume||!chart||!candles.length)return;
+
+    const previousTimeRange=visibleTimeRef.current;
+    const previousLogical=visibleLogicalRef.current;
+    const previousLength=lastDataLengthRef.current;
+    const previousFirst=firstTimestampRef.current;
+    const previousLast=lastTimestampRef.current;
+    const nextFirst=candles[0].timestamp;
+    const nextLast=candles[candles.length-1].timestamp;
+    const prepended=previousFirst!==undefined&&nextFirst<previousFirst;
+    const appended=previousLast!==undefined&&nextLast>previousLast;
+
+    const fullRefresh=
+      previousLength===0||
+      prepended||
+      (previousFirst!==undefined&&nextFirst!==previousFirst)||
+      candles.length<previousLength||
+      candles.length>previousLength+1;
+
+    if(fullRefresh){
+      const candleData=candles.map(c=>({time:Math.floor(c.timestamp/1000) as UTCTimestamp,open:c.open,high:c.high,low:c.low,close:c.close}));
+      const volumeData=candles.map(c=>({time:Math.floor(c.timestamp/1000) as UTCTimestamp,value:c.volume,color:c.close>=c.open?'rgba(45,190,148,.28)':'rgba(214,86,105,.28)'}));
+      series.setData(candleData);
+      volume.setData(volumeData);
+    }else{
+      const last=candles[candles.length-1];
+      const time=Math.floor(last.timestamp/1000) as UTCTimestamp;
+      series.update({time,open:last.open,high:last.high,low:last.low,close:last.close});
+      volume.update({time,value:last.volume,color:last.close>=last.open?'rgba(45,190,148,.28)':'rgba(214,86,105,.28)'});
+    }
+
+    applyingRangeRef.current=true;
+    try{
+      if(prepended&&previousTimeRange){
+        // Loading older candles must not move the viewport the user is currently studying.
+        chart.timeScale().setVisibleRange(previousTimeRange);
+      }else if(previousLogical&&validLogicalRange(previousLogical,candles.length)){
+        const width=Math.max(10,previousLogical.to-previousLogical.from);
+        if(appended&&followLatestRef.current){
+          const to=candles.length-1+6;
+          chart.timeScale().setVisibleLogicalRange({from:to-width,to});
+        }else{
+          chart.timeScale().setVisibleLogicalRange(previousLogical);
+        }
+      }else{
+        const viewportKeyNow=`${symbol}:${timeframe}`;
+        const cached=viewportCache.get(viewportKeyNow);
+        const firstSec=Math.floor(candles[0].timestamp/1000);
+        const lastSec=Math.floor(candles[candles.length-1].timestamp/1000);
+        const cachedTimeOk=Boolean(cached?.timeRange&&cached.timeRange.to>=firstSec&&cached.timeRange.from<=lastSec);
+        if(cachedTimeOk&&cached?.timeRange){
+          chart.timeScale().setVisibleRange({from:cached.timeRange.from as UTCTimestamp,to:cached.timeRange.to as UTCTimestamp});
+          followLatestRef.current=cached.following;
+        }else{
+          if(cached&&!cachedTimeOk)viewportCache.delete(viewportKeyNow);
+          chart.timeScale().fitContent();
+          const width=Math.min(windowSize,Math.max(40,candles.length));
+          const to=candles.length-1+6;
+          chart.timeScale().setVisibleLogicalRange({from:Math.max(0,to-width),to});
+          followLatestRef.current=true;
+        }
+      }
+    }catch{}
+
+    lastDataLengthRef.current=candles.length;
+    firstTimestampRef.current=nextFirst;
+    lastTimestampRef.current=nextLast;
+    candleCountRef.current=candles.length;
+    window.requestAnimationFrame(()=>{
+      applyingRangeRef.current=false;
+      drawOverlayRef.current();
+    });
+
+    // Same-candle websocket updates should never reset pan/zoom.
+    if(previousLength===candles.length&&!prepended&&!appended){
+      setInteractionHint('Перетаскивай график мышью · масштаб сохраняется');
+    }
+  },[candles,windowSize,symbol,timeframe]);
+
+  useEffect(()=>{
+    const series=candleSeriesRef.current;
+    if(!series)return;
+    for(const line of priceLinesRef.current){
+      try{series.removePriceLine(line)}catch{}
+    }
+    priceLinesRef.current=[];
+    const recent=candles.slice(-300);
+    const min=recent.length?Math.min(...recent.map(c=>c.low)):undefined;
+    const max=recent.length?Math.max(...recent.map(c=>c.high)):undefined;
+    const pad=min!==undefined&&max!==undefined?(max-min)*.75:0;
+    for(const level of levels){
+      if(min!==undefined&&max!==undefined&&(level.price<min-pad||level.price>max+pad))continue;
+      priceLinesRef.current.push(series.createPriceLine({
+        price:level.price,
+        color:level.status==='FROZEN'?'rgba(213,174,91,.82)':'rgba(70,178,217,.78)',
+        lineWidth:1,
+        lineStyle:level.status==='FROZEN'?LineStyle.Dashed:LineStyle.SparseDotted,
+        axisLabelVisible:false,
+        title:''
+      }));
+    }
+    requestAnimationFrame(drawOverlayRef.current);
+    // Rebuild lines only when level values/statuses actually change, not every websocket tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[levelsSignature,symbol,timeframe]);
+
+  useEffect(()=>{requestAnimationFrame(drawOverlay)},[drawOverlay]);
+
+
+  useEffect(()=>{
+    const series=candleSeriesRef.current;
+    if(!series||!candles.length)return;
+
+    const marketMarkers=mappedEvents.map(({event:e,candleTs})=>{
+      const time=Math.floor(candleTs/1000) as UTCTimestamp;
+      const isLong=e.direction==='LONG';
+      let position:'aboveBar'|'belowBar'|'inBar'='aboveBar';
+      let shape:'circle'|'square'|'arrowUp'|'arrowDown'='circle';
+      let color='#6fb8d8';
+      let text=eventShortLabel(e);
+
+      if(e.type==='TOUCH'){position=isLong?'belowBar':'aboveBar';shape='circle';color='#73bcd8'}
+      if(e.type==='PROBE'){position=isLong?'belowBar':'aboveBar';shape='circle';color='#b68b49'}
+      if(e.type==='SWEEP'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#d7a84d'}
+      if(e.type==='BREAK'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#4aa7d6'}
+      if(e.type==='ACCEPT'){position=isLong?'belowBar':'aboveBar';shape='square';color='#5ac8a3'}
+      if(e.type==='RECLAIM'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#8fd3b7'}
+      if(e.type==='CHOCH'||e.type==='MSS'||e.type==='BOS'){position=isLong?'belowBar':'aboveBar';shape='square';color='#8bb9ff'}
+      if(e.type==='CONFIRMED'){position=isLong?'belowBar':'aboveBar';shape='square';color='#36d09b'}
+      if(e.type==='ENTRY'){position=isLong?'belowBar':'aboveBar';shape=isLong?'arrowUp':'arrowDown';color='#eef4f7'}
+      if(e.type==='TP'){position=isLong?'aboveBar':'belowBar';shape='square';color='#37cfa1'}
+      if(e.type==='SL'){position=isLong?'belowBar':'aboveBar';shape='square';color='#e36c7e'}
+
+      if(tfSec>=14400)text='';
+      return{time,position,shape,color,text,size:e.type==='SWEEP'?1.35:1};
+    });
+
+    const rsiBudget=tfSec>=86400?8:tfSec>=14400?14:tfSec>=3600?20:32;
+    const rsiByCandle=new Map<number,RsiSignal>();
+    if(rsiMode==='EVENTS'){
+      for(const signal of rsiSignals.slice(-90)){
+        const ts=nearestCandleTimestamp(candles,signal.timestamp);
+        const existing=rsiByCandle.get(ts);
+        const rank=(s:RsiSignal)=>s.type==='RC30'||s.type==='RC70'?0:s.type==='BULL'||s.type==='BEAR'?1:s.type==='PIVOT'?2:3;
+        if(!existing||rank(signal)<rank(existing))rsiByCandle.set(ts,signal);
+      }
+    }
+    const rsiMarkers=rsiMode==='EVENTS'?[...rsiByCandle.entries()]
+      .sort((a,b)=>a[0]-b[0]).slice(-rsiBudget).map(([ts,signal])=>{
+      const isLong=signal.direction==='LONG';
+      const time=Math.floor(ts/1000) as UTCTimestamp;
+      let color='#397de3';
+      let shape:'circle'|'square'|'arrowUp'|'arrowDown'='circle';
+      let position:'aboveBar'|'belowBar'|'inBar'=isLong?'belowBar':'aboveBar';
+      if(signal.type==='BULL'){color='#43bd6b';shape='arrowUp'}
+      if(signal.type==='BEAR'){color='#e7585f';shape='arrowDown'}
+      if(signal.type==='PIVOT'){color='#4169e1';shape='square'}
+      if(signal.type==='RC30'){color='#45b96b';shape='circle';position='belowBar'}
+      if(signal.type==='RC70'){color='#eb5a63';shape='circle';position='aboveBar'}
+      if(signal.type==='RSI37_UP'){color='#4fa0ff';shape='arrowUp';position='belowBar'}
+      if(signal.type==='RSI63_DOWN'){color='#f08a5d';shape='arrowDown';position='aboveBar'}
+      const text=tfSec>=14400?'':signal.shortLabel;
+      return{time,position,shape,color,text,size:.8};
+    }):[];
+
+    const markers=[...marketMarkers,...rsiMarkers].sort((a,b)=>Number(a.time)-Number(b.time));
+    try{(series as any).setMarkers(markers)}catch{}
+  },[mappedEvents,rsiMode,rsiSignals,candles,timeframe,symbol]);
+
+  useEffect(()=>{
+    const priceChart=chartRef.current;
+    if(priceChart){
+      try{priceChart.applyOptions({timeScale:{visible:rsiMode!=='PANEL'}} as any)}catch{}
+    }
+
+    if(rsiMode!=='PANEL'){
+      if(rsiChartRef.current){
+        try{rsiChartRef.current.remove()}catch{}
+        rsiChartRef.current=null;
+        rsiSeriesRef.current=null;
+      }
+      return;
+    }
+
+    const host=rsiHostRef.current;
+    if(!host)return;
+
+    const rsiChart=createChart(host,{
+      width:host.clientWidth,
+      height:host.clientHeight,
+      layout:{background:{type:ColorType.Solid,color:'#060d14'},textColor:'#7e96a5',fontFamily:'Inter,system-ui,sans-serif',fontSize:10},
+      grid:{vertLines:{color:'rgba(30,55,71,.18)'},horzLines:{color:'rgba(30,55,71,.28)'}},
+      crosshair:{
+        mode:CrosshairMode.Normal,
+        vertLine:{color:'rgba(163,196,211,.45)',width:1,style:LineStyle.Dashed,labelBackgroundColor:'#163446'},
+        horzLine:{color:'rgba(163,196,211,.32)',width:1,style:LineStyle.Dashed,labelBackgroundColor:'#163446'}
+      },
+      rightPriceScale:{borderColor:'#183548',scaleMargins:{top:.08,bottom:.08}},
+      timeScale:{borderColor:'#183548',timeVisible:true,secondsVisible:false,rightOffset:8,barSpacing:8,minBarSpacing:2,fixLeftEdge:false,lockVisibleTimeRangeOnResize:true},
+      handleScroll:{mouseWheel:false,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},
+      handleScale:{axisPressedMouseMove:true,mouseWheel:true,pinch:true},
+      kineticScroll:{mouse:true,touch:true},
+      localization:{locale:'ru-RU'}
+    });
+    rsiChartRef.current=rsiChart;
+
+    const rsiSeries=rsiChart.addLineSeries({
+      color:'#f1a72d',
+      lineWidth:2,
+      priceLineVisible:true,
+      lastValueVisible:true,
+      priceFormat:{type:'price',precision:1,minMove:.1},
+      autoscaleInfoProvider:()=>({priceRange:{minValue:0,maxValue:100}})
+    } as any);
+    rsiSeriesRef.current=rsiSeries;
+
+    rsiSeries.createPriceLine({price:70,color:'rgba(207,84,92,.58)',lineWidth:1,lineStyle:LineStyle.Dashed,axisLabelVisible:true,title:'70'});
+    rsiSeries.createPriceLine({price:50,color:'rgba(120,143,155,.42)',lineWidth:1,lineStyle:LineStyle.Dotted,axisLabelVisible:true,title:'50'});
+    rsiSeries.createPriceLine({price:30,color:'rgba(74,166,103,.58)',lineWidth:1,lineStyle:LineStyle.Dashed,axisLabelVisible:true,title:'30'});
+
+    const syncToPrice=(range:any)=>{
+      if(!range||!chartRef.current||rsiSyncingRef.current)return;
+      rsiSyncingRef.current=true;
+      try{
+        chartRef.current.timeScale().setVisibleLogicalRange({from:Number(range.from),to:Number(range.to)});
+        visibleLogicalRef.current={from:Number(range.from),to:Number(range.to)};
+        const tr=chartRef.current?.timeScale().getVisibleRange();
+        viewportCache.set(`${symbol}:${timeframe}`,{range:{from:Number(range.from),to:Number(range.to)},timeRange:tr&&typeof tr.from==='number'&&typeof tr.to==='number'?{from:Number(tr.from),to:Number(tr.to)}:undefined,following:followLatestRef.current});
+      }catch{}
+      window.setTimeout(()=>{rsiSyncingRef.current=false},0);
+    };
+    rsiChart.timeScale().subscribeVisibleLogicalRangeChange(syncToPrice);
+
+    const rsiMove=(param:any)=>{
+      if(!param?.time){
+        if(!crosshairSyncRef.current){
+          try{(chartRef.current as any)?.clearCrosshairPosition?.()}catch{}
+        }
+        return;
+      }
+      const sec=typeof param.time==='number'?param.time:undefined;
+      if(!sec)return;
+      const candle=candleBySecondRef.current.get(sec);
+      if(candle&&chartRef.current&&candleSeriesRef.current&&!crosshairSyncRef.current){
+        crosshairSyncRef.current=true;
+        try{(chartRef.current as any).setCrosshairPosition?.(candle.close,param.time,candleSeriesRef.current)}catch{}
+        window.setTimeout(()=>{crosshairSyncRef.current=false},0);
+      }
+    };
+    rsiChart.subscribeCrosshairMove(rsiMove);
+
+    const resize=new ResizeObserver(()=>{
+      if(!rsiHostRef.current)return;
+      rsiChart.applyOptions({width:rsiHostRef.current.clientWidth,height:rsiHostRef.current.clientHeight});
+    });
+    resize.observe(host);
+
+    const mainRange=chartRef.current?.timeScale().getVisibleLogicalRange();
+    if(mainRange){
+      try{rsiChart.timeScale().setVisibleLogicalRange({from:Number(mainRange.from),to:Number(mainRange.to)})}catch{}
+    }
+
+    return()=>{
+      resize.disconnect();
+      rsiChart.timeScale().unsubscribeVisibleLogicalRangeChange(syncToPrice);
+      rsiChart.unsubscribeCrosshairMove(rsiMove);
+      try{rsiChart.remove()}catch{}
+      if(rsiChartRef.current===rsiChart)rsiChartRef.current=null;
+      rsiSeriesRef.current=null;
+    };
+  },[rsiMode,symbol,timeframe]);
+
+  useEffect(()=>{
+    const chart=rsiChartRef.current;
+    const series=rsiSeriesRef.current;
+    if(rsiMode!=='PANEL'||!chart||!series)return;
+
+    const data=rsiPoints.map(p=>({time:Math.floor(p.timestamp/1000) as UTCTimestamp,value:p.value}));
+    series.setData(data);
+
+    const markers=rsiSignals.slice(-120).map((signal:RsiSignal)=>{
+      let color='#4169e1';
+      let shape:'circle'|'square'|'arrowUp'|'arrowDown'='circle';
+      let position:'aboveBar'|'belowBar'|'inBar'=signal.direction==='LONG'?'belowBar':'aboveBar';
+      if(signal.type==='BULL'){color='#43bd6b';shape='arrowUp'}
+      if(signal.type==='BEAR'){color='#e7585f';shape='arrowDown'}
+      if(signal.type==='PIVOT'){color='#4169e1';shape='square'}
+      if(signal.type==='RC30'){color='#45b96b';shape='circle';position='belowBar'}
+      if(signal.type==='RC70'){color='#eb5a63';shape='circle';position='aboveBar'}
+      if(signal.type==='RSI37_UP'){color='#4fa0ff';shape='arrowUp';position='belowBar'}
+      if(signal.type==='RSI63_DOWN'){color='#f08a5d';shape='arrowDown';position='aboveBar'}
+      return{time:Math.floor(signal.timestamp/1000) as UTCTimestamp,position,shape,color,text:signal.shortLabel,size:.85};
+    }).sort((a,b)=>Number(a.time)-Number(b.time));
+    try{(series as any).setMarkers(markers)}catch{}
+
+    const mainRange=chartRef.current?.timeScale().getVisibleLogicalRange();
+    if(mainRange&&!rsiSyncingRef.current){
+      rsiSyncingRef.current=true;
+      try{chart.timeScale().setVisibleLogicalRange({from:Number(mainRange.from),to:Number(mainRange.to)})}catch{}
+      window.setTimeout(()=>{rsiSyncingRef.current=false},0);
+    }
+  },[rsiMode,rsiPoints,rsiSignals]);
+
+
+  useEffect(()=>{
+    const chart=chartRef.current;
+    if(!chart||!focusTimestamp||!focusNonce)return;
+    const step=tfSeconds[timeframe]??900;
+    const center=Math.floor(focusTimestamp/1000);
+    const half=Math.max(step*18,step*Math.min(windowSize,120)/2);
+    applyingRangeRef.current=true;
+    followLatestRef.current=false;
+    try{
+      chart.timeScale().setVisibleRange({from:(center-half) as UTCTimestamp,to:(center+half) as UTCTimestamp});
+      setPinnedTime(focusTimestamp);
+    }catch{}
+    window.requestAnimationFrame(()=>{
+      applyingRangeRef.current=false;
+      drawOverlayRef.current();
+    });
+  // Deliberately only reacts to a new focus command. Live ticks must never yank the chart back.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[focusNonce]);
+
+  useEffect(()=>{
+    const chart=chartRef.current;
+    if(!chart||!candles.length)return;
+    const from=Math.max(0,candles.length-windowSize);
+    applyingRangeRef.current=true;
+    followLatestRef.current=true;
+    try{chart.timeScale().setVisibleLogicalRange({from,to:candles.length-1+6})}catch{}
+    window.requestAnimationFrame(()=>{applyingRangeRef.current=false});
+  },[windowSize]);
+
+  const zoom=(factor:number)=>{
+    const chart=chartRef.current;
+    if(!chart)return;
+    const range=chart.timeScale().getVisibleLogicalRange();
+    if(!range)return;
+    const center=(range.from+range.to)/2;
+    const half=Math.max(8,(range.to-range.from)*factor/2);
+    chart.timeScale().setVisibleLogicalRange({from:center-half,to:center+half});
+  };
+  const latest=()=>{
+    const chart=chartRef.current;
+    if(!chart||!candles.length)return;
+    setPinnedTime(undefined);
+    setSelectedMarketEvent(undefined);
+    setEventPopupPoint(undefined);
+    followLatestRef.current=true;
+    const from=Math.max(0,candles.length-windowSize);
+    applyingRangeRef.current=true;
+    chart.timeScale().setVisibleLogicalRange({from,to:candles.length-1+6});
+    window.requestAnimationFrame(()=>{applyingRangeRef.current=false});
+  };
+
+  if(candles.length<20)return <div className="live-candle-root loading"><b>ЗАГРУЖАЕМ ИСТОРИЮ СВЕЧЕЙ · LOADING CANDLE HISTORY</b><small>{source} WebSocket уже может быть LIVE, но интерактивный график ждёт REST-историю · candles: {candles.length}</small></div>;
+
+  return <div className={'tv-chart-root '+(rsiMode==='PANEL'?'rsi-panel-mode':'')}>
+    <div ref={hostRef} className="tv-chart-host"/>
+    <canvas ref={overlayRef} className="tv-chart-overlay"/>
+    <div className="live-chart-status">
+      <span className={status==='LIVE'?'ok':'wait'}>● {status}</span>
+      <b>{symbol} · {source} PUBLIC</b>
+      <small>{lastPrice!==undefined?fmtPrice(lastPrice):'—'} {latencyMs!==undefined?'· '+latencyMs+' ms':''}</small>
+    </div>
+    <div className="tv-chart-actions">
+      <div className="tv-rsi-switch">
+        <span>RSI</span>
+        {(['OFF','EVENTS','PANEL'] as RsiMode[]).map(mode=><button type="button" key={mode} className={rsiMode===mode?'active':''} onClick={()=>setRsiMode(mode)}>{mode}</button>)}
+      </div>
+      <button type="button" onClick={()=>zoom(.72)} title="Приблизить">＋</button>
+      <button type="button" onClick={()=>zoom(1.42)} title="Отдалить">−</button>
+      <button type="button" disabled={!onLoadOlder||loadingOlder||!hasOlder} onClick={()=>{if(!onLoadOlder||loadingOlder||!hasOlder)return;setInteractionHint('Подгружаем старую историю · loading older candles…');void onLoadOlder().finally(()=>setInteractionHint('Перетаскивай график мышью · колесо = zoom'))}}>ИСТОРИЯ ←</button>
+      <button type="button" onClick={latest}>ПОСЛЕДНЯЯ · LATEST</button>
+      <button type="button" onClick={()=>{setPinnedTime(undefined);setHoverTime(undefined);setSelectedMarketEvent(undefined);setEventPopupPoint(undefined);setSelectedRsiSignal(undefined);setRsiPopupPoint(undefined)}}>СБРОС КУРСОРА</button>
+    </div>
+    <div className="tv-chart-hint">{interactionHint}</div>
+    {rsiMode==='PANEL'&&<>
+      <div ref={rsiHostRef} className="tv-rsi-host"/>
+      <div className="tv-rsi-panel-label"><b>RSI 14</b><span>{currentRsi!==undefined?currentRsi.toFixed(1):'—'}</span><small>30 / 50 / 70 · context only</small></div>
+    </>}
+
+    {selectedRsiSignal&&rsiPopupPoint&&<div className="tv-rsi-event-popup" style={{left:rsiPopupPoint.x,top:rsiPopupPoint.y}}>
+      <button className="tv-event-popup-close" onClick={()=>{setSelectedRsiSignal(undefined);setRsiPopupPoint(undefined)}}>×</button>
+      <strong>{selectedRsiSignal.label}</strong>
+      <small>RSI CONTEXT · НЕ ЦЕНОВОЙ ПРОБОЙ</small>
+      <div><span>Время · Time</span><b>{new Date(selectedRsiSignal.timestamp).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</b></div>
+      <div><span>RSI 14</span><b>{selectedRsiSignal.value.toFixed(2)}</b></div>
+      <p>{selectedRsiSignal.type==='RC70'?'RSI вошёл в зону 70+. Это не означает снятие ценового максимума.':selectedRsiSignal.type==='RC30'?'RSI вошёл в зону 30-. Это не означает снятие ценового минимума.':'Событие относится только к RSI. Направление цены подтверждает Structure Engine.'}</p>
+    </div>}
+        {selectedBalance&&balancePopupPoint&&<div className="tv-balance-popup" style={{left:balancePopupPoint.x,top:balancePopupPoint.y}}>
+      <button className="tv-event-popup-close" onClick={()=>{setSelectedBalance(undefined);setBalancePopupPoint(undefined)}}>×</button>
+      <strong>{selectedBalance.name==='NEW YORK'?'NEW YORK':selectedBalance.name} · BALANCE {selectedBalance.status}</strong>
+      <div><span>HIGH</span><b>{fmtPrice(selectedBalance.high)}</b></div>
+      <div><span>MID</span><b>{fmtPrice(selectedBalance.mid)}</b></div>
+      <div><span>LOW</span><b>{fmtPrice(selectedBalance.low)}</b></div>
+    </div>}
+    {selectedMarketEvent&&eventPopupPoint&&<div className="tv-event-popup" style={{left:eventPopupPoint.x,top:eventPopupPoint.y}}>
+      <button className="tv-event-popup-close" onClick={()=>{setSelectedMarketEvent(undefined);setEventPopupPoint(undefined)}}>×</button>
+      <div className="tv-event-popup-head">
+        <strong>{eventTitleRu(selectedMarketEvent)}</strong>
+        <small>{eventShortLabel(selectedMarketEvent)} · {eventLevelId(selectedMarketEvent)}</small>
+      </div>
+      <div className="tv-event-popup-time">
+        <span>Время · Time</span>
+        <b>{new Date(selectedMarketEvent.timestamp).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'})}</b>
+      </div>
+      <div className="tv-event-popup-grid">
+        <span><small>Зона · Zone</small><b>{eventLevelNameRu(selectedMarketEvent)}</b></span>
+        <span><small>TF события</small><b>{selectedMarketEvent.timeframe}</b></span>
+        <span><small>Уровень · Level</small><b>{payloadNumber(selectedMarketEvent,'levelPrice')!==undefined?fmtPrice(payloadNumber(selectedMarketEvent,'levelPrice')!):String(selectedMarketEvent.level)}</b></span>
+        <span><small>Цена свечи · Close</small><b>{fmtPrice(selectedMarketEvent.price)}</b></span>
+      </div>
+      {payloadNumber(selectedMarketEvent,'sweepDepthPct')!==undefined&&<div className="tv-event-popup-metric"><span>Глубина снятия · Sweep depth</span><b>{payloadNumber(selectedMarketEvent,'sweepDepthPct')!.toFixed(4)}%</b></div>}{payloadNumber(selectedMarketEvent,'probeDepthPct')!==undefined&&<div className="tv-event-popup-metric"><span>Глубина прокола · Probe depth</span><b>{payloadNumber(selectedMarketEvent,'probeDepthPct')!.toFixed(4)}%</b></div>}
+      <p>{selectedMarketEvent.explanation}</p>
+      <div className="tv-event-popup-next"><small>ДАЛЬШЕ · NEXT</small><b>{selectedMarketEvent.nextExpected}</b></div>
+    </div>}
+    {selectedCandle&&<div className={'tv-ohlcv '+(pinnedTime?'pinned':'')}>
+      <div><b>{new Date(selectedCandle.timestamp).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</b><span>{pinnedTime?'● ЗАФИКСИРОВАНО · PINNED':'CROSSHAIR'}</span></div>
+      <div><span>O <b>{fmtPrice(selectedCandle.open)}</b></span><span>H <b>{fmtPrice(selectedCandle.high)}</b></span><span>L <b>{fmtPrice(selectedCandle.low)}</b></span><span>C <b>{fmtPrice(selectedCandle.close)}</b></span><span>V <b>{selectedCandle.volume.toLocaleString('en-US',{maximumFractionDigits:2})}</b></span></div>
+    </div>}
+    {loadingOlder&&<div className="tv-history-loading">← подгружаем старые свечи · loading history</div>}
+  </div>;
+}

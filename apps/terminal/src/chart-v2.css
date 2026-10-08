@@ -1,0 +1,114 @@
+/* ASCEND MARKET CHART V2 — interactive time navigation, day/session map and balances */
+.mock-chart.live-chart-mode{
+  position:relative!important;
+  height:540px!important;
+  min-height:460px;
+  overflow:hidden!important;
+  background:#050d13!important;
+  border-top:1px solid #153044;
+  border-bottom:1px solid #153044;
+}
+.tv-chart-root{position:absolute;inset:0;z-index:4;overflow:hidden;background:#050d13}
+.tv-chart-host{position:absolute;inset:0;z-index:1;min-width:0}
+.tv-chart-host>div{width:100%!important;height:100%!important}
+.tv-chart-overlay{position:absolute;inset:0;z-index:3;pointer-events:none}
+.tv-chart-root .live-chart-status{z-index:7;top:8px;left:8px;backdrop-filter:blur(5px)}
+.tv-chart-actions{position:absolute;z-index:8;right:70px;top:8px;display:flex;gap:4px;align-items:center;max-width:calc(100% - 360px)}
+.tv-chart-actions button{
+  height:28px;padding:0 8px;border:1px solid #21475e;border-radius:4px;
+  background:rgba(6,20,29,.92);color:#8ba7b7;font-size:6.5px;font-weight:700;letter-spacing:.02em;
+}
+.tv-chart-actions button:hover{border-color:#368db5;color:#d8edf5;background:#0a2638}
+.tv-chart-actions button:first-child,.tv-chart-actions button:nth-child(2){width:29px;padding:0;font-size:13px}
+.tv-chart-hint{
+  position:absolute;z-index:7;left:50%;bottom:27px;transform:translateX(-50%);
+  padding:4px 8px;border:1px solid rgba(31,66,86,.72);border-radius:4px;
+  background:rgba(4,13,20,.82);color:#5d7b8d;font-size:6px;white-space:nowrap;pointer-events:none
+}
+.tv-ohlcv{
+  position:absolute;z-index:8;left:8px;top:41px;min-width:285px;max-width:min(520px,70%);
+  border:1px solid rgba(31,73,95,.92);border-radius:5px;background:rgba(5,17,25,.92);
+  padding:6px 8px;pointer-events:none
+}
+.tv-ohlcv.pinned{border-color:rgba(95,150,174,.95);box-shadow:inset 2px 0 #5b9ab4}
+.tv-ohlcv>div:first-child{display:flex;justify-content:space-between;gap:10px;margin-bottom:4px}
+.tv-ohlcv>div:first-child b{color:#cfdee6;font-size:7px}
+.tv-ohlcv>div:first-child span{color:#6e93a6;font-size:5.5px}
+.tv-ohlcv>div:last-child{display:flex;gap:10px;flex-wrap:wrap}
+.tv-ohlcv>div:last-child span{font-size:6.5px;color:#6f8795}
+.tv-ohlcv>div:last-child b{color:#c2d4dd;font-size:7px;margin-left:2px}
+.tv-history-loading{
+  position:absolute;z-index:9;left:8px;bottom:31px;padding:5px 8px;border:1px solid #5d4e2a;
+  border-radius:4px;background:rgba(22,17,8,.94);color:#d4b36a;font-size:6.5px
+}
+
+.history-toolbar{grid-template-columns:minmax(260px,1fr) auto minmax(260px,auto)!important}
+.compact-presets button{min-width:33px!important;padding:0 6px!important}
+.history-gesture{display:inline-flex;align-items:center;min-height:30px;padding:0 7px;border:1px solid #173247;border-radius:4px;color:#52758a;font-size:6px;white-space:nowrap}
+.history-actions{align-items:center;justify-content:flex-end}
+.history-actions button{min-height:30px!important}
+.chart-toolbar{position:relative;z-index:2}
+
+/* Lightweight Charts canvas should remain crisp and fill the center pane. */
+.tv-chart-host canvas{image-rendering:auto}
+
+/* Do not allow chart controls to cause page-level horizontal scrolling. */
+.chart-shell,.history-toolbar,.tv-chart-root,.tv-chart-actions{min-width:0}
+.market-workspace{overflow-x:hidden!important}
+.chart-shell{overflow:hidden}
+
+@media(max-width:1400px){
+  .mock-chart.live-chart-mode{height:490px!important;min-height:450px}
+  .history-toolbar{grid-template-columns:minmax(220px,1fr) auto!important}
+  .history-actions{grid-column:1/3;justify-content:flex-start;flex-wrap:wrap}
+  .tv-chart-actions{right:62px;max-width:55%;flex-wrap:wrap;justify-content:flex-end}
+  .tv-chart-actions button{height:25px;padding:0 6px;font-size:5.8px}
+  .tv-chart-actions button:first-child,.tv-chart-actions button:nth-child(2){width:26px}
+  .tv-ohlcv{top:39px;min-width:250px}
+}
+@media(max-width:1180px){
+  .tv-chart-actions{top:38px;right:8px;max-width:60%}
+  .tv-chart-root .live-chart-status{max-width:58%}
+  .tv-ohlcv{top:70px;max-width:62%}
+}
+
+.tv-event-legend{
+  position:absolute;z-index:8;left:8px;bottom:49px;display:flex;gap:5px;flex-wrap:wrap;
+  max-width:70%;padding:5px 7px;border:1px solid rgba(30,69,90,.84);border-radius:5px;
+  background:rgba(4,14,21,.88);pointer-events:none
+}
+.tv-event-legend span{
+  font-size:7px;font-weight:700;color:#8ba5b4;letter-spacing:.01em;white-space:nowrap
+}
+@media(max-width:1400px){
+  .tv-event-legend{max-width:62%;bottom:48px}
+  .tv-event-legend span{font-size:6.5px}
+}
+
+
+.tv-event-popup{
+  position:absolute;z-index:14;width:320px;max-width:calc(100% - 16px);
+  border:1px solid #2a6583;border-radius:7px;background:rgba(5,18,27,.97);
+  box-shadow:0 10px 26px rgba(0,0,0,.42);padding:10px 11px;pointer-events:auto
+}
+.tv-event-popup-close{
+  position:absolute;right:6px;top:6px;width:24px;height:24px;border:1px solid #234a60;border-radius:4px;
+  background:#081923;color:#91aab8;font-size:14px;line-height:1
+}
+.tv-event-popup-head{padding-right:30px;margin-bottom:8px}
+.tv-event-popup-head strong{display:block;color:#e0edf3;font-size:11px;line-height:1.25}
+.tv-event-popup-head small{display:block;margin-top:3px;color:#77a8bf;font-size:8px}
+.tv-event-popup-time,.tv-event-popup-metric{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid #163246}
+.tv-event-popup-time span,.tv-event-popup-metric span{color:#7893a3;font-size:8px}
+.tv-event-popup-time b,.tv-event-popup-metric b{color:#d4e2e8;font-size:9px}
+.tv-event-popup-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:2px 0 4px}
+.tv-event-popup-grid>span{display:flex;flex-direction:column;gap:2px;padding:6px;border:1px solid #143146;border-radius:4px;background:#07141d}
+.tv-event-popup-grid small{font-size:7px;color:#708c9c}
+.tv-event-popup-grid b{font-size:9px;color:#cbdce4}
+.tv-event-popup p{margin:7px 0;font-size:8px;line-height:1.45;color:#9bb0bc}
+.tv-event-popup-next{border-top:1px solid #173549;padding-top:7px}
+.tv-event-popup-next small{display:block;font-size:7px;color:#718c9b}
+.tv-event-popup-next b{display:block;margin-top:2px;font-size:8px;color:#c2d4dc;line-height:1.35}
+@media(max-width:1400px){
+  .tv-event-popup{width:295px;padding:9px}
+}

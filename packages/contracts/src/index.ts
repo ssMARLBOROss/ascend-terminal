@@ -1,0 +1,299 @@
+export type Direction = 'LONG' | 'SHORT' | 'NEUTRAL';
+export type SetupMode = 'SCALP' | 'NORMAL';
+export type EnvironmentMode = 'MOCK' | 'PAPER' | 'LIVE';
+export type SessionName = 'SYDNEY' | 'ASIA' | 'LONDON' | 'NEW_YORK';
+
+export const CORE_TIMEFRAMES = [
+  '1m','3m','5m','10m','15m','30m','45m','1H','2H','4H','6H','12H','1D','1W','1M'
+] as const;
+export type AscendTimeframe = typeof CORE_TIMEFRAMES[number];
+
+export type AscendEventType =
+  | 'OBSERVE' | 'APPROACH' | 'TOUCH' | 'PROBE' | 'BREAK' | 'SWEEP'
+  | 'RECLAIM' | 'ACCEPT' | 'FLIP' | 'WATCH'
+  | 'HH' | 'HL' | 'LH' | 'LL'
+  | 'BOS' | 'CHOCH' | 'MSS' | 'RETEST'
+  | 'SHIFTING' | 'CONFIRMED' | 'ENTRY'
+  | 'TP' | 'SL' | 'INVALIDATED';
+
+export type SetupStage =
+  | 'IDLE'
+  | 'APPROACH'
+  | 'TOUCH'
+  | 'PROBE_SWEEP'
+  | 'RECLAIM_ACCEPT'
+  | 'WATCH'
+  | 'CONTEXT_30M'
+  | 'SESSION_DIRECTION_15M'
+  | 'CHOCH_10M'
+  | 'SHIFTING'
+  | 'MSS_5M'
+  | 'RETEST_3M'
+  | 'TRIGGER_1M'
+  | 'CONFIRMED'
+  | 'ENTRY'
+  | 'MANAGE'
+  | 'INVALIDATED';
+
+export interface AscendEvent<T = Record<string, unknown>> {
+  eventId: string;
+  sequenceId: number;
+  instrument: string;
+  timeframe: AscendTimeframe;
+  type: AscendEventType;
+  timestamp: number;
+  price: number;
+  session?: SessionName;
+  level?: string;
+  direction?: Direction;
+  explanation?: string;
+  nextExpected?: string;
+  payload: T;
+}
+
+export interface MarketLevel {
+  id: string;
+  kind: 'YH'|'YL'|'ONH'|'ONL'|'IBH'|'IBL'|'RTH_HIGH'|'RTH_LOW'|'OPEN'|'VWAP'|'WALL'|'BALANCE';
+  label: string;
+  price: number;
+  status: 'LIVE'|'FROZEN'|'EXPECTED';
+  role?: 'SUPPORT'|'RESISTANCE'|'UNDER_ATTACK'|'SWEPT'|'RECLAIMED'|'ACCEPTED_ABOVE'|'ACCEPTED_BELOW'|'FLIPPED';
+}
+
+export interface LiquidityCluster {
+  id: string;
+  session: SessionName;
+  side: 'UPPER'|'LOWER';
+  low: number;
+  high: number;
+  status: 'FROZEN'|'LIVE'|'EXPECTED';
+  role: 'SUPPORT'|'RESISTANCE'|'UNDER_ATTACK'|'SWEPT'|'RECLAIMED'|'ACCEPTED_ABOVE'|'ACCEPTED_BELOW'|'FLIPPED';
+}
+
+export interface RangeMath {
+  usedRangePct: number;
+  remainingRangePct: number;
+  lostMovePct: number;
+  potentialMovePct: number;
+  riskPct: number;
+  rr: number;
+  speed: number;
+  acceleration: number;
+  balancePosition: number;
+}
+
+export interface SetupState {
+  instrument: string;
+  mode: SetupMode;
+  stage: SetupStage;
+  direction: Direction;
+  confirmed: boolean;
+  range: RangeMath;
+}
+
+export interface SessionState {
+  name: SessionName;
+  status: 'FROZEN'|'LIVE'|'UPCOMING';
+  high?: number;
+  low?: number;
+  balance?: number;
+  startsIn?: string;
+}
+
+export interface TradePlan {
+  direction: Direction;
+  entry?: number;
+  stopLoss?: number;
+  takeProfits: Array<{ label: string; price: number; source: string }>;
+  rr?: number;
+  status: 'WATCH'|'WAIT_CONFIRM'|'CONFIRMED'|'SKIP'|'PAPER';
+}
+
+export interface Candle {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface RadarCandidate {
+  instrument: string;
+  group: string;
+  stage: 'WATCH'|'SHIFTING'|'CONFIRMED';
+  direction: Direction;
+  price: number;
+  change24hPct?: number;
+  activeLevel?: string;
+  session?: SessionName;
+}
+
+export interface GlobalContext {
+  btcDirection: Direction;
+  ethDirection: Direction;
+  solDirection: Direction;
+  breadthLongPct: number;
+  globalPressure: number;
+  activeSession: SessionName;
+  sessionFuel?: number;
+}
+
+
+/**
+ * Market-data layer contracts.
+ * DEX sources are discovery-only and can never authorize CONFIRMED/ENTRY by themselves.
+ */
+export type MarketDataSourceKind = 'CEX' | 'DEX';
+export type MarketDataSourceId = 'MEXC' | 'BYBIT' | 'OKX' | 'BINANCE' | 'DEX_SCANNER';
+
+export interface MarketDataSource {
+  id: MarketDataSourceId;
+  kind: MarketDataSourceKind;
+  enabled: boolean;
+  capabilities: Array<'UNIVERSE'|'CANDLES'|'TRADES'|'VOLUME'|'FUNDING'|'OPEN_INTEREST'|'LIQUIDITY'|'DISCOVERY'>;
+  decisionAuthority: 'VALIDATION' | 'DISCOVERY_ONLY';
+}
+
+export interface HistoricalCandle extends Candle {
+  source: MarketDataSourceId;
+  instrument: string;
+  timeframe: AscendTimeframe;
+  closed: boolean;
+}
+
+export interface CandleHistoryQuery {
+  instrument: string;
+  timeframe: AscendTimeframe;
+  before?: number;
+  after?: number;
+  limit: number;
+  sources?: MarketDataSourceId[];
+}
+
+export interface CandleHistoryPage {
+  items: HistoricalCandle[];
+  nextBefore?: number;
+  previousAfter?: number;
+  hasOlder: boolean;
+  hasNewer: boolean;
+  sourceCount: number;
+}
+
+export type ChronologyEventStatus = 'OBSERVED'|'CONFIRMED'|'INVALIDATED'|'PENDING';
+
+export interface MarketChronologyEvent extends AscendEvent {
+  source: MarketDataSourceId | 'ASCEND_CORE';
+  status: ChronologyEventStatus;
+  levelRole?: MarketLevel['role'];
+  confirmationTimeframe?: AscendTimeframe;
+  candleTimestamp?: number;
+}
+
+export type DiscoveryEventType =
+  | 'DEX_VOLUME_SPIKE'
+  | 'DEX_LIQUIDITY_INFLOW'
+  | 'DEX_LIQUIDITY_OUTFLOW'
+  | 'DEX_CEX_PRICE_GAP'
+  | 'NEW_PAIR';
+
+export interface MarketDiscoveryEvent {
+  discoveryId: string;
+  source: 'DEX_SCANNER';
+  type: DiscoveryEventType;
+  instrument: string;
+  timestamp: number;
+  price?: number;
+  score: number;
+  explanation: string;
+  payload: Record<string, unknown>;
+  /**
+   * Hard safety rule: discovery events may promote a symbol to Radar/WATCH,
+   * but cannot produce CONFIRMED/ENTRY without CEX + structure validation.
+   */
+  canConfirmTrade: false;
+}
+
+export interface MarketHistoryMeta {
+  instrument: string;
+  oldestTimestamp?: number;
+  newestTimestamp?: number;
+  estimatedCandles: number;
+  storedBaseTimeframe: '1m';
+  derivedTimeframes: AscendTimeframe[];
+  pagination: 'CURSOR';
+  lazyLoading: true;
+}
+
+
+export type MarketSourceStatus='CONNECTING'|'LIVE'|'DEGRADED'|'OFFLINE'|'ERROR';
+export type MarketConsensusState='CONSENSUS'|'SOFT_CONFLICT'|'MARKET_CONFLICT'|'INSUFFICIENT_DATA';
+
+export interface NormalizedTicker{
+  source:MarketDataSourceId;
+  instrument:string;
+  timestamp:number;
+  lastPrice:number;
+  change24hPct?:number;
+  high24h?:number;
+  low24h?:number;
+  turnover24h?:number;
+}
+
+export interface SourceHealth{
+  source:MarketDataSourceId;
+  status:MarketSourceStatus;
+  lastUpdate?:number;
+  latencyMs?:number;
+  note?:string;
+}
+
+export interface DexDiscoverySnapshot{
+  source:'DEX_SCANNER';
+  instrument:string;
+  timestamp:number;
+  pairCount:number;
+  liquidityUsd:number;
+  volume24hUsd:number;
+  score:number;
+  canConfirmTrade:false;
+  note:string;
+}
+
+export interface MarketConsensusSnapshot{
+  instrument:string;
+  timestamp:number;
+  state:MarketConsensusState;
+  primarySource:'BYBIT'|'MEXC';
+  bybitPrice?:number;
+  mexcPrice?:number;
+  priceGapPct?:number;
+  bybitDirection?:Direction;
+  mexcDirection?:Direction;
+  note:string;
+}
+
+export interface MarketBootstrapPayload{
+  instrument:string;
+  timeframe:AscendTimeframe;
+  chartCandles:HistoricalCandle[];
+  context15m:HistoricalCandle[];
+  event1m:HistoricalCandle[];
+  ticker?:NormalizedTicker;
+  sources:SourceHealth[];
+  consensus:MarketConsensusSnapshot;
+  dex?:DexDiscoverySnapshot;
+  storage:{
+    hot:'IN_MEMORY';
+    history:'SOURCE_LAZY';
+    redis:'PLANNED';
+    postgres:'PLANNED';
+  };
+}
+
+export type MarketStreamMessage=
+ | {type:'candle';source:'BYBIT'|'MEXC';instrument:string;timeframe:AscendTimeframe;candle:HistoricalCandle}
+ | {type:'ticker';source:'BYBIT'|'MEXC';instrument:string;ticker:NormalizedTicker}
+ | {type:'consensus';instrument:string;snapshot:MarketConsensusSnapshot}
+ | {type:'dex';instrument:string;snapshot:DexDiscoverySnapshot}
+ | {type:'heartbeat';instrument:string;timestamp:number};
