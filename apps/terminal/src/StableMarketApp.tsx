@@ -11,6 +11,8 @@ import {useLiveMarketMetrics} from './market/useLiveMarketMetrics';
 import {selectFvgZones,type FvgAppearance} from './components/fvgOverlay';
 import {useFvgResearch} from './market/useFvgResearch';
 import FvgDetailsPanel from './components/FvgDetailsPanel';
+import MarketParticipationPanel,{ParticipationMicroCharts} from './components/MarketParticipationPanel';
+import {useMarketParticipation} from './market/useMarketParticipation';
 import IndicatorManager from './components/IndicatorManager';
 import {loadIndicatorSettings,DEFAULT_INDICATORS,STORAGE_KEY,
   type IndicatorSettings,type IndicatorKey} from './market/indicatorSettings';
@@ -45,7 +47,9 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
   const[focusRequest,setFocusRequest]=useState(0);
   const[selectedFvgId,setSelectedFvgId]=useState<string>();
-  const liquidity=useOrderbookClusters(symbol,settings.book);
+  // Participation is a separate read-only consumer; hiding book rectangles
+  // must not stop its selected-symbol snapshots when this panel is enabled.
+  const liquidity=useOrderbookClusters(symbol,settings.book||settings.participation);
   const engineSettings=useMemo(()=>({
     atrLength:settings.fvgAtrLength,fillMode:settings.fvgFillMode,
     minGapPercent:settings.fvgThreshold
@@ -65,6 +69,13 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const shownFvg=useMemo(()=>selectFvgZones(
     fvgResearch.zones,displayPrice??0,settings.fvgViewMode,fvgAppearance
   ),[fvgResearch.zones,displayPrice,settings.fvgViewMode,fvgAppearance]);
+  const participation=useMarketParticipation({
+    enabled:settings.participation,symbol,timeframe,candles,price:displayPrice,
+    priceAt:lastUpdate,dailyVwap,tpo:liveMetrics.tpo,oi:liveMetrics.oi,
+    cvd:liveMetrics.cvd,
+    book:liquidity.status==='ready'?liquidity.snapshot:undefined,
+    previousDay,previousSessions,fvgs:fvgResearch.zones
+  });
 
   return <main className="asc-lite-workspace">
     <div className="asc-lite-toolbar">
@@ -109,7 +120,9 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
       bookState={settings.book?
         (liquidity.status==='ready'?'ONLINE · '+new Date(liquidity.snapshot!.receivedAt).toLocaleTimeString('ru-RU'):
           liquidity.status==='error'?'НЕДОСТУПЕН':'ПОДКЛЮЧЕНИЕ'):'ВЫКЛЮЧЕН'}/>
-    <div className="asc-lite-chart-box">
+    <div className={'asc-mp-layout'+(settings.participation?' visible':'')}>
+      <div className="asc-mp-chart-column">
+        <div className="asc-lite-chart-box">
       <StableCandleChart candles={candles} timeframe={timeframe} previousDay={previousDay}
         previousSessions={previousSessions} dailyVwap={dailyVwap}
         orderbook={liquidity.status==='ready'?liquidity.snapshot:undefined}
@@ -124,6 +137,12 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
       </div>}
+        </div>
+        {settings.participation&&<ParticipationMicroCharts journal={participation.journal}/>}
+      </div>
+      {settings.participation&&<MarketParticipationPanel symbol={symbol}
+        snapshot={participation.snapshot} journal={participation.journal}
+        fvgs={fvgResearch.zones}/>}
     </div>
     {settings.fvg&&<FvgDetailsPanel symbol={symbol}
       records={fvgResearch.zones} journal={fvgResearch.journal}
@@ -172,7 +191,12 @@ export default function StableMarketApp(){
   const previousDay=usePreviousDayLevels(symbol);
   const previousSessions=usePreviousSessionLevels(symbol);
   const vwap=useDailyVwap(symbol);
-  const liveMetrics=useLiveMarketMetrics(symbol,settings);
+  const liveMetrics=useLiveMarketMetrics(symbol,{
+    tpo:settings.tpo||settings.participation,
+    oi:settings.oi||settings.participation,
+    longShort:settings.longShort,
+    cvd:settings.cvd||settings.participation
+  });
   const[search,setSearch]=useState('');
   const[inputError,setInputError]=useState('');
   const matches=useMemo(()=>{

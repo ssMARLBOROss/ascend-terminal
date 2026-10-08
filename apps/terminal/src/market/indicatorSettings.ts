@@ -3,7 +3,7 @@ import type {FvgTf,FillMode} from './fvgContextEngine';
 
 export type IndicatorKey=
   'volume'|'vwap'|'sessions'|'sessionClock'|'dayLevels'|'sessionLevels'|
-  'book'|'stops'|'tpo'|'fvg'|'oi'|'longShort'|'cvd'|'week'|'stats'|'coins';
+  'book'|'stops'|'tpo'|'fvg'|'oi'|'longShort'|'cvd'|'participation'|'week'|'stats'|'coins';
 
 export type IndicatorSettings=Record<IndicatorKey,boolean>&{
   fvgThreshold:number;
@@ -21,7 +21,7 @@ export const STORAGE_KEY='ascend.terminal.indicators.v1';
 export const DEFAULT_INDICATORS:IndicatorSettings={
   volume:true,vwap:true,sessions:true,sessionClock:false,
   dayLevels:true,sessionLevels:false,book:false,stops:false,
-  tpo:true,fvg:true,oi:true,longShort:true,cvd:true,
+  tpo:true,fvg:true,oi:true,longShort:true,cvd:true,participation:true,
   week:false,stats:true,coins:true,
   fvgThreshold:.02,fvgViewMode:'near',
   fvgTimeframes:{'1m':false,'3m':true,'5m':true,'15m':true,'30m':false},
@@ -49,6 +49,7 @@ export const INDICATOR_CATALOG:IndicatorDefinition[]=[
   {key:'oi',name:'Open Interest · OI',detail:'Динамика открытых позиций',group:'Нижние панели',color:'#55bfdc'},
   {key:'longShort',name:'Net Long / Short',detail:'Доля аккаунтов Long и Short',group:'Нижние панели',color:'#ad99ed'},
   {key:'cvd',name:'CVD · Trade Delta',detail:'Поток последних сделок',group:'Нижние панели',color:'#e8b76e'},
+  {key:'participation',name:'Market Participation V1',detail:'Контекст участников · панель справа',group:'Нижние панели',color:'#65c8d7'},
   {key:'week',name:'7 дней × 7 дней',detail:'Сопоставление двух недель',group:'Нижние панели',color:'#70cedc'},
   {key:'stats',name:'OHLCV · сводка',detail:'Цены и объём над графиком',group:'Интерфейс',color:'#9cc7d6'},
   {key:'sessionClock',name:'Session Clock',detail:'Большая панель часов сессий',group:'Интерфейс',color:'#a4b3ef'},

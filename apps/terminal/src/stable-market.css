@@ -670,3 +670,67 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
  .asc-fvg-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:500px){.asc-fvg-fields{grid-template-columns:1fr}.asc-fvg-events>div{grid-template-columns:1fr 1fr auto}}
+
+/* ASCEND Market Participation: detachable evidence panel next to candle chart. */
+.asc-mp-layout{min-width:0}
+.asc-mp-layout.visible{display:grid;grid-template-columns:minmax(0,1fr) 344px;gap:0}
+.asc-mp-chart-column{min-width:0}
+.asc-mp-panel{min-width:0;border-left:1px solid #305065;background:#081b27;max-height:880px;
+ overflow:auto;color:#d7e8ee;scrollbar-width:thin}
+.asc-mp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:15px 13px;
+ background:#0d2b39;border-bottom:1px solid #2c5969;position:sticky;top:0;z-index:3}
+.asc-mp-head>div{display:flex;flex-direction:column;gap:4px}
+.asc-mp-head strong{font-size:12px;letter-spacing:.05em;color:#d7f4ef}
+.asc-mp-head small{font-size:10px;color:#89bdcc}
+.asc-mp-head button{background:#174155;border:1px solid #3a7081;border-radius:5px;
+ padding:4px 9px;color:#d3edf2;font-weight:900}
+.asc-mp-scenario{margin:12px;border:1px solid #3a776f;background:#11332e;border-radius:8px;padding:13px}
+.asc-mp-scenario>small{font-size:9px;letter-spacing:.04em;color:#87d3bd}
+.asc-mp-scenario>strong{display:block;margin-top:6px;color:#bbf4d8;font-size:16px}
+.asc-mp-scenario p{line-height:1.55;font-size:11px;color:#d1e6df;margin:9px 0}
+.asc-mp-scenario>span{font-size:10px;color:#8fbdb7}
+.asc-mp-scenario.no_data,.asc-mp-scenario.observing{background:#152632;border-color:#405c6b}
+.asc-mp-scenario.outside_value,.asc-mp-scenario.false_break_candidate{
+  background:#332820;border-color:#82704e}
+.asc-mp-section{padding:11px 13px;border-top:1px solid #244154}
+.asc-mp-section h4{color:#b2d9e7;letter-spacing:.05em;font-size:10px;margin:0 0 8px;font-weight:900}
+.asc-mp-section>p{font-size:10px;line-height:1.6;color:#92aeb8;margin:8px 0}
+.asc-mp-metric-row{display:flex;justify-content:space-between;align-items:center;gap:9px;
+ border-top:1px solid #223d4d;padding:8px 0}
+.asc-mp-metric-row>span{font-size:11px;font-weight:750;color:#c4dce6;min-width:0}
+.asc-mp-metric-row>span small{display:block;font-size:9px;line-height:1.35;
+ overflow-wrap:anywhere;color:#7d9eae;font-weight:450;margin-top:3px}
+.asc-mp-metric-row>div{text-align:right;flex-shrink:0;max-width:48%}
+.asc-mp-metric-row strong{display:block;color:#e5f3f9;font-size:12px;font-variant-numeric:tabular-nums}
+.asc-mp-metric-row>div small{font-size:9px;color:#7fa7b5}
+.asc-mp-window{font-size:10px;color:#b2ad86;padding:4px 0 8px}
+.asc-mp-core{display:flex;justify-content:space-between;gap:9px;padding:9px 0;
+ border-top:1px solid #284657;color:#a9c8d4;font-size:10px}
+.asc-mp-core strong{color:#d0ad7e}
+.asc-mp-journal-head{display:flex;gap:7px;justify-content:space-between;align-items:center}
+.asc-mp-journal-head button{padding:7px 9px;border:1px solid #397381;color:#ccedf3;
+ border-radius:5px;background:#174053;font-size:10px}
+.asc-mp-journal-head button:disabled{opacity:.5}
+.asc-mp-event{display:flex;flex-direction:column;gap:4px;border-top:1px solid #2a4d5e;padding:8px 0}
+.asc-mp-event>span{font-size:10px;color:#8ab4c7}
+.asc-mp-event>strong{font-size:11px;color:#d9edf0}
+.asc-mp-event small{font-size:9px;color:#89a5ae}
+.asc-mp-foot{padding:12px;font-size:10px;color:#9ab1bb;line-height:1.6;border-top:1px solid #37515e}
+.asc-mp-micro{background:#0b2230;border-top:1px solid #31516b;padding:12px}
+.asc-mp-micro header{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+.asc-mp-micro b{font-size:11px;color:#d4e7ec}
+.asc-mp-micro header small{font-size:10px;color:#a6b9c7}
+.asc-mp-mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.asc-mp-mini-grid>div{min-width:0;padding:9px;border:1px solid #2c5368;border-radius:6px;background:#0d2939}
+.asc-mp-mini-grid strong{display:block;font-size:11px;color:#bed5e3}
+.asc-mp-mini-grid small{display:block;font-size:10px;color:#91afbb}
+.asc-mp-observation-plot{width:100%;height:83px;margin:5px 0;display:block}
+.asc-mp-plot-empty{min-height:84px;display:grid;place-items:center;font-size:10px;color:#9aafba}
+.asc-mp-mini-start{background:#0d2835;border-top:1px solid #2b4e62;padding:13px;
+ color:#9eb9c6;font-size:11px}
+.asc-mp-micro p{font-size:10px;color:#8caebb;line-height:1.55;margin:10px 0 0}
+@media(max-width:1430px){
+ .asc-mp-layout.visible{grid-template-columns:minmax(0,1fr)}
+ .asc-mp-panel{border-left:0;border-top:1px solid #31526a;max-height:none}
+}
+@media(max-width:820px){.asc-mp-mini-grid{grid-template-columns:1fr}}
