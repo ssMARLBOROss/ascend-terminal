@@ -221,3 +221,36 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
   .asc-session-ribbon-transitions span{font-size:8px}
   .asc-session-ribbon-card{padding:4px 7px}
 }
+
+
+/* Readability refinement: slightly larger, bolder labels, no chart layout changes. */
+.asc-session-ribbon-head strong{font-size:12px;font-weight:800;letter-spacing:.035em}
+.asc-session-ribbon-head button{font-size:11px;font-weight:800;padding:5px 9px}
+.asc-session-ribbon-card b{font-size:12px;font-weight:800}
+.asc-session-ribbon-card span{font-size:11px;font-weight:600;white-space:normal}
+.asc-session-ribbon-card em{font-size:11px;font-weight:700;white-space:normal}
+.asc-session-ribbon-transitions span{font-size:11px;font-weight:700;padding:4px 8px}
+.asc-session-ribbon-card{align-items:center;gap:4px 8px;padding:7px 9px}
+.asc-session-ribbon-cards{gap:7px}
+.asc-session-ribbon-head{gap:10px}
+.asc-session-ribbon{gap:7px}
+.asc-lite-stats small{font-size:11px;font-weight:700}
+.asc-lite-stats b{font-size:15px;font-weight:700}
+.asc-lite-pair span{font-size:11px;font-weight:600}
+.asc-lite-feed b,.asc-lite-feed small{font-size:12px;font-weight:700}
+.asc-lite-timeframe-bar small{font-size:10px;font-weight:700}
+.asc-lite-chart-footer{font-size:11px;font-weight:600}
+.asc-session-daily-note{font-size:12px;font-weight:700}
+.asc-session-panel.in-chart.expanded .asc-session-head strong{font-size:13px}
+.asc-session-panel.in-chart.expanded .asc-session-card-top b{font-size:14px}
+.asc-session-panel.in-chart.expanded .asc-session-range strong{font-size:19px}
+.asc-session-panel.in-chart.expanded .asc-session-countdown span,
+.asc-session-panel.in-chart.expanded .asc-session-countdown b,
+.asc-session-panel.in-chart.expanded .asc-session-transition span,
+.asc-session-panel.in-chart.expanded .asc-session-transition b,
+.asc-session-panel.in-chart.expanded .asc-session-transition small{font-size:12px;font-weight:700}
+@media(max-width:680px){
+  .asc-session-ribbon-head strong{font-size:11px}
+  .asc-session-ribbon-card span,.asc-session-ribbon-card em{font-size:10px}
+  .asc-session-ribbon-transitions span{font-size:10px}
+}

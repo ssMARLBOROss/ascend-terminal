@@ -54,7 +54,7 @@ export function drawSessionBands(
   if(!logical)return;
   const timeScale=chart.timeScale();
   const plotWidth=Math.min(width,timeScale.width());
-  const plotTop=113; // Leave the live session ribbon fully readable.
+  const plotTop=137; // Reserve room for the slightly larger, bolder session ribbon.
   const plotBottom=Math.max(plotTop,height-28);
   if(plotBottom<=plotTop||plotWidth<=0)return;
 
@@ -81,6 +81,8 @@ export function drawSessionBands(
     ctx.fillStyle=fill;
     ctx.fillRect(x,plotTop,right-x,plotBottom-plotTop);
   };
+  // Track text occupancy on each row: stronger labels must never collide.
+  const lastLabelEnd=[-Infinity,-Infinity];
   const line=(at:number,label:string,color:string,topOffset=0)=>{
     const x=toX(at);
     if(x===null||x<0||x>plotWidth)return;
@@ -89,13 +91,19 @@ export function drawSessionBands(
     ctx.setLineDash([3,5]);
     ctx.beginPath();ctx.moveTo(Math.round(x)+.5,plotTop);ctx.lineTo(Math.round(x)+.5,plotBottom);ctx.stroke();
     ctx.setLineDash([]);
-    if(label&&x+68<plotWidth){
-      ctx.font='600 9px Inter,system-ui,sans-serif';
-      const length=ctx.measureText(label).width+12;
-      ctx.fillStyle='rgba(5,16,24,.84)';
-      ctx.fillRect(x+3,plotTop+6+topOffset,length,16);
-      ctx.fillStyle=color;
-      ctx.fillText(label,x+9,plotTop+18+topOffset);
+    if(label){
+      ctx.font='700 11px Inter,system-ui,sans-serif';
+      const length=ctx.measureText(label).width+16;
+      const row=topOffset===0?0:1;
+      // Omit only the text if there is not enough space; keep session boundaries.
+      if(x+length+3<=plotWidth&&x>=lastLabelEnd[row]+8){
+        const y=plotTop+5+topOffset;
+        ctx.fillStyle='rgba(5,16,24,.93)';
+        ctx.fillRect(x+3,y,length,20);
+        ctx.fillStyle=color;
+        ctx.fillText(label,x+11,y+14);
+        lastLabelEnd[row]=x+length+3;
+      }
     }
   };
 
