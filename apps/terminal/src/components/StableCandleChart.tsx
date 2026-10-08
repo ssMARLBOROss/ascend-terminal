@@ -1,16 +1,19 @@
 import {useEffect,useRef} from 'react';
 import {
-  ColorType,CrosshairMode,createChart,
+  ColorType,CrosshairMode,LineStyle,createChart,
   type IChartApi,type ISeriesApi,type UTCTimestamp
 } from 'lightweight-charts';
 import type {Candle} from '@ascend/contracts';
+import type {PreviousDayLevels} from '../market/usePreviousDayLevels';
 import SessionClock from './SessionClock';
 import {drawSessionBands} from './drawSessionBands';
 
 type Snapshot={first?:number;last?:number;length:number};
 
 /** Bounded session canvas only; no indicator computations or extra market subscriptions. */
-export default function StableCandleChart({candles,timeframe}:{candles:Candle[];timeframe:string}){
+export default function StableCandleChart({candles,timeframe,previousDay}:{
+  candles:Candle[];timeframe:string;previousDay?:PreviousDayLevels;
+}){
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
   const candlesRef=useRef(candles);
@@ -91,6 +94,24 @@ export default function StableCandleChart({candles,timeframe}:{candles:Candle[];
       chart.remove();
     };
   },[timeframe]);
+
+  // Price lines live on the chart series; update only when the previous UTC day changes.
+  useEffect(()=>{
+    const series=priceRef.current;
+    if(!series||!previousDay)return;
+    const highLine=series.createPriceLine({
+      price:previousDay.high,color:'#f2b66c',lineWidth:2,
+      lineStyle:LineStyle.Dashed,axisLabelVisible:true,title:'YH'
+    });
+    const lowLine=series.createPriceLine({
+      price:previousDay.low,color:'#63d5e1',lineWidth:2,
+      lineStyle:LineStyle.Dashed,axisLabelVisible:true,title:'YL'
+    });
+    return()=>{
+      series.removePriceLine(highLine);
+      series.removePriceLine(lowLine);
+    };
+  },[previousDay]);
 
   useEffect(()=>{
     const chart=chartRef.current;
