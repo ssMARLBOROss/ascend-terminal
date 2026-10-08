@@ -44,7 +44,7 @@ function kyivInterval(utcDay:number,from:number,to:number){
 
 type SessionState='ACTIVE'|'UPCOMING'|'ENDED';
 
-export default function SessionClock(){
+export default function SessionClock({embedded=false}:{embedded?:boolean}){
   const[expanded,setExpanded]=useState(false);
   const[nowMs,setNowMs]=useState(()=>Date.now());
   useEffect(()=>{
@@ -89,7 +89,25 @@ export default function SessionClock(){
       utcNow:clockUtc(utcMinute),active:sessions.filter(s=>s.state==='ACTIVE').map(s=>s.name)};
   },[nowMs]);
 
-  return <section className={"asc-session-panel "+(expanded?"expanded":"compact")} aria-label="Торговые сессии и переходы">
+  return <section className={"asc-session-panel "+(expanded?"expanded":"compact")+(embedded?" in-chart":"")} aria-label="Торговые сессии и переходы">
+    {embedded&&!expanded?<div className="asc-session-ribbon">
+      <div className="asc-session-ribbon-head">
+        <strong>SESSION MAP · UTC <b>{model.utcNow}</b> · КИЕВ <b>{model.kyivNow}</b></strong>
+        <button type="button" aria-expanded={false} onClick={()=>setExpanded(true)}>ДЕТАЛИ +</button>
+      </div>
+      <div className="asc-session-ribbon-cards">
+        {model.sessions.map(session=><div className={"asc-session-ribbon-card "+session.id.toLowerCase()+(session.state==="ACTIVE"?" active":"")} key={session.id}>
+          <b>{session.english}</b>
+          <span>{clockUtc(session.fromMinutes)}–{clockUtc(session.toMinutes)} UTC · {hoursAndMinutes(session.toMinutes-session.fromMinutes)}</span>
+          <em>{session.state==="ACTIVE"?"ACTIVE · до закрытия ":session.state==="UPCOMING"?"ОТКРЫТИЕ через ":"СЛЕД. ОТКР. через "}{hoursAndMinutes(session.remaining)}</em>
+        </div>)}
+      </div>
+      <div className="asc-session-ribbon-transitions">
+        {model.transitions.map(t=><span key={t.from+"-"+t.to} className={t.delta>0?"gap":"overlap"}>
+          {t.delta>0?"ПРОМЕЖУТОК":"ПЕРЕСЕЧЕНИЕ"} {t.clock} · {t.hours}
+        </span>)}
+      </div>
+    </div>:<>
     <div className="asc-session-head">
       <div><strong>ТОРГОВЫЕ СЕССИИ · SESSION MAP</strong>
         <small>Наблюдаемые окна ASCEND · UTC постоянно, Киев с переходом на летнее/зимнее время</small>
@@ -138,5 +156,6 @@ export default function SessionClock(){
       <span>Следующее открытие: {model.nextOpen.name} через {hoursAndMinutes(model.nextOpen.minutes)}</span>
     </div>
     <p className="asc-session-disclaimer">Промежуток между нашими сессионными окнами не означает закрытие крипторынка: Bybit торгуется круглосуточно. Панель не создаёт торговых сигналов.</p>
+    </>}
   </section>;
 }
