@@ -163,7 +163,7 @@ export default function App(){
       </div>
      </div>
      <div className={'mock-chart '+(marketMode==='LIVE'?'live-chart-mode':'')}>
-      {marketMode==='LIVE'&&<LiveCandleChart candles={live.candles} levels={liveContext.levels} lastPrice={currentPrice} status={live.status} source={live.source} latencyMs={live.latencyMs} symbol={marketSymbol} timeframe={chartTf} windowSize={historyWindow} onLoadOlder={live.loadOlder} loadingOlder={live.loadingOlder} hasOlder={live.hasOlder} focusTimestamp={chartFocusTime} focusNonce={chartFocusNonce} events={liveContext.chronology} clusters={liveContext.clusters} showClusters={showClusters} profiles={liveContext.volumeProfiles} showProfiles={showProfiles}/>} 
+      {marketMode==='LIVE'&&<LiveCandleChart key={marketSymbol+':'+chartTf} candles={live.candles} levels={liveContext.levels} lastPrice={currentPrice} status={live.status} source={live.source} latencyMs={live.latencyMs} symbol={marketSymbol} timeframe={chartTf} windowSize={historyWindow} onLoadOlder={live.loadOlder} loadingOlder={live.loadingOlder} hasOlder={live.hasOlder} focusTimestamp={chartFocusTime} focusNonce={chartFocusNonce} events={liveContext.chronology} clusters={liveContext.clusters} showClusters={showClusters} profiles={liveContext.volumeProfiles} showProfiles={showProfiles}/>} 
       {marketMode==='REPLAY'&&<>
       <div className="session-band asia"><span>ASIA · FROZEN</span></div><div className="session-band london"><span>LONDON · FROZEN</span></div><div className="session-band ny"><span>NEW YORK · LIVE</span></div><div className="session-band next"><span>NEXT ASIA · EXPECTED</span></div>
       <div className="level wall upper-wall"><b>ВЕРХНЯЯ СТЕНКА · UPPER WALL</b><span>ONH 86,978 · CONFIRMED</span></div>
