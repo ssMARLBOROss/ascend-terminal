@@ -11,8 +11,10 @@ export type FvgEventType='CREATED'|'ACTIVE'|'APPROACH'|'RETEST'|'PARTIAL'|
 export type FvgEvent={id:string;zoneId:string;at:number;barStart:number;type:FvgEventType;
   fillPct:number;detail?:string};
 export type FvgContextLevel={id:string;price:number;availableFrom:number;status:'FROZEN'|'LIVE'};
+export type FvgObservation={type:string;level?:string;at:number;source:'LEGACY_ENGINE_RESEARCH'};
 export type FvgContext={session:string;levels:{id:string;distancePct:number;status:'FROZEN'|'LIVE'}[];
-  volumeRatio:number|null;vwap:'UNAVAILABLE';structure:'UNAVAILABLE';core:'NOT_CONNECTED'};
+  volumeRatio:number|null;vwap:'UNAVAILABLE';structure:'UNAVAILABLE';core:'NOT_CONNECTED';
+  observations:FvgObservation[]};
 export type FvgRecord={
   id:string;symbol:string;exchange:'BYBIT';timeframe:FvgTf;
   side:FvgDirection;low:number;high:number;midpoint:number;
@@ -64,7 +66,7 @@ function emit(zone:FvgRecord,type:FvgEventType,at:number,barStart:number,detail?
 /** Stable OHLC observation time = END of closed candle, never the detection wall clock. */
 export function computeFvgContext(
   candles:Candle[],symbol:string,tf:FvgTf,settings:EngineSettings,
-  levels:FvgContextLevel[]=[],now=Date.now()
+  levels:FvgContextLevel[]=[],now=Date.now(),observations:FvgObservation[]=[]
 ):FvgRecord[]{
   const interval=FVG_TF_MS[tf];
   if(!interval)return [];
@@ -175,7 +177,8 @@ export function computeFvgContext(
       visits:0,timeInsideMs:0,milestones:{},events:[],
       remainingLow:low,remainingHigh:high,
       context:{session:sessionFor(at),levels:contextLevels,volumeRatio:previousVolume(i),
-        vwap:'UNAVAILABLE',structure:'UNAVAILABLE',core:'NOT_CONNECTED'}};
+        vwap:'UNAVAILABLE',structure:'UNAVAILABLE',core:'NOT_CONNECTED',
+        observations:observations.filter(e=>e.at<=at&&e.at>=at-3*3600000).slice(-4)}};
     emit(zone,'CREATED',at,current.timestamp);
     output.push(zone);
     volSeries[i]=current.volume;

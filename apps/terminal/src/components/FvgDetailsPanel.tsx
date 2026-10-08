@@ -98,6 +98,13 @@ export default function FvgDetailsPanel({symbol,records,journal,selectedId,
             <div><small>Объём / SMA20</small><b>{selected.context.volumeRatio===null?'Н/Д':
               selected.context.volumeRatio.toFixed(2)+'×'}</b></div>
           </div>
+          <div className="asc-fvg-observations">
+            <strong>НАБЛЮДЕНИЯ ИЗ LEGACY LEVEL ENGINE · НЕ ПОДТВЕРЖДЕНИЯ CORE</strong>
+            {selected.context.observations?.length?
+              selected.context.observations.map((e,i)=><span key={i}>
+                {date(e.at,tz)} · {e.level??'LEVEL'} {e.type}
+              </span>):<span>Нет подтверждённых исторических наблюдений</span>}
+          </div>
           <div className="asc-fvg-milestones">Заполнение: {([25,50,75,100] as const).map(level=>
             <span key={level} className={selected.milestones[level]?'reached':''}>
               {level}% {selected.milestones[level]?'✓':'–'}

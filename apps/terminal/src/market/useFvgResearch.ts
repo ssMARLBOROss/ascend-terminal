@@ -3,7 +3,8 @@ import type {Candle} from '@ascend/contracts';
 import type {PreviousDayLevels} from './usePreviousDayLevels';
 import type {PreviousSessionLevels} from './usePreviousSessionLevels';
 import {computeFvgContext,FVG_TF_MS,type FvgTf,type FvgRecord,type FvgContextLevel,
-  type EngineSettings} from './fvgContextEngine';
+  type EngineSettings,type FvgObservation} from './fvgContextEngine';
+import {deriveLiveMarketContext} from './engine';
 
 const MAX_CANDLES=320;
 const JOURNAL_PREFIX='ascend.fvg.research.journal.v1.';
@@ -107,6 +108,28 @@ export function useFvgResearch(
   // joined is a canonical representation of the enabled TF set
   },[symbol,chartTf,joined]);
 
+  const engineContextBars=chartTf==='15m'?chartCandles:
+    external.symbol===symbol?external.bars['15m']:undefined;
+  // Reuse legacy level/event calculations as READ-ONLY research context.
+  // No chart signal, order route, or Core decision consumes this return value.
+  const legacyContext=useMemo(()=>{
+    if(!engineContextBars||engineContextBars.length<192)
+      return {levels:[] as FvgContextLevel[],observations:[] as FvgObservation[]};
+    try{
+      const state=deriveLiveMarketContext(symbol,engineContextBars,
+        engineContextBars,[],Date.now());
+      const levels=state.levels.filter(l=>l.status==='FROZEN')
+        .map(l=>({id:l.id,price:l.price,availableFrom:l.availableFrom,
+          status:'FROZEN' as const}));
+      const observations=state.chronology
+        .filter(e=>['SWEEP','RECLAIM','ACCEPT','BREAK'].includes(e.type))
+        .map(e=>({type:e.type,level:e.level,at:e.timestamp+900000,
+          source:'LEGACY_ENGINE_RESEARCH' as const}));
+      return {levels,observations};
+    }catch{
+      return {levels:[] as FvgContextLevel[],observations:[] as FvgObservation[]};
+    }
+  },[symbol,engineContextBars]);
   const relevantLevels=useMemo(()=>{
     const levels:FvgContextLevel[]=[];
     if(previousDay?.symbol===symbol){
@@ -123,17 +146,22 @@ export function useFvgResearch(
           availableFrom:previousSessions.dayStartUtc+session.to*3600000,status:'FROZEN'});
       }
     }
+    for(const l of legacyContext.levels){
+      // Never let a live, still-developing range rewrite older FVG context.
+      if(!levels.some(existing=>existing.id===l.id))levels.push(l);
+    }
     return levels;
-  },[previousDay,previousSessions,symbol]);
+  },[previousDay,previousSessions,symbol,legacyContext]);
   const records=useMemo(()=>{
     const all:FvgRecord[]=[];
     for(const tf of enabledKeys){
       const bars=tf===chartTf?chartCandles:external.symbol===symbol?external.bars[tf]:undefined;
       if(!bars?.length)continue;
-      all.push(...computeFvgContext(bars,symbol,tf,settings,relevantLevels));
+      all.push(...computeFvgContext(bars,symbol,tf,settings,relevantLevels,
+        Date.now(),legacyContext.observations));
     }
     return all.sort((a,b)=>a.formedAt-b.formedAt);
-  },[symbol,chartTf,chartCandles,external,joined,settings,relevantLevels]);
+  },[symbol,chartTf,chartCandles,external,joined,settings,relevantLevels,legacyContext]);
 
   // Merge stable zone IDs and deduplicated candle-observation events.
   // Journal is maintained even if FVG drawing is turned OFF; closing the
