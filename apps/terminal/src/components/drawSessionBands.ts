@@ -12,6 +12,10 @@ const COLORS:Record<string,{fill:string;line:string;short:string}>={
 const DAY_GAP={from:22,to:24};
 const OVERLAPS=[{from:7,to:8,label:'ASIA + LON'},{from:13,to:16,label:'LON + NY'}];
 const pad=(v:number)=>String(v).padStart(2,'0')+':00';
+const utcDate=(utcMs:number)=>{
+  const day=new Date(utcMs);
+  return String(day.getUTCDate()).padStart(2,'0')+'.'+String(day.getUTCMonth()+1).padStart(2,'0');
+};
 
 function fractionalBarIndex(candles:Candle[],when:number,step:number):number {
   const n=candles.length;
@@ -83,6 +87,47 @@ export function drawSessionBands(
   };
   // Track text occupancy on each row: stronger labels must never collide.
   const lastLabelEnd=[-Infinity,-Infinity];
+  // A new crypto trading day starts at 00:00 UTC. Render a clear marker
+  // without attaching another price series or subscribing to market data.
+  let previousDayBadgeEnd=-Infinity;
+  const dayBoundary=(utcMs:number)=>{
+    if(utcMs>candles[candles.length-1].timestamp)return; // no future day marker
+    const x=toX(utcMs);
+    if(x===null||x<0||x>plotWidth)return;
+    const center=Math.round(x)+.5;
+    ctx.fillStyle='rgba(245,213,142,.11)';
+    ctx.fillRect(Math.max(0,center-3),plotTop,6,plotBottom-plotTop);
+    ctx.strokeStyle='#f3dc9b';
+    ctx.lineWidth=2.5;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(center,plotTop);
+    ctx.lineTo(center,plotBottom);
+    ctx.stroke();
+
+    // On compressed timeframes retain vertical boundaries while shortening
+    // or hiding badges that would otherwise obscure each other.
+    const nextX=toX(utcMs+DAY_MS);
+    const dayWidth=nextX===null?0:Math.abs(nextX-x);
+    const date=utcDate(utcMs);
+    const label=dayWidth>=220?'НОВЫЕ СУТКИ · '+date+' · 00:00 UTC':
+      dayWidth>=115?'СУТКИ '+date:
+      dayWidth>=65?date:'';
+    if(!label)return;
+    ctx.font='900 13px Inter,system-ui,sans-serif';
+    const badgeWidth=ctx.measureText(label).width+18;
+    const badgeX=x+7;
+    if(badgeX+badgeWidth>plotWidth||badgeX<previousDayBadgeEnd+10)return;
+    const badgeY=plotTop+58; // Own row, below session open/close labels.
+    ctx.fillStyle='rgba(20,28,33,.95)';
+    ctx.fillRect(badgeX,badgeY,badgeWidth,25);
+    ctx.strokeStyle='rgba(243,220,155,.70)';
+    ctx.lineWidth=1;
+    ctx.strokeRect(badgeX+.5,badgeY+.5,badgeWidth-1,24);
+    ctx.fillStyle='#ffecbd';
+    ctx.fillText(label,badgeX+9,badgeY+18);
+    previousDayBadgeEnd=badgeX+badgeWidth;
+  };
   const line=(at:number,label:string,color:string,topOffset=0)=>{
     const x=toX(at);
     if(x===null||x<0||x>plotWidth)return;
@@ -128,5 +173,7 @@ export function drawSessionBands(
       // Close is a dashed boundary, labelled on the lower row to avoid collisions.
       line(closeAt,pad(session.to),theme.line,26);
     }
+    // Draw last so the midnight boundary is visibly stronger than Asia open.
+    dayBoundary(day);
   }
 }
