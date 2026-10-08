@@ -191,7 +191,7 @@ export default function MarketResearchPanel({symbol}:{symbol:string}){
   const latest=rows[rows.length-1];
   const fmtMaybe=(v:number|undefined,format:(v:number)=>string)=>v===undefined?'—':format(v);
   const ratioLatest=latest?.longRatio;
-  const oiLast=data?.oi?.[data.oi.length-1];
+  const oiLast=data?.oi?.at(-1);
   return <section className="asc-research" aria-label="Исследование TPO OI Long Short CVD">
     <div className="asc-research-head">
       <div><strong>TPO · OI · NET L/S · CVD</strong>

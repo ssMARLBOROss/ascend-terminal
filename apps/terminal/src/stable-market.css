@@ -405,3 +405,44 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
  .asc-week-legend{gap:8px 12px}
  .asc-week-legend small{width:100%}
 }
+
+/* Research-only TPO / OI / Account L/S / recent taker trade imbalance. */
+.asc-research-toggle{display:flex;align-items:center;justify-content:space-between;gap:9px;
+  flex-wrap:wrap;background:#102027;border-top:1px solid #2f6b66;padding:12px 14px}
+.asc-research-toggle>div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.asc-research-toggle strong{font-size:13px;font-weight:900;letter-spacing:.03em;color:#d8ece8}
+.asc-research-toggle small{font-size:11px;font-weight:700;color:#8fb5ae}
+.asc-research-toggle button{border:1px solid #379981;border-radius:6px;padding:9px 13px;
+  color:#c2fae7;background:#13372f;font-weight:900;font-size:11px}
+.asc-research{padding:12px 14px 17px;border-top:1px solid #254b49;background:#081b23}
+.asc-research-head{display:flex;gap:9px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:12px}
+.asc-research-head>div{display:flex;flex-direction:column;gap:5px}
+.asc-research-head strong{font-size:14px;color:#d5f6eb;letter-spacing:.06em}
+.asc-research-head small,.asc-research-head>span{font-size:11px;font-weight:700;color:#9ab9c5}
+.asc-research-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-bottom:14px}
+.asc-research-card{display:flex;flex-direction:column;gap:9px;min-width:0;padding:12px 11px;
+  border:1px solid #285465;border-radius:7px;background:#0b2831}
+.asc-research-card>b{font-size:11px;color:#a6dde6;letter-spacing:.04em}
+.asc-research-card>strong{font-size:19px;font-weight:900;color:#e1f6f5;
+  font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.asc-research-card>small{font-size:10px;line-height:1.5;color:#a0bbc7}
+.asc-research-pair{display:flex;gap:6px 11px;flex-wrap:wrap;color:#cbdce7;font-weight:800;font-size:11px}
+.asc-research-card>em{margin-top:auto;font-size:10px;font-style:normal;color:#c1ae83;line-height:1.45}
+.asc-research-table-head{display:flex;justify-content:space-between;gap:7px;flex-wrap:wrap;margin-bottom:8px}
+.asc-research-table-head strong{font-size:12px;letter-spacing:.03em;color:#d3e6ef}
+.asc-research-table-head small{font-size:11px;color:#93b4c3}
+.asc-research-scroll{overflow-x:auto;max-width:100%;border:1px solid #245065;border-radius:5px}
+.asc-research-scroll table{width:100%;border-collapse:collapse;min-width:750px;font-size:12px}
+.asc-research-scroll th{white-space:nowrap;color:#a4cbdc;background:#133646;font-weight:900;padding:9px 8px;text-align:left}
+.asc-research-scroll td{color:#dbe8eb;font-variant-numeric:tabular-nums;padding:8px;border-top:1px solid #1f4052}
+.asc-research-scroll tr:nth-child(even) td{background:rgba(40,79,88,.19)}
+.asc-research-scroll td.asc-research-up{color:#6fe0b2}
+.asc-research-scroll td.asc-research-down{color:#f18b98}
+.asc-research-wait{padding:12px;color:#afccd7;font-size:12px}
+.asc-research-errors{font-size:10px;color:#d9aa83;line-height:1.5;overflow-wrap:anywhere}
+.asc-research-disclaimer{color:#a3bbc9;font-size:11px;line-height:1.6;margin:12px 0 0}
+@media(max-width:1200px){.asc-research-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){
+ .asc-research-grid{grid-template-columns:1fr}
+ .asc-research-toggle button{width:100%}
+}
