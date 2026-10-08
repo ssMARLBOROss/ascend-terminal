@@ -177,6 +177,10 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
   const[wsError,setWsError]=useState<string>();
   const[loadingOlder,setLoadingOlder]=useState(false);
   const[hasOlder,setHasOlder]=useState(true);
+  const[chartOwner,setChartOwner]=useState(()=>chartKey(symbol,timeframe));
+  const[contextOwner,setContextOwner]=useState(()=>symbol);
+  const[eventOwner,setEventOwner]=useState(()=>symbol);
+  const[tickerOwner,setTickerOwner]=useState(()=>symbol);
   const retryRef=useRef<number>();
   const tickerFlushRef=useRef<number>();
   const olderAbortRef=useRef<AbortController>();
@@ -197,9 +201,9 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
       const cached=getChartCache(cacheKey);
       const cachedContext=getContextCache(symbol);
       const cachedMicro=getMicroCache(symbol);
-      if(cached){setRawCandles(cached.raw);setCandles(cached.display)}
-      if(cachedContext)setContextCandles(cachedContext.candles);
-      if(cachedMicro)setEventCandles(cachedMicro);
+      if(cached){setRawCandles(cached.raw);setCandles(cached.display);setChartOwner(cacheKey)}
+      if(cachedContext){setContextCandles(cachedContext.candles);setContextOwner(symbol)}
+      if(cachedMicro){setEventCandles(cachedMicro);setEventOwner(symbol)}
       return()=>{disposed=true};
     }
     const cached=getChartCache(cacheKey);
@@ -212,17 +216,32 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
     if(cached){
       setRawCandles(cached.raw);
       setCandles(cached.display);
+      setChartOwner(cacheKey);
     }else{
       setRawCandles([]);
       setCandles([]);
+      setChartOwner('');
     }
-    if(cachedContext)setContextCandles(cachedContext.candles);
-    else if(timeframe==='15m'&&cached)setContextCandles(cached.raw.slice(-500));
-    else setContextCandles([]);
+    if(cachedContext){
+      setContextCandles(cachedContext.candles);
+      setContextOwner(symbol);
+    }else if(timeframe==='15m'&&cached){
+      setContextCandles(cached.raw.slice(-500));
+      setContextOwner(symbol);
+    }else{
+      setContextCandles([]);
+      setContextOwner('');
+    }
 
     const cachedMicro=getMicroCache(symbol);
-    if(cachedMicro)setEventCandles(cachedMicro);
-    else setEventCandles([]);
+    if(cachedMicro){
+      setEventCandles(cachedMicro);
+      setEventOwner(symbol);
+    }else{
+      setEventCandles([]);
+      setEventOwner('');
+    }
+    setTickerOwner('');
 
     const load=async()=>{
       try{
@@ -240,7 +259,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
 
         const display=aggregate(chart,timeframe).slice(-320);
         const chartUpdatedAt=Date.now();
-        setRawCandles(chart);setCandles(display);setRestError(undefined);
+        setRawCandles(chart);setCandles(display);setChartOwner(cacheKey);setRestError(undefined);
         putChartCache(cacheKey,{raw:chart,display,updatedAt:chartUpdatedAt});
 
         // Analysis context is secondary and may arrive a moment later.
@@ -254,6 +273,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
 
         const trimmedContext=context.slice(-320);
         setContextCandles(trimmedContext);
+        setContextOwner(symbol);
         putContextCache(symbol,{candles:trimmedContext,updatedAt:Date.now()});
       }catch(err){
         if(disposed||(err as any)?.name==='AbortError')return;
@@ -264,7 +284,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
     microTimer=window.setTimeout(()=>{
       if(disposed)return;
       void fetchMicroHistory(symbol,controller.signal)
-        .then(micro=>{if(!disposed)setEventCandles(micro)})
+        .then(micro=>{if(!disposed){setEventCandles(micro);setEventOwner(symbol)}})
         .catch(err=>{if((err as any)?.name!=='AbortError')return});
     },3000);
     return()=>{
@@ -321,6 +341,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
                 const display=aggregate(trimmed,timeframe).slice(-500);
                 putChartCache(cacheKey,{raw:trimmed,display,updatedAt:Date.now()});
                 setCandles(display);
+                setChartOwner(cacheKey);
                 return trimmed;
               });
             }
@@ -336,6 +357,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
                 }
                 const trimmed=copy.slice(-500);
                 putContextCache(symbol,{candles:trimmed,updatedAt:Date.now()});
+                setContextOwner(symbol);
                 return trimmed;
               });
             }
@@ -352,6 +374,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
                 }
                 const trimmed=copy.slice(-EVENT_CANDLE_LIMIT);
                 putMicroCache(symbol,trimmed);
+                setEventOwner(symbol);
                 return trimmed;
               });
             }
@@ -371,7 +394,7 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
                 tickerFlushRef.current=undefined;
                 const pending=pendingTickerRef.current;
                 pendingTickerRef.current={};
-                if(!disposed)setTicker(prev=>({...prev,...pending}));
+                if(!disposed){setTicker(prev=>({...prev,...pending}));setTickerOwner(symbol)}
               },750);
             }
           }
@@ -421,7 +444,16 @@ export function useBybitMarket(symbol:string,timeframe:AscendTimeframe,enabled=t
     }
   };
 
-  const historyReady=contextCandles.length>=192&&candles.length>=20;
+  const safeCandles=chartOwner===cacheKey?candles:[];
+  const safeContext=contextOwner===symbol?contextCandles:[];
+  const safeEvents=eventOwner===symbol?eventCandles:[];
+  const safeTicker=tickerOwner===symbol?ticker:{};
+  const historyReady=safeContext.length>=192&&safeCandles.length>=20;
   const error=restError??wsError;
-  return{status,source:'BYBIT',symbol,timeframe,candles,contextCandles,eventCandles,ticker,lastUpdate,latencyMs,error,historyReady,loadingOlder,hasOlder,loadOlder};
+  const effectiveStatus=chartOwner===cacheKey?status:'CONNECTING';
+  return{
+    status:effectiveStatus,source:'BYBIT',symbol,timeframe,
+    candles:safeCandles,contextCandles:safeContext,eventCandles:safeEvents,ticker:safeTicker,
+    lastUpdate,latencyMs,error,historyReady,loadingOlder,hasOlder,loadOlder
+  };
 }
