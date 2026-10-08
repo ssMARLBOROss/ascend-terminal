@@ -285,3 +285,24 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
  .asc-session-ribbon-card span,.asc-session-ribbon-card em{font-size:12px}
  .asc-session-ribbon-transitions span{font-size:11px}
 }
+
+
+/* Previous UTC daily range: compact labels, levels themselves are on candle chart. */
+.asc-lite-daily-levels{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:7px;min-width:0}
+.asc-lite-daily-level{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;
+  border:1px solid #394a54;border-radius:6px;background:#102029}
+.asc-lite-daily-level b{font-size:13px;font-weight:900;letter-spacing:.03em}
+.asc-lite-daily-level strong{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;color:#e8f3f7}
+.asc-lite-daily-level.high{border-color:#735337;background:rgba(109,66,29,.20)}
+.asc-lite-daily-level.high b{color:#f2b66c}
+.asc-lite-daily-level.low{border-color:#246e78;background:rgba(20,90,97,.18)}
+.asc-lite-daily-level.low b{color:#63d5e1}
+.asc-lite-daily-levels>small{font-size:11px;color:#a3b9c8;font-weight:700;white-space:nowrap}
+@media(max-width:1100px){
+ .asc-lite-toolbar{flex-wrap:wrap}
+ .asc-lite-daily-levels{order:3;width:100%;justify-content:flex-start}
+}
+@media(max-width:620px){
+ .asc-lite-daily-level strong{font-size:13px}
+ .asc-lite-daily-levels{gap:5px}
+}
