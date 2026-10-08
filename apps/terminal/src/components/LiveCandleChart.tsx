@@ -765,7 +765,7 @@ export default function LiveCandleChart({
       if(prepended&&previousTimeRange){
         // Loading older candles must not move the viewport the user is currently studying.
         chart.timeScale().setVisibleRange(previousTimeRange);
-      }else if(previousLogical){
+      }else if(previousLogical&&validLogicalRange(previousLogical,candles.length)){
         const width=Math.max(10,previousLogical.to-previousLogical.from);
         if(appended&&followLatestRef.current){
           const to=candles.length-1+6;
@@ -774,13 +774,16 @@ export default function LiveCandleChart({
           chart.timeScale().setVisibleLogicalRange(previousLogical);
         }
       }else{
-        const cached=viewportCache.get(`${symbol}:${timeframe}`);
-        if(cached?.range){
+        const viewportKeyNow=`${symbol}:${timeframe}`;
+        const cached=viewportCache.get(viewportKeyNow);
+        if(cached?.range&&validLogicalRange(cached.range,candles.length)){
           chart.timeScale().setVisibleLogicalRange(cached.range);
           followLatestRef.current=cached.following;
         }else{
-          const from=Math.max(0,candles.length-windowSize);
-          chart.timeScale().setVisibleLogicalRange({from,to:candles.length-1+6});
+          if(cached)viewportCache.delete(viewportKeyNow);
+          const width=Math.min(windowSize,Math.max(40,candles.length));
+          const to=candles.length-1+6;
+          chart.timeScale().setVisibleLogicalRange({from:Math.max(0,to-width),to});
           followLatestRef.current=true;
         }
       }
@@ -855,12 +858,24 @@ export default function LiveCandleChart({
       if(e.type==='TP'){position=isLong?'aboveBar':'belowBar';shape='square';color='#37cfa1'}
       if(e.type==='SL'){position=isLong?'belowBar':'aboveBar';shape='square';color='#e36c7e'}
 
+      if(tfSec>=14400)text='';
       return{time,position,shape,color,text,size:e.type==='SWEEP'?1.35:1};
     });
 
-    const rsiMarkers=rsiMode==='EVENTS'?rsiSignals.slice(-90).map((signal:RsiSignal)=>{
+    const rsiBudget=tfSec>=86400?8:tfSec>=14400?14:tfSec>=3600?20:32;
+    const rsiByCandle=new Map<number,RsiSignal>();
+    if(rsiMode==='EVENTS'){
+      for(const signal of rsiSignals.slice(-90)){
+        const ts=nearestCandleTimestamp(candles,signal.timestamp);
+        const existing=rsiByCandle.get(ts);
+        const rank=(s:RsiSignal)=>s.type==='RC30'||s.type==='RC70'?0:s.type==='BULL'||s.type==='BEAR'?1:s.type==='PIVOT'?2:3;
+        if(!existing||rank(signal)<rank(existing))rsiByCandle.set(ts,signal);
+      }
+    }
+    const rsiMarkers=rsiMode==='EVENTS'?[...rsiByCandle.entries()]
+      .sort((a,b)=>a[0]-b[0]).slice(-rsiBudget).map(([ts,signal])=>{
       const isLong=signal.direction==='LONG';
-      const time=Math.floor(nearestCandleTimestamp(candles,signal.timestamp)/1000) as UTCTimestamp;
+      const time=Math.floor(ts/1000) as UTCTimestamp;
       let color='#397de3';
       let shape:'circle'|'square'|'arrowUp'|'arrowDown'='circle';
       let position:'aboveBar'|'belowBar'|'inBar'=isLong?'belowBar':'aboveBar';
@@ -871,7 +886,8 @@ export default function LiveCandleChart({
       if(signal.type==='RC70'){color='#eb5a63';shape='circle';position='aboveBar'}
       if(signal.type==='RSI37_UP'){color='#4fa0ff';shape='arrowUp';position='belowBar'}
       if(signal.type==='RSI63_DOWN'){color='#f08a5d';shape='arrowDown';position='aboveBar'}
-      return{time,position,shape,color,text:signal.shortLabel,size:.8};
+      const text=tfSec>=14400?'':signal.shortLabel;
+      return{time,position,shape,color,text,size:.8};
     }):[];
 
     const markers=[...marketMarkers,...rsiMarkers].sort((a,b)=>Number(a.time)-Number(b.time));
