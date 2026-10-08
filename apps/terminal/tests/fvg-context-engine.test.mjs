@@ -31,7 +31,7 @@ assert.equal(apply(bars,settings,third.timestamp+STEP-1).filter(x=>x.side==='bul
   'never create FVG before 3rd candle closes');
 const partial=candle(16,104,105,102,104,15);
 const touched=apply([...bars,partial]).find(x=>x.id===z.id);
-assert.equal(touched.status,'TESTING');
+assert.equal(touched.status,'PARTIAL','wick-only touch closes outside zone');
 assert.ok(touched.maxFillPct>66&&touched.maxFillPct<67);
 assert.equal(touched.visits,1);
 assert.equal(touched.firstTouchAt,partial.timestamp+STEP);

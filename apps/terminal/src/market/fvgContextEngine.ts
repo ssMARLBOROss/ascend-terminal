@@ -52,10 +52,11 @@ export function computeAtr(bars:Candle[],index:number,length=14):number|null{
     if(i>0&&b.timestamp<=bars[i-1].timestamp)return null;
     const prev=i>0?bars[i-1].close:b.close;
     const tr=Math.max(b.high-b.low,Math.abs(b.high-prev),Math.abs(b.low-prev));
-    if(i<length)atr+=tr;
+    if(i<length-1)atr+=tr;
+    else if(i===length-1)atr=(atr+tr)/length;
     else atr=(atr*(length-1)+tr)/length;
   }
-  return atr>0?(index>=length-1?(index===length-1?atr/length:atr):null):null;
+  return index>=length-1&&atr>0?atr:null;
 }
 function emit(zone:FvgRecord,type:FvgEventType,at:number,barStart:number,detail?:string){
   const id=zone.id+':'+type+':'+barStart;
@@ -104,30 +105,41 @@ export function computeFvgContext(
       const measure=z.side==='bull'?
         (settings.fillMode==='wick'?current.low:current.close):
         (settings.fillMode==='wick'?current.high:current.close);
-      const inside=z.side==='bull'
-        ?measure<=z.high&&measure>=z.low
-        :measure>=z.low&&measure<=z.high;
       const penetration=clamp((z.side==='bull'?(z.high-measure):(measure-z.low))/z.size*100);
-      const isNowInside=inside&&penetration>0&&penetration<100;
-      const wasInside=z.status==='TESTING';
-      if(isNowInside){
+      // Wick measures maximum traversal during a candle, but the *state* of
+      // price at that candle's close is distinct from an intrabar wick touch.
+      const closedInside=current.close>z.low&&current.close<z.high;
+      const previouslyInside=z.status==='TESTING';
+      const touched=penetration>0;
+      if(!touched&&z.status==='NEW'){
+        z.status='ACTIVE';emit(z,'ACTIVE',at,current.timestamp);
+      }
+      // Approaches are explicitly heuristic observations from CLOSED candle
+      // extremes, not actionable structure confirmations.
+      if(!touched&&!z.events.some(e=>e.type==='APPROACH')){
+        const dist=distanceToFvg(z,current.close);
+        const threshold=Math.min(z.atr===null?.2:z.atr/z.midpoint*25,.2);
+        if(dist!==null&&dist<=threshold)
+          emit(z,'APPROACH',at,current.timestamp);
+      }
+      if(touched){
         if(z.firstTouchAt===undefined)z.firstTouchAt=at;
-        if(!wasInside){
+        if(!previouslyInside){
           z.visits++;
           emit(z,'RETEST',at,current.timestamp);
         }
-        z.status='TESTING';
-        z.timeInsideMs+=interval;
-      }else if(wasInside){
+        z.status=closedInside&&penetration<100?'TESTING':'PARTIAL';
+        // Number of closed candles inside multiplied by TF length is only a
+        // coarse estimate, NOT real intrabar dwell time.
+        if(z.status==='TESTING')z.timeInsideMs+=interval;
+        else if(previouslyInside){
+          z.exitDirection=current.close>=z.midpoint?'UP':'DOWN';
+          emit(z,'EXIT',at,current.timestamp,z.exitDirection);
+        }
+      }else if(previouslyInside){
         z.status='PARTIAL';
         z.exitDirection=current.close>=z.midpoint?'UP':'DOWN';
         emit(z,'EXIT',at,current.timestamp,z.exitDirection);
-      }else if(z.status==='NEW'){
-        z.status='ACTIVE';emit(z,'ACTIVE',at,current.timestamp);
-      }
-      if(penetration>0&&!isNowInside&&z.firstTouchAt===undefined){
-        z.firstTouchAt=at;z.visits++;
-        emit(z,'RETEST',at,current.timestamp,'Entire interval crossed in one closed bar');
       }
       if(penetration>z.maxFillPct){
         z.maxFillPct=penetration;
