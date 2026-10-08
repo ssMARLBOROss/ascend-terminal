@@ -105,18 +105,20 @@ export default function MarketParticipationPanel({symbol,snapshot,journal,fvgs}:
 /** Both plots use the SAME observation timestamps on the x-axis.
  *  CVD plots are 1000-trade-window snapshots, NOT a continuous CVD.
  *  No interpolation over missing / stale data. */
-function TimedLine({data,color,selected,onSelect}:{
-  data:(number|null)[];color:string;selected:number;onSelect:(n:number)=>void;
+function TimedLine({data,times,color,selected,onSelect}:{
+  data:(number|null)[];times:number[];color:string;selected:number;onSelect:(n:number)=>void;
 }){
   const n=data.length,ys=data.filter((v):v is number=>v!==null);
   if(n<2||ys.length<2)return <div className="asc-mp-plot-empty">NO DATA · недостаточно наблюдений</div>;
   const min=Math.min(...ys),max=Math.max(...ys),range=Math.max(max-min,Math.abs(max)*.00001,1e-9);
   const lo=min-range*.15,hi=max+range*.15;
+  const start=times[0],duration=Math.max(1,times[times.length-1]-start);
+  const xCoord=(index:number)=>8+(times[index]-start)/duration*304;
   const segments:string[]=[];
   let path='';
   for(let i=0;i<n;i++){
     if(data[i]===null){if(path)segments.push(path);path='';continue}
-    const x=8+i/(n-1)*304,y=84-((data[i]!-lo)/(hi-lo))*72;
+    const x=xCoord(i),y=84-((data[i]!-lo)/(hi-lo))*72;
     path+=(path?' ':'')+x.toFixed(1)+','+y.toFixed(1);
   }
   if(path)segments.push(path);
@@ -125,13 +127,17 @@ function TimedLine({data,color,selected,onSelect}:{
     onMouseMove={event=>{
       const bounds=event.currentTarget.getBoundingClientRect();
       const fraction=(event.clientX-bounds.left)/Math.max(1,bounds.width);
-      onSelect(Math.max(0,Math.min(n-1,Math.round(fraction*(n-1)))));
+      const timestamp=start+Math.max(0,Math.min(1,fraction))*duration;
+      let closest=0;
+      for(let i=1;i<times.length;i++)
+        if(Math.abs(times[i]-timestamp)<Math.abs(times[closest]-timestamp))closest=i;
+      onSelect(closest);
     }}>
     <line x1="8" y1="85" x2="312" y2="85" stroke="#456171" strokeWidth="1"/>
     {segments.map((p,i)=><polyline key={i} points={p} fill="none"
       stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>)}
-    <line x1={8+selected/Math.max(n-1,1)*304} y1="6"
-      x2={8+selected/Math.max(n-1,1)*304} y2="88"
+    <line x1={xCoord(selected)} y1="6"
+      x2={xCoord(selected)} y2="88"
       stroke="#bdc8d2" strokeDasharray="3 4" strokeWidth="1"/>
   </svg>;
 }
@@ -145,17 +151,18 @@ export function ParticipationMicroCharts({journal}:{journal:ParticipationJournal
   </div>;
   const oi=items.map(x=>x.oi.status==='READY'?x.oi.value:null);
   const delta=items.map(x=>x.delta.status==='READY'?x.delta.value:null);
+  const times=items.map(x=>x.observedAt);
   return <section className="asc-mp-micro" aria-label="Наблюдения OI и Trade Delta">
     <header><b>УЧАСТИЕ · ВРЕМЕННЫЕ СРЕЗЫ</b>
       <small>Общая ось: время записи снимков, UTC ·
         выбран {items[selected]?clock(items[selected].observedAt):'—'}</small></header>
     <div className="asc-mp-mini-grid">
       <div><strong>OI · 5m значения</strong>
-        <TimedLine data={oi} color="#55bfdc" selected={selected} onSelect={setHover}/>
+        <TimedLine data={oi} times={times} color="#55bfdc" selected={selected} onSelect={setHover}/>
         <small>{items[selected]?.oi.status==='READY'?fmt(items[selected]?.oi.value):'NO DATA'} ·
           источник {clock(items[selected]?.oi.timestamp)} UTC</small></div>
       <div><strong>Trade Delta · последние ≤1000 сделок</strong>
-        <TimedLine data={delta} color="#e8b76e" selected={selected} onSelect={setHover}/>
+        <TimedLine data={delta} times={times} color="#e8b76e" selected={selected} onSelect={setHover}/>
         <small>{items[selected]?.delta.status==='READY'?fmt(items[selected]?.delta.value,3):'NO DATA'} ·
           {items[selected]?.cvdWindow?' выборка '+clock(items[selected].cvdWindow!.from)+'–'+clock(items[selected].cvdWindow!.to):' нет выборки'}</small></div>
     </div>

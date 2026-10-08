@@ -122,16 +122,20 @@ export function buildParticipationSnapshot(args:{
     const closed=candles.filter(c=>c.timestamp+(chartStep[timeframe]??Infinity)<=now);
     const bar=closed.at(-1),previous=closed.at(-2);
     if(bar&&previous&&bar.timestamp+(chartStep[timeframe]??Infinity)>=now-300000){
-      const rejection=levels.some(l=>l.availableFrom<=bar.timestamp&&(
-        previous.close>=l.price&&bar.low<l.price&&bar.close>l.price||
-        previous.close<=l.price&&bar.high>l.price&&bar.close<l.price
-      ));
-      if(rejection){
+      const rejectionSide=levels.flatMap(l=>{
+        if(l.availableFrom>bar.timestamp)return [];
+        if(previous.close>=l.price&&bar.low<l.price&&bar.close>l.price)return ['DOWN'];
+        if(previous.close<=l.price&&bar.high>l.price&&bar.close<l.price)return ['UP'];
+        return [];
+      })[0];
+      if(rejectionSide){
         context='FALSE_BREAK_CANDIDATE';
         explanation='Тень последней закрытой свечи сняла известный уровень, закрытие вернулось за него. Последовательность внутри свечи неизвестна.';
-        const sells=available(delta)&&delta.value!<0;
-        const buys=available(delta)&&delta.value!>0;
-        if((sells||buys)&&d&&d.from>=bar.timestamp&&d.to<=bar.timestamp+(chartStep[timeframe]??0)){
+        const oppositeFlow=available(delta)&&(
+          rejectionSide==='DOWN'&&delta.value!<0||
+          rejectionSide==='UP'&&delta.value!>0);
+        if(oppositeFlow&&d&&d.from>=bar.timestamp&&
+          d.to<=bar.timestamp+(chartStep[timeframe]??0)){
           context='ABSORPTION_CANDIDATE';
           explanation='После отвержения уровня в той же свечной области была зарегистрирована встречная агрессивная дельта. Это гипотеза поглощения, не подтверждённый лимитный участник.';
         }
@@ -174,7 +178,11 @@ export function detectObservedLevelEvents(args:{
       }else if(previous.close>level.price&&c.close<level.price){
         type='BREAK';side='DOWN';
       }else if(previous.close<level.price&&c.close>level.price){
-        type='RECLAIM';side='UP';
+        // Reclaim is only justified if this recently traded ABOVE the
+        // reference then broke below; otherwise it's a plain upward break.
+        const prior=candles.some(b=>b.timestamp<previous.timestamp&&
+          b.timestamp>=previous.timestamp-12*step&&b.close>level.price);
+        type=prior?'RECLAIM':'BREAK';side='UP';
       }
       if(!type)continue;
       result.push({id:[symbol,args.timeframe,end,level.id,type].join(':'),
