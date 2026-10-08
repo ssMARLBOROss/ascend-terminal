@@ -67,6 +67,7 @@ export function useStableMarket(symbol:string,timeframe:StableTimeframe):StableM
     let retryTimer:number|undefined;
     let pingTimer:number|undefined;
     let refreshTimer:number|undefined;
+    let historyRetryTimer:number|undefined;
     let frame:number|undefined;
     let pending:Candle|undefined;
     let connectedBefore=false;
@@ -100,6 +101,8 @@ export function useStableMarket(symbol:string,timeframe:StableTimeframe):StableM
       }catch(err){
         if(disposed||abort.signal.aborted)return;
         setError('История свечей: '+String((err as Error).message??err));
+        if(historyRetryTimer!==undefined)window.clearTimeout(historyRetryTimer);
+        historyRetryTimer=window.setTimeout(()=>{void syncHistory()},5000);
       }finally{
         fetching=false;
       }
@@ -127,7 +130,6 @@ export function useStableMarket(symbol:string,timeframe:StableTimeframe):StableM
         ws.onopen=()=>{
           if(disposed){ws.close();return}
           setStatus('LIVE');
-          setError(undefined);
           lastMessageAt=Date.now();
           retries=0;
           ws.send(JSON.stringify({op:'subscribe',args:['kline.'+interval+'.'+symbol]}));
@@ -179,6 +181,7 @@ export function useStableMarket(symbol:string,timeframe:StableTimeframe):StableM
       if(retryTimer!==undefined)window.clearTimeout(retryTimer);
       if(pingTimer!==undefined)window.clearInterval(pingTimer);
       if(refreshTimer!==undefined)window.clearInterval(refreshTimer);
+      if(historyRetryTimer!==undefined)window.clearTimeout(historyRetryTimer);
       if(frame!==undefined)window.cancelAnimationFrame(frame);
       if(socket){
         socket.onopen=null;socket.onmessage=null;socket.onerror=null;socket.onclose=null;
