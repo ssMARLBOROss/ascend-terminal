@@ -6,15 +6,16 @@ import {
 import type {Candle} from '@ascend/contracts';
 import type {PreviousDayLevels} from '../market/usePreviousDayLevels';
 import type {PreviousSessionLevels} from '../market/usePreviousSessionLevels';
+import type {DailyVwap} from '../market/useDailyVwap';
 import SessionClock from './SessionClock';
 import {drawSessionBands} from './drawSessionBands';
 
 type Snapshot={first?:number;last?:number;length:number};
 
 /** Bounded session canvas only; no indicator computations or extra market subscriptions. */
-export default function StableCandleChart({candles,timeframe,previousDay,previousSessions}:{
+export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap}:{
   candles:Candle[];timeframe:string;previousDay?:PreviousDayLevels;
-  previousSessions?:PreviousSessionLevels;
+  previousSessions?:PreviousSessionLevels;dailyVwap?:DailyVwap;
 }){
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
@@ -24,6 +25,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
   const chartRef=useRef<IChartApi|null>(null);
   const priceRef=useRef<ISeriesApi<'Candlestick'>|null>(null);
   const volumeRef=useRef<ISeriesApi<'Histogram'>|null>(null);
+  const vwapRef=useRef<ISeriesApi<'Line'>|null>(null);
   const snapshotRef=useRef<Snapshot>({length:0});
 
   useEffect(()=>{
@@ -60,6 +62,11 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
     });
     volume.priceScale().applyOptions({scaleMargins:{top:.81,bottom:0}});
     volumeRef.current=volume;
+    vwapRef.current=chart.addLineSeries({
+      color:'#f4d35e',lineWidth:3,lineStyle:LineStyle.Solid,
+      priceScaleId:'right',priceLineVisible:false,lastValueVisible:true,
+      crosshairMarkerVisible:true,title:'VWAP UTC'
+    });
     snapshotRef.current={length:0};
 
     // Coalesce pan/zoom/resize and live-candle requests into one canvas frame.
@@ -92,10 +99,52 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
       chartRef.current=null;
       priceRef.current=null;
       volumeRef.current=null;
+      vwapRef.current=null;
       snapshotRef.current={length:0};
       chart.remove();
     };
   },[timeframe]);
+
+  // Project independently sourced 5m VWAP onto existing chart timestamps.
+  // Do not add extra 5m timestamps to the shared time axis (no candle spacing shift).
+  useEffect(()=>{
+    const line=vwapRef.current;
+    if(!line)return;
+    if(!dailyVwap||!candles.length||timeframe==='1D'){
+      line.setData([]);
+      return;
+    }
+    const intervalMs:Record<string,number>={
+      '1m':60000,'3m':180000,'5m':300000,'15m':900000,
+      '30m':1800000,'1H':3600000,'4H':14400000
+    };
+    const candleMs=intervalMs[timeframe];
+    if(!candleMs){line.setData([]);return}
+    const source=dailyVwap.points;
+    const result:{time:UTCTimestamp;value:number}[]=[];
+    const latestTs=candles[candles.length-1].timestamp;
+    let index=0,lastClosed:number|undefined;
+    for(const bar of candles){
+      if(bar.timestamp<dailyVwap.dayStartUtc)continue;
+      const barEnd=bar.timestamp+candleMs;
+      while(index<source.length&&source[index].closed&&source[index].timestamp+300000<=barEnd){
+        lastClosed=source[index].value;
+        index++;
+      }
+      let value=lastClosed;
+      // The latest candle may use the live, unfinished 5m snapshot, but
+      // historical candles never receive the future volume of that 5m bar.
+      const partial=source[source.length-1];
+      if(bar.timestamp===latestTs&&partial&&!partial.closed&&
+        dailyVwap.updatedAt>=bar.timestamp&&partial.timestamp<=dailyVwap.updatedAt){
+        value=partial.value;
+      }
+      if(value!==undefined&&Number.isFinite(value))result.push({
+        time:Math.floor(bar.timestamp/1000) as UTCTimestamp,value
+      });
+    }
+    line.setData(result);
+  },[dailyVwap,timeframe,candles.length,candles[0]?.timestamp,candles[candles.length-1]?.timestamp]);
 
   // Price lines live on the chart series; update only when the previous UTC day changes.
   useEffect(()=>{
@@ -183,7 +232,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
   },[candles]);
 
   return <div className="asc-lite-chart-stage">
-    <div className="asc-lite-chart-host" ref={hostRef} role="img" aria-label="Живой свечной график Bybit с объёмом и зонами сессий"/>
+    <div className="asc-lite-chart-host" ref={hostRef} role="img" aria-label="Живой свечной график Bybit с объёмом, дневным VWAP, уровнями и зонами сессий"/>
     <canvas className="asc-lite-session-canvas" ref={overlayRef} aria-hidden="true"/>
     <SessionClock embedded/>
     {timeframe==='1D'&&<span className="asc-session-daily-note">Сессионные зоны по часам показаны на таймфреймах до 4H</span>}
