@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import StableCandleChart from './components/StableCandleChart';
 import MexcWorkspace from './components/MexcWorkspace';
 import {useExchangeCatalog} from './market/useExchangeCatalog';
@@ -223,6 +223,17 @@ export default function StableMarketApp(){
   const[search,setSearch]=useState('');
   const[inputError,setInputError]=useState('');
   const[visibleCount,setVisibleCount]=useState(80);
+  const[quickOpen,setQuickOpen]=useState(false);
+  const quickRef=useRef<HTMLDivElement|null>(null);
+  useEffect(()=>{
+    if(!quickOpen)return;
+    const onPointer=(event:PointerEvent)=>{
+      if(quickRef.current&&!quickRef.current.contains(event.target as Node))
+        setQuickOpen(false);
+    };
+    document.addEventListener('pointerdown',onPointer);
+    return()=>document.removeEventListener('pointerdown',onPointer);
+  },[quickOpen]);
 
   const catalog=useExchangeCatalog(exchange);
   const symbol=exchange==='BYBIT'?bybitSymbol:mexcSymbol;
@@ -230,10 +241,13 @@ export default function StableMarketApp(){
   const matches=useMemo(()=>searchContracts(catalog.contracts,search),
     [catalog.contracts,search]);
   const visible=matches.slice(0,visibleCount);
+  const quickResults=matches.slice(0,12);
+  const toggleCatalog=()=>setSettings(previous=>({...previous,coins:!previous.coins}));
 
   const changeExchange=(next:FuturesExchange)=>{
     if(exchange===next)return;
     setExchange(next);setSearch('');setInputError('');setVisibleCount(80);
+    setQuickOpen(false);
   };
   const choose=(value:string)=>{
     if(!catalog.contracts.some(x=>x.symbol===value)){
@@ -243,7 +257,7 @@ export default function StableMarketApp(){
     if(exchange==='BYBIT')setBybitSymbol(value);
     else setMexcSymbol(value);
     setSearch('');setInputError('');
-    setVisibleCount(80);
+    setVisibleCount(80);setQuickOpen(false);
   };
   const useSearchSymbol=()=>{
     if(!catalog.contracts.length){
@@ -277,6 +291,88 @@ export default function StableMarketApp(){
         </button>)}
       <span>Источники данных бирж разделены · только публичные рыночные данные</span>
     </nav>
+    <div className="asc-quick-search" ref={quickRef} role="search"
+      aria-label={'Поиск фьючерсов '+exchange}>
+      <div className="asc-quick-search-title">
+        <label htmlFor="asc-quick-input">ПОИСК ФЬЮЧЕРСОВ · {exchange}</label>
+        <span>{catalog.status==='ready'?
+          catalog.contracts.length.toLocaleString('ru-RU')+' контрактов из API':
+          catalog.status==='error'?'ОШИБКА КАТАЛОГА':'ЗАГРУЗКА КАТАЛОГА'}</span>
+      </div>
+      <div className="asc-quick-search-controls">
+        <div className="asc-quick-search-input-wrap">
+          <span aria-hidden="true" className="asc-quick-search-glass">⌕</span>
+          <input id="asc-quick-input" type="search" aria-controls="asc-quick-results"
+            aria-expanded={quickOpen} aria-label="Найти USDT-фьючерс"
+            autoComplete="off" spellCheck={false}
+            placeholder="Введите монету: BTC, ETH, SOL, DOGE…"
+            value={search} onFocus={()=>setQuickOpen(true)}
+            onChange={event=>{
+              setSearch(event.target.value);setInputError('');
+              setVisibleCount(80);setQuickOpen(true);
+            }}
+            onKeyDown={event=>{
+              if(event.key==='Escape')setQuickOpen(false);
+              if(event.key==='Enter'){
+                event.preventDefault();
+                useSearchSymbol();
+              }
+              if(event.key==='ArrowDown'&&quickResults.length){
+                event.preventDefault();
+                document.getElementById('asc-quick-result-0')?.focus();
+              }
+            }}/>
+          <button type="button" onClick={useSearchSymbol}
+            className="asc-quick-search-submit">Найти ↗</button>
+        </div>
+        <button type="button" className={'asc-quick-catalog-button'+(settings.coins?' active':'')}
+          onClick={toggleCatalog} aria-pressed={settings.coins}>
+          {settings.coins?'Скрыть список монет':'Показать все монеты'}
+        </button>
+        <button type="button" className="asc-quick-refresh" onClick={()=>catalog.retry()}
+          aria-label="Повторно загрузить каталог биржи" title="Обновить каталог">↻</button>
+      </div>
+      {(inputError||catalog.status==='error')&&<p className="asc-quick-search-error" role="status">
+        {inputError||('Не удалось загрузить каталог '+exchange+': '+catalog.error)}
+      </p>}
+      {quickOpen&&catalog.contracts.length>0&&<div id="asc-quick-results"
+        className="asc-quick-search-results" role="listbox"
+        aria-label={'Доступные USDT-фьючерсы '+exchange}>
+        <div className="asc-quick-results-head">
+          {search.trim()?'Совпадения: '+matches.length.toLocaleString('ru-RU'):'Популярные контракты'}
+          <small>Источник: {exchange} Futures API</small>
+        </div>
+        {quickResults.map((item,index)=>
+          <button type="button" key={item.symbol} role="option"
+            id={'asc-quick-result-'+index}
+            aria-selected={symbol===item.symbol}
+            onClick={()=>choose(item.symbol)}
+            onKeyDown={event=>{
+              if(event.key==='Escape'){event.preventDefault();setQuickOpen(false)}
+              if(event.key==='ArrowDown'){
+                event.preventDefault();
+                document.getElementById('asc-quick-result-'+(index+1))?.focus();
+              }
+              if(event.key==='ArrowUp'){
+                event.preventDefault();
+                if(index===0)document.getElementById('asc-quick-input')?.focus();
+                else document.getElementById('asc-quick-result-'+(index-1))?.focus();
+              }
+            }}>
+            <strong>{item.base}<span>/USDT</span></strong>
+            <small>{item.symbol} · {item.kind}</small>
+            {symbol===item.symbol&&<em>●</em>}
+          </button>
+        )}
+        {!quickResults.length&&<div className="asc-quick-empty">
+          Нет совпадений. Проверь тикер или переключи биржу.
+        </div>}
+        {matches.length>quickResults.length&&<div className="asc-quick-more">
+          Показаны первые {quickResults.length} из {matches.length}. Уточни поиск
+          или нажми «Показать все монеты».
+        </div>}
+      </div>}
+    </div>
     <div className="asc-lite-layout">
       <aside className="asc-lite-sidebar">
         <div className="asc-lite-side-heading"><strong>USDT ФЬЮЧЕРСЫ</strong>
