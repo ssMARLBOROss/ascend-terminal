@@ -7,7 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "npm run test && tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node tests/fvg-context-engine.test.mjs && node tests/market-participation.test.mjs"
+    "test": "node tests/fvg-context-engine.test.mjs && node tests/market-participation.test.mjs && node tests/cvd-engine.test.mjs"
   },
   "dependencies": {
     "@ascend/contracts": "0.2.0",

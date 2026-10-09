@@ -15,7 +15,7 @@ export type CvdSegment={
   id:string;symbol:string;startedAt:number;lastTradeAt:number;
   lastReceivedAt:number;health:CvdHealth;gapReason?:string;
   buyVolume:number;sellVolume:number;buyNotional:number;sellNotional:number;
-  trades:number;bars:CvdBar[];
+  trades:number;bars:CvdBar[];trimmedDelta:number;
 };
 export type CvdSnapshot=CvdSegment&{
   volumeDelta:number;notionalDelta:number;
@@ -31,7 +31,7 @@ const ms:Record<CvdInterval,number>={'1m':60000,'5m':300000,'15m':900000};
 export function createCvdSegment(symbol:string,at:number,reason?:string):CvdSegment{
   return {symbol,id:symbol+':'+at,startedAt:at,lastTradeAt:0,lastReceivedAt:0,
     health:'CONNECTING',gapReason:reason,buyVolume:0,sellVolume:0,
-    buyNotional:0,sellNotional:0,trades:0,bars:[]};
+    buyNotional:0,sellNotional:0,trades:0,bars:[],trimmedDelta:0};
 }
 export function parseTradeFrame(body:unknown,symbol:string):CvdTrade[]{
   const frame=body as {topic?:unknown;data?:unknown};
@@ -78,12 +78,14 @@ export class CvdAccumulator{
         this.segment.gapReason='MINUTE_ORDER_UNCERTAIN';
         break;
       }
-      let bar=last;
+      let bar:CvdBar;
       if(!last||last.start!==index){
         bar={start:index,buyVolume:0,sellVolume:0,buyNotional:0,
           sellNotional:0,trades:0,openPrice:tr.price,closePrice:tr.price,
           firstTradeAt:tr.time,lastTradeAt:tr.time};
         this.segment.bars.push(bar);
+      }else{
+        bar=last;
       }
       bar.closePrice=tr.price;
       bar.lastTradeAt=Math.max(bar.lastTradeAt,tr.time);
@@ -101,7 +103,11 @@ export class CvdAccumulator{
       this.segment.lastTradeAt=this.lastTime;
       applied++;
       // Retain ~8 hours of fine-grain bars, but not enough to imply 24/7 history.
-      if(this.segment.bars.length>480)this.segment.bars.splice(0,this.segment.bars.length-480);
+      if(this.segment.bars.length>480){
+        const removed=this.segment.bars.splice(0,this.segment.bars.length-480);
+        this.segment.trimmedDelta+=removed.reduce(
+          (sum,b)=>sum+b.buyVolume-b.sellVolume,0);
+      }
     }
     if(applied>0){
       this.segment.lastReceivedAt=receivedAt;
@@ -118,13 +124,16 @@ export class CvdAccumulator{
     const size=ms[interval],bars:Map<number,CvdPoint>=new Map();
     // Since the accumulator truncates old 1m bars, raw volume totals are still
     // valid for the full segment but plotted cumulatives must be tagged "visible".
-    let cumulative=0;
+    let cumulative=copy.trimmedDelta;
     for(const b of copy.bars){
       const t=Math.floor(b.start/size)*size;
       let p=bars.get(t);
       if(!p){
         p={time:t,delta:0,cumulative:0,buyVolume:0,sellVolume:0,trades:0,
-          openPrice:b.openPrice,closePrice:b.closePrice,isClosed:t+size<=now};
+          openPrice:b.openPrice,closePrice:b.closePrice,
+          // The first bucket starts partway through a stream connection.
+          // A partially observed bucket cannot validate any divergence.
+          isClosed:t+size<=now&&t>=Math.ceil(copy.startedAt/size)*size};
         bars.set(t,p);
       }
       p.buyVolume+=b.buyVolume;p.sellVolume+=b.sellVolume;p.trades+=b.trades;

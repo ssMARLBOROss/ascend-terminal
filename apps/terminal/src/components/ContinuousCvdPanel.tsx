@@ -11,9 +11,9 @@ function time(ts:number){
     timeZone:'UTC',hour:'2-digit',minute:'2-digit',second:'2-digit'
   });
 }
-function Plot({points,metric,onHover,hovered}:{
+function Plot({points,metric,onHover,hovered,interval}:{
   points:CvdPoint[];metric:'delta'|'cumulative';
-  onHover:(at:number)=>void;hovered:number;
+  onHover:(at:number)=>void;hovered:number;interval:CvdInterval;
 }){
   const bars=points.slice(-96);
   const selected=hovered<0?bars.length-1:bars.findIndex(p=>p.time===hovered);
@@ -26,8 +26,9 @@ function Plot({points,metric,onHover,hovered}:{
   const baseline=y(0);
   const lines:string[]=[];
   let segment='';
+  const intervalMs=interval==='1m'?60000:interval==='5m'?300000:900000;
   for(let i=0;i<bars.length;i++){
-    if(i>0&&bars[i].time-bars[i-1].time!==bars[1].time-bars[0].time){
+    if(i>0&&bars[i].time-bars[i-1].time!==intervalMs){
       if(segment)lines.push(segment);
       segment='';
     }
@@ -102,7 +103,8 @@ export default function ContinuousCvdPanel({symbol,live,interval,onInterval}:{
           aria-pressed={mode==='delta'} onClick={()=>setMode('delta')}>Delta свечей</button>
       </div>
     </div>
-    <Plot points={d?.points??[]} metric={mode} hovered={hovered} onHover={setHovered}/>
+    <Plot points={d?.points??[]} metric={mode} hovered={hovered}
+      onHover={setHovered} interval={interval}/>
     <div className="asc-cvd-bar-meta">
       {point?<><span>{time(point.time)} UTC · {point.isClosed?'закрытый интервал':'текущий интервал'}</span>
         <b>BUY {point.buyVolume.toFixed(3)} · SELL {point.sellVolume.toFixed(3)} ·
