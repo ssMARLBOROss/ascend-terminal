@@ -914,3 +914,50 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
  .asc-structure-step{grid-template-columns:1fr auto}
  .asc-structure-step>time{grid-column:1/-1}
 }
+
+/* Two primary navigation tabs, live Bybit radar is mounted only while selected. */
+.asc-app-pages{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#061722;border-bottom:1px solid #245069;padding:10px 17px}
+.asc-app-pages button{border:1px solid #365e77;border-radius:7px;padding:10px 18px;background:#102d41;color:#a3c5d5;font-size:12px;font-weight:900}
+.asc-app-pages button.active{color:#edfcff;border-color:#59cbd1;background:#165369;box-shadow:inset 0 -2px #68e3dd}
+.asc-app-pages small{font-size:9px;margin-left:6px}.asc-app-pages>span{margin-left:auto;color:#8cabbc;font-size:10px}
+.asc-radar-page{min-height:75vh;margin:0 auto;padding:16px 18px 35px;max-width:1750px}
+.asc-radar-hero{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px;padding:20px;border-radius:10px;border:1px solid #2d566a;background:linear-gradient(110deg,#0c3446,#081a27)}
+.asc-radar-hero h1{font-size:22px;margin:8px 0 7px}.asc-radar-hero p{font-size:12px;color:#9cbacb;margin:0;line-height:1.5}
+.asc-radar-hero small{font-size:10px;color:#6cd0d7;font-weight:900;letter-spacing:.06em}
+.asc-radar-clock{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.asc-radar-clock strong{font-size:21px;font-weight:900;color:#f3fbff}
+.asc-radar-clock span{color:#7de6b6;font-size:12px;font-weight:900}
+.asc-radar-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}
+.asc-radar-summary>div{background:#0b2533;border:1px solid #2a4d63;border-radius:8px;padding:13px;display:flex;flex-direction:column;gap:6px}
+.asc-radar-summary small{font-size:10px;font-weight:900;color:#90b2c5}.asc-radar-summary b{font-size:26px;color:#e3f8ff}
+.asc-radar-summary span{font-size:10px;color:#829fb3}
+.asc-radar-controls{background:#0a202e;border-radius:8px;border:1px solid #2a5369;padding:12px;margin-bottom:12px}
+.asc-radar-filter-grid{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.asc-radar-filter-grid label{display:flex;flex:1 1 120px;flex-direction:column;gap:5px;font-size:10px;color:#a5c3d2;font-weight:900}
+.asc-radar-filter-grid select,.asc-radar-filter-grid input{min-height:37px;max-width:100%;padding:6px 9px;background:#071a28;border-radius:6px;border:1px solid #37647b;color:#e9f4f8}
+.asc-radar-filter-grid>button,.asc-radar-open{min-height:37px;background:#15506b;border-radius:6px;border:1px solid #408eaa;color:#e1f7fc;font-size:11px;font-weight:900;padding:8px 12px;white-space:nowrap}
+.asc-radar-updated{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:11px;color:#b4cbd8;font-size:11px}
+.asc-radar-updated small{margin-left:auto;color:#82a6b9}.asc-radar-updated .live{color:#68e8ad}
+.asc-radar-updated .error{color:#f09c89}.asc-radar-updated .loading{color:#eed085}
+.asc-radar-results{background:#081c29;border:1px solid #31546b;border-radius:8px;overflow:hidden}
+.asc-radar-results-header{padding:13px 15px;display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.asc-radar-results-header strong{font-size:12px;letter-spacing:.05em}.asc-radar-results-header span{font-size:11px;color:#8aaec1}
+.asc-radar-scroll{overflow-x:auto;width:100%}.asc-radar-scroll table{min-width:1080px;width:100%;border-collapse:collapse}
+.asc-radar-scroll th{text-align:left;background:#122f41;border-block:1px solid #37556a;font-size:10px;color:#a2c2d0;padding:12px 10px}
+.asc-radar-scroll td{padding:12px 10px;vertical-align:middle;border-bottom:1px solid #254052;font-size:12px;color:#d9eaf2;font-variant-numeric:tabular-nums}
+.asc-radar-scroll tr:hover{background:#123040}.asc-radar-scroll td small{display:block;margin-top:5px;color:#8aa7b6;line-height:1.35;font-size:10px;max-width:255px}
+.radar-long{color:#5be3a6!important}.radar-short{color:#f58395!important}
+.asc-radar-tag{display:inline-block;padding:5px 8px;border-radius:4px;background:#15384c;border:1px solid #45738b;color:#bfdded;font-weight:900;font-size:10px;white-space:nowrap}
+.asc-radar-tag.s-shifting{color:#f6d78d;border-color:#a88842}.asc-radar-tag.s-watch{color:#a0d7ed}
+.asc-radar-tag.s-sweep{color:#f2ba83;border-color:#b7774d}
+.asc-radar-tag.s-check-1m{color:#70e7bc;border-color:#44bc8e}
+.asc-radar-tag.s-no-data{color:#abb8bd;border-color:#61717e}
+.asc-radar-tag.s-building{color:#d1b0ee;border-color:#9676b2}
+.asc-radar-empty{padding:14px;color:#abc1ca}
+.asc-radar-disclaimer{margin-top:12px;border:1px solid #305365;border-radius:7px;padding:14px;color:#a0bbc7;background:#091d2a;font-size:11px;line-height:1.6}
+.asc-radar-disclaimer b{color:#f1cb88}
+@media(max-width:950px){.asc-radar-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.asc-app-pages>span{width:100%;margin:0}.asc-app-pages button{flex:1}
+.asc-radar-page{padding:10px}.asc-radar-hero{padding:14px}.asc-radar-hero h1{font-size:19px}
+.asc-radar-clock{align-items:flex-start}.asc-radar-summary{gap:7px}
+.asc-radar-summary b{font-size:22px}.asc-radar-filter-grid label{flex-basis:130px}}
