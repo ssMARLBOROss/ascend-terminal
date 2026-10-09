@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM public.ecr.aws/docker/library/node:22-alpine AS build
 WORKDIR /app
 
 COPY package.json tsconfig.base.json ./
@@ -12,7 +12,7 @@ COPY packages/contracts packages/contracts
 
 RUN npm --workspace @ascend/terminal run build
 
-FROM nginx:1.27-alpine
+FROM public.ecr.aws/docker/library/nginx:1.27-alpine
 COPY apps/terminal/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/terminal/dist /usr/share/nginx/html
 
