@@ -20,8 +20,8 @@ export default function MexcWorkspace({contract,timeframe,settings}:{
 }){
   const market=useMexcMarket(contract.symbol,timeframe);
   const[focus,setFocus]=useState(0);
-  const[showVolume,setVolume]=useState(true);
-  const[showSessions,setSessions]=useState(true);
+  const[showVolume,setVolume]=useState(settings.volume);
+  const[showSessions,setSessions]=useState(settings.sessions);
   const last=market.candles.at(-1);
   const data=useMemo(()=>market.candles,[market.candles]);
   return <main className="asc-lite-workspace">

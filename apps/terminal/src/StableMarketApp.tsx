@@ -22,12 +22,6 @@ import IndicatorManager from './components/IndicatorManager';
 import {loadIndicatorSettings,DEFAULT_INDICATORS,STORAGE_KEY,
   type IndicatorSettings,type IndicatorKey} from './market/indicatorSettings';
 
-const FAVORITES=[
-  'BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','DOGEUSDT',
-  'ADAUSDT','LINKUSDT','AVAXUSDT','SUIUSDT','DOTUSDT','LTCUSDT',
-  'TRXUSDT','NEARUSDT','INJUSDT','APTUSDT','ARBUSDT','OPUSDT',
-  'FILUSDT','ATOMUSDT','UNIUSDT','AAVEUSDT','ETCUSDT','XLMUSDT'
-];
 
 function fmtPrice(value?:number){
   if(value===undefined||!Number.isFinite(value))return '—';

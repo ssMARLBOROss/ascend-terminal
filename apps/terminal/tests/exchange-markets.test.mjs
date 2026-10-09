@@ -58,7 +58,7 @@ assert.equal(loopCalls,2);
 
 const {parseMexcKlines,aggregateMexc3m,getMexcKlines}=
   await bundle('src/market/useMexcMarket.ts','candles');
-const start=1760000100; // UTC unix seconds divisible by minute
+const start=Math.floor(1760000100/180)*180; // aligned first 3-minute bucket
 const payload={success:true,code:0,data:{
  time:[start,start+60,start+120,start+180,start+240,start+300],
  open:[100,102,103,104,105,106],
