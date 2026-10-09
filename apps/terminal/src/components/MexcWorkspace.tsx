@@ -15,8 +15,9 @@ function price(n:number|undefined){
   if(n===undefined||!Number.isFinite(n))return '—';
   return n.toLocaleString('en-US',{maximumFractionDigits:n>=1000?2:n>=1?4:9});
 }
-export default function MexcWorkspace({contract,timeframe,settings}:{
+export default function MexcWorkspace({contract,timeframe,settings,onViewMode}:{
   contract:FuturesContract;timeframe:StableTimeframe;settings:IndicatorSettings;
+  onViewMode:(mode:IndicatorSettings['chartViewMode'])=>void;
 }){
   const market=useMexcMarket(contract.symbol,timeframe);
   const[focus,setFocus]=useState(0);
@@ -50,13 +51,20 @@ export default function MexcWorkspace({contract,timeframe,settings}:{
         aria-pressed={showVolume} onClick={()=>setVolume(v=>!v)}>◉ Объёмы</button>
       <button className={showSessions?'active':''} type="button"
         aria-pressed={showSessions} onClick={()=>setSessions(v=>!v)}>◉ Сессии</button>
+      <div className="asc-chart-view-switch" role="group" aria-label="Масштаб MEXC графика">
+        {(['TIGHT','FULL'] as const).map(mode=>
+          <button type="button" key={mode} className={settings.chartViewMode===mode?'active':''}
+            aria-pressed={settings.chartViewMode===mode}
+            onClick={()=>onViewMode(mode)}>{mode}</button>)}
+      </div>
       <button type="button" onClick={()=>setFocus(x=>x+1)}>⌖ К текущей цене</button>
     </div>
     <div className="asc-lite-chart-box">
       <StableCandleChart candles={data} timeframe={timeframe}
         showBook={false} showStops={false} showTpo={false}
         fvgZones={[]} showFvg={false} fvgAppearance={OFF}
-        focusRequest={focus} showVolume={showVolume} showVwap={false}
+        focusRequest={focus} viewMode={settings.chartViewMode}
+        showVolume={showVolume} showVwap={false}
         showSessions={showSessions} showSessionClock={false}
         showDayLevels={false} showSessionLevels={false}/>
       {data.length<10&&<div className="asc-lite-loading" role="status">

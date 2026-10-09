@@ -129,7 +129,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         showBook={settings.book} showStops={settings.stops}
         tpo={liveMetrics.tpo.status==='ready'?liveMetrics.tpo.data:undefined} showTpo={settings.tpo}
         fvgZones={shownFvg} showFvg={settings.fvg} fvgAppearance={fvgAppearance}
-        focusRequest={focusRequest}
+        focusRequest={focusRequest} viewMode={settings.chartViewMode}
         showVolume={settings.volume} showVwap={settings.vwap}
         showSessions={settings.sessions} showSessionClock={settings.sessionClock}
         showDayLevels={settings.dayLevels} showSessionLevels={settings.sessionLevels}/>
@@ -433,7 +433,8 @@ export default function StableMarketApp(){
               settings={settings} onToggle={toggleIndicator}
               onUpdate={updateIndicators} onReset={resetIndicators}/>:
             <MexcWorkspace key={exchange+':'+symbol+':'+timeframe}
-              contract={contract} timeframe={timeframe} settings={settings}/>)
+              contract={contract} timeframe={timeframe} settings={settings}
+              onViewMode={chartViewMode=>updateIndicators({chartViewMode})}/>)
           :<div className="asc-exchange-wait" role="status">
             <strong>{catalog.status==='loading'?'Загружаем фьючерсы '+exchange+'…':
               catalog.status==='error'?'API '+exchange+' не отвечает':

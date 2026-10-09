@@ -74,6 +74,16 @@ export default function IndicatorManager({
         {enabled.filter(item=>item.group==='График').length>7&&
           <span className="asc-indicator-more">+{enabled.filter(item=>item.group==='График').length-7}</span>}
       </div>
+      <div className="asc-chart-view-switch" role="group" aria-label="Вертикальный масштаб графика">
+        <button type="button" className={settings.chartViewMode==='TIGHT'?'active':''}
+          aria-pressed={settings.chartViewMode==='TIGHT'}
+          title="Свечи крупно · только видимый ценовой диапазон"
+          onClick={()=>onUpdate({chartViewMode:'TIGHT'})}>TIGHT</button>
+        <button type="button" className={settings.chartViewMode==='FULL'?'active':''}
+          aria-pressed={settings.chartViewMode==='FULL'}
+          title="Полный ценовой контекст и история"
+          onClick={()=>onUpdate({chartViewMode:'FULL'})}>FULL</button>
+      </div>
       <button type="button" className="asc-indicator-focus"
         onClick={onFocus} title="Вернуться к последним свечам">⌖ <span>К цене</span></button>
     </div>

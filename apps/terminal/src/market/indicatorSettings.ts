@@ -1,6 +1,7 @@
 import type {FvgViewMode} from '../components/fvgOverlay';
 import type {FvgTf,FillMode} from './fvgContextEngine';
 import type {CvdInterval} from './cvdEngine';
+import type {ChartViewMode} from '../components/chartViewport';
 
 export type IndicatorKey=
   'volume'|'vwap'|'sessions'|'sessionClock'|'dayLevels'|'sessionLevels'|
@@ -17,6 +18,7 @@ export type IndicatorSettings=Record<IndicatorKey,boolean>&{
   fvgOnlyActive:boolean;fvgFillMode:FillMode;fvgOpacity:number;
   fvgMaxZones:number;
   cvdInterval:CvdInterval;
+  chartViewMode:ChartViewMode;
 };
 export const STORAGE_KEY='ascend.terminal.indicators.v1';
 
@@ -31,7 +33,7 @@ export const DEFAULT_INDICATORS:IndicatorSettings={
   fvgAtrLength:14,fvgMidline:true,fvgShowFill:true,
   fvgShowCreated:true,fvgShowRetest:true,fvgShowHistorical:false,
   fvgHighlightStructural:true,fvgOnlyActive:true,fvgFillMode:'wick',
-  fvgOpacity:42,fvgMaxZones:8,cvdInterval:'5m'
+  fvgOpacity:42,fvgMaxZones:8,cvdInterval:'5m',chartViewMode:'TIGHT'
 };
 
 export type IndicatorDefinition={
@@ -83,6 +85,8 @@ export function loadIndicatorSettings():IndicatorSettings{
       for(const key of ['1m','3m','5m','15m','30m'] as const)
         if(typeof tf[key]==='boolean')clean.fvgTimeframes[key]=tf[key] as boolean;
     }
+    if(parsed.chartViewMode==='TIGHT'||parsed.chartViewMode==='FULL')
+      clean.chartViewMode=parsed.chartViewMode;
     if(parsed.cvdInterval==='1m'||parsed.cvdInterval==='5m'||parsed.cvdInterval==='15m')
       clean.cvdInterval=parsed.cvdInterval;
     if(parsed.fvgFillMode==='wick'||parsed.fvgFillMode==='close')
