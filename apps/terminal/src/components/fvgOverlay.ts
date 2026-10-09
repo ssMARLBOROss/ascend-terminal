@@ -58,7 +58,7 @@ export function drawFvgOverlay(
   ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,width,height);
   if(!enabled||!chartBars.length||!zones.length)return;
   const scale=chart.timeScale();
-  const plotWidth=Math.min(width,scale.width()),top=155,bottom=height-28;
+  const plotWidth=Math.min(width,scale.width()),top=9,bottom=height-28;
   const step=STEPS[chartTf]??60000;
   if(plotWidth<=90||bottom<=top)return;
   ctx.save();ctx.beginPath();ctx.rect(0,top,plotWidth,bottom-top);ctx.clip();

@@ -74,7 +74,7 @@ export function drawLiquidityOverlay(
   ctx.setTransform(ratio,0,0,ratio,0,0);
   ctx.clearRect(0,0,width,height);
   const plotWidth=Math.min(width,chart.timeScale().width());
-  const top=155,bottom=height-28;
+  const top=9,bottom=height-28; // canvas-only; price scale unaffected
   if(plotWidth<80||bottom<=top)return;
   const priceY=(p:number)=>price.priceToCoordinate(p);
   const fmt=(num:number)=>new Intl.NumberFormat('en-US',{
