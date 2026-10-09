@@ -123,7 +123,8 @@ export function observeRadarTicker(ticker:RadarTicker,bars:Candle[],now:number):
   if(!expected||day.length!==expected||day.some((b,i)=>b.timestamp!==dayStart+i*FIVE))
     return {...base,reason:'Неполная непрерывная история 5m UTC'};
   const rsi=rsi14(day);
-  const zone=rsi===undefined?'UNAVAILABLE':rsi<=30?'RC30':rsi>=70?'RC70':'MID';
+  const zone:RadarObservation['zone']=rsi===undefined?'UNAVAILABLE':
+    rsi<=30?'RC30':rsi>=70?'RC70':'MID';
   const last=day[day.length-1];
   const pre=day.slice(-21,-1);
   const meanVolume=pre.length>=10?pre.reduce((s,b)=>s+b.volume,0)/pre.length:0;
