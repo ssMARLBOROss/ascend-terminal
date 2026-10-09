@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {CvdAccumulator,parseTradeFrame,type CvdInterval,type CvdSnapshot} from './cvdEngine';
 
 const WSS='wss://stream.bybit.com/v5/public/linear';
@@ -13,6 +13,8 @@ export type ContinuousCvd={symbol:string;status:'CONNECTING'|'LIVE'|'GAP'|'STALE
  */
 export function useContinuousCvd(symbol:string,enabled:boolean,interval:CvdInterval){
   const[state,setState]=useState<ContinuousCvd>({symbol,status:'CONNECTING'});
+  const intervalRef=useRef(interval);
+  intervalRef.current=interval;
   useEffect(()=>{
     if(!enabled){
       setState({symbol,status:'CONNECTING'});
@@ -28,7 +30,7 @@ export function useContinuousCvd(symbol:string,enabled:boolean,interval:CvdInter
     let connecting=false;
     const publish=()=>{
       if(stopped||!engine)return;
-      const snap=engine.snapshot(interval,Date.now());
+      const snap=engine.snapshot(intervalRef.current,Date.now());
       setState({symbol,status:snap.health,data:snap,updatedAt:Date.now(),
         lastError:snap.gapReason});
       lastPublishAt=Date.now();
@@ -109,7 +111,9 @@ export function useContinuousCvd(symbol:string,enabled:boolean,interval:CvdInter
         ws.close();
       }
     };
-  },[symbol,enabled,interval]);
+  },[symbol,enabled]);
+  // Selection of the display interval never disconnects the trade socket;
+  // the next 3-second update rebuilds bars for the requested interval.
 
   return state.symbol===symbol&&enabled?state:{symbol,status:'CONNECTING'} as ContinuousCvd;
 }
