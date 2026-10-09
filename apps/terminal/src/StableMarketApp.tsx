@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import StableCandleChart from './components/StableCandleChart';
+import RadarView from './components/RadarView';
 import MexcWorkspace from './components/MexcWorkspace';
 import {useExchangeCatalog} from './market/useExchangeCatalog';
 import {searchContracts,type FuturesExchange} from './market/exchangeCatalog';
@@ -210,6 +211,7 @@ function BybitDataWorkspace({symbol,timeframe,settings,onToggle,onUpdate,onReset
 }
 
 export default function StableMarketApp(){
+  const[page,setPage]=useState<'MARKET'|'RADAR'>('MARKET');
   const[settings,setSettings]=useState<IndicatorSettings>(loadIndicatorSettings);
   useEffect(()=>{
     try{window.localStorage.setItem(STORAGE_KEY,JSON.stringify(settings))}catch{/* private mode */}
@@ -279,6 +281,11 @@ export default function StableMarketApp(){
     }
     choose(found.symbol);
   };
+  const openRadarPair=(next:string)=>{
+    setExchange('BYBIT');setBybitSymbol(next);setTimeframe('5m');
+    setSearch('');setQuickOpen(false);setPage('MARKET');
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
   return <div className={'asc-lite-app'+(settings.coins?'':' asc-hide-coins')}>
     <header className="asc-lite-header">
       <div className="asc-lite-brand"><span className="asc-lite-logo">A</span>
@@ -287,6 +294,16 @@ export default function StableMarketApp(){
       <div className="asc-lite-header-right"><span>РЫНОК / MARKET</span>
         <b>BYBIT + MEXC</b></div>
     </header>
+    <nav className="asc-app-pages" aria-label="Разделы ASCEND">
+      <button type="button" className={page==='MARKET'?'active':''}
+        aria-current={page==='MARKET'?'page':undefined}
+        onClick={()=>setPage('MARKET')}>▣ РЫНОК</button>
+      <button type="button" className={page==='RADAR'?'active':''}
+        aria-current={page==='RADAR'?'page':undefined}
+        onClick={()=>setPage('RADAR')}>◉ РАДАР <small>20 / 40 МОНЕТ</small></button>
+      <span>Ситуации · аналитика · без автоматических ордеров</span>
+    </nav>
+    {page==='RADAR'?<RadarView onOpen={openRadarPair}/>:<>
     <nav className="asc-exchange-switch" aria-label="Выбор фьючерсной биржи">
       {(['BYBIT','MEXC'] as FuturesExchange[]).map(venue=>
         <button type="button" key={venue} className={exchange===venue?'active':''}
@@ -448,5 +465,6 @@ export default function StableMarketApp(){
           </div>}
       </section>
     </div>
+    </>}
   </div>;
 }
