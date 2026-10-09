@@ -81,8 +81,12 @@ export function computeStructureReport(
     session:wait('Проверяем активную сессию'),
     entry:blocked('Входы заблокированы до полного подтверждения')
   };
-  const report:StructureReport={symbol,dayStart,asOf:closedOneMinute.at(-1)?.timestamp+M||0,
+  const latest=closedOneMinute.at(-1);
+  const report:StructureReport={symbol,dayStart,asOf:latest?latest.timestamp+M:0,
     phase:'WATCH',steps};
+  const activeNow=windowAt(now);
+  steps.session=activeNow.length?ok(activeNow.join(' + '),now):
+    blocked('Сессии ASCEND завершены · новые входы запрещены');
   const bars=closedOneMinute.filter(c=>c.timestamp>=dayStart&&c.timestamp<dayStart+D);
   const freezeAt=dayStart+OVERNIGHT_TO*H;
   if(now<freezeAt){steps.sweep=wait('ONH/ONL LIVE · 00:00–06:00 UTC, ещё не заморожены');
