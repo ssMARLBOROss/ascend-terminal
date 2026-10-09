@@ -17,6 +17,7 @@ import {drawSessionBands} from './drawSessionBands';
 import {initialChartRange,tightCandlestickRange,TIGHT_FOCUS_BARS,type ChartViewMode} from './chartViewport';
 
 type Snapshot={first?:number;last?:number;length:number};
+type BaseAutoscale=()=>({priceRange:{minValue:number;maxValue:number}}|null);
 
 /** Bounded session canvas only; no indicator computations or extra market subscriptions. */
 export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,fvgAppearance,focusRequest,viewMode,showVolume,showVwap,showSessions,showSessionClock,showDayLevels,showSessionLevels}:{
@@ -78,7 +79,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
       upColor:'#29b991',downColor:'#df6b7d',
       borderUpColor:'#29b991',borderDownColor:'#df6b7d',
       wickUpColor:'#64d1b1',wickDownColor:'#ef8a99',
-      autoscaleInfoProvider:original=>{
+      autoscaleInfoProvider:(original:BaseAutoscale)=>{
         if(viewModeRef.current!=='TIGHT')return original();
         const window=tightCandlestickRange(candlesRef.current,
           chart.timeScale().getVisibleLogicalRange(),
@@ -98,7 +99,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
       crosshairMarkerVisible:true,title:'VWAP UTC',
       // The line remains at the ACTUAL VWAP price. In TIGHT, only it is
       // excluded from autoscale so remote context never compresses candles.
-      autoscaleInfoProvider:original=>
+      autoscaleInfoProvider:(original:BaseAutoscale)=>
         viewModeRef.current==='TIGHT'?null:original()
     });
     snapshotRef.current={length:0};
