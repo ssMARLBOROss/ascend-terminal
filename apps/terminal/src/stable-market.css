@@ -877,3 +877,40 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
   .asc-indicator-active-strip{order:3;flex-basis:100%}
   .asc-chart-view-switch{margin-left:auto}
 }
+
+/* Research-only ONH/ONL -> STRUCTURE -> FVG -> 1m decision chain. */
+.asc-structure-research{padding:14px 16px;background:#081e2a;border-top:1px solid #2a5165}
+.asc-structure-research>header{display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;margin-bottom:12px}
+.asc-structure-research>header>div{display:flex;flex-direction:column;gap:5px}
+.asc-structure-research>header strong{font-size:15px;font-weight:900;letter-spacing:.06em;color:#f1f8fa}
+.asc-structure-research>header small{font-size:11px;color:#a4bfcd}
+.asc-structure-phase{padding:7px 12px;border:1px solid #4a6980;border-radius:6px;
+  background:#102f3c;color:#bad8e7;font-size:12px;letter-spacing:.07em}
+.asc-structure-phase.ready{border-color:#4bcba1;color:#7bffcd;background:#104130}
+.asc-structure-missing{padding:12px;font-size:12px;font-weight:700;color:#e0b983}
+.asc-structure-summary{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.asc-structure-summary span{padding:7px 11px;border:1px solid #28526a;
+  background:#0b2a3c;border-radius:5px;font-size:12px;color:#94b9cb}
+.asc-structure-summary b{font-variant-numeric:tabular-nums;color:#e7f2f6}
+.asc-structure-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.asc-structure-step{display:grid;grid-template-columns:minmax(90px,1fr) auto auto;
+  gap:6px 11px;align-items:center;background:#0b2634;border:1px solid #24485b;
+  border-left:3px solid #4d7181;border-radius:5px;padding:9px 11px}
+.asc-structure-step>span{font-size:12px;font-weight:900;color:#d3e4ed}
+.asc-structure-step>b{font-size:10px;color:#b0c2d0}
+.asc-structure-step>time{font-size:10px;color:#a3c0d0;font-weight:700;white-space:nowrap}
+.asc-structure-step>small{grid-column:1 / -1;color:#8dabbd;font-size:11px;line-height:1.35}
+.asc-structure-step.OK{border-left-color:#55d7a1}
+.asc-structure-step.OK>b{color:#67e4b2}
+.asc-structure-step.BLOCKED{border-left-color:#db817d}
+.asc-structure-step.BLOCKED>b{color:#ec9990}
+.asc-structure-step.NODATA{border-left-color:#f2bf72}
+.asc-structure-risk{color:#f1c985;font-size:11px;font-weight:800}
+.asc-structure-research>footer{font-size:11px;color:#9db7c5;line-height:1.55;
+  margin-top:12px;border-top:1px solid #1d4558;padding-top:9px}
+@media(max-width:900px){.asc-structure-steps{grid-template-columns:1fr}}
+@media(max-width:520px){
+ .asc-structure-step{grid-template-columns:1fr auto}
+ .asc-structure-step>time{grid-column:1/-1}
+}

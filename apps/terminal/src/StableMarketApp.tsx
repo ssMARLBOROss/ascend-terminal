@@ -13,6 +13,8 @@ import LiveMarketPanels from './components/LiveMarketPanels';
 import {useLiveMarketMetrics} from './market/useLiveMarketMetrics';
 import {selectFvgZones,type FvgAppearance} from './components/fvgOverlay';
 import {useFvgResearch} from './market/useFvgResearch';
+import {useAscendStructureResearch} from './market/useAscendStructureResearch';
+import AscendStructurePanel from './components/AscendStructurePanel';
 import FvgDetailsPanel from './components/FvgDetailsPanel';
 import MarketParticipationPanel,{ParticipationMicroCharts} from './components/MarketParticipationPanel';
 import {useMarketParticipation} from './market/useMarketParticipation';
@@ -56,6 +58,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   }),[settings.fvgAtrLength,settings.fvgFillMode,settings.fvgThreshold]);
   const fvgResearch=useFvgResearch(symbol,timeframe,candles,settings.fvgTimeframes,
     engineSettings,previousDay,previousSessions);
+  const structure=useAscendStructureResearch(symbol,previousDay);
   const latest=candles[candles.length-1];
   const displayPrice=lastPrice??latest?.close;
   const fvgAppearance=useMemo<FvgAppearance>(()=>({
@@ -146,11 +149,12 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         snapshot={participation.snapshot} journal={participation.journal}
         fvgs={fvgResearch.zones}/>}
     </div>
+    <AscendStructurePanel feed={structure} symbol={symbol}/>
     {settings.fvg&&<FvgDetailsPanel symbol={symbol}
       records={fvgResearch.zones} journal={fvgResearch.journal}
       selectedId={selectedFvgId} onSelect={setSelectedFvgId}
       price={displayPrice} zoneTimeframes={fvgResearch.loadedTimeframes}
-      errors={fvgResearch.errors}/>}
+      errors={fvgResearch.errors} structure={structure.report}/>}
     {settings.week&&<WeekOverlayCompare symbol={symbol}/>}
     <LiveMarketPanels symbol={symbol} {...liveMetrics} visibility={settings}
       continuousCvd={cvdStream}/>

@@ -1,6 +1,7 @@
 import {useMemo} from 'react';
 import {distanceToFvg,summariseFvg,type FvgRecord,type FvgEvent} from '../market/fvgContextEngine';
 import {exportFvgJournal} from '../market/useFvgResearch';
+import type {StructureReport,StructureStep} from '../market/ascendStructureResearch';
 
 const pct=(n:number)=>n.toFixed(2)+'%';
 const money=(n:number)=>n.toLocaleString('en-US',{maximumFractionDigits:n>=100?2:6});
@@ -19,15 +20,19 @@ const labels:Record<string,string>={
   FILL_25:'FILL 25%',FILL_50:'FILL 50%',FILL_75:'FILL 75%',
   FILLED:'FILLED 100%',PARTIAL:'PARTIAL',EXIT:'EXIT',INVALID:'INVALID'
 };
-const FVG_NO_CORE=[
-  'ONH/ONL Sweep','Reclaim / Acceptance','MSS / CHOCH','BOS',
-  '1m Confirmation','ASCEND Entry Ready'
-];
+const STRUCTURE_ROWS=[
+  ['sweep','ONH/ONL Sweep'],['resolution','Reclaim / Acceptance'],
+  ['choch','10m MSS / CHOCH'],['bos','5m BOS'],
+  ['micro','1m Confirmation'],['entry','ASCEND Entry Ready']
+] as const;
+const stateLabel:Record<StructureStep['status'],string>={
+  WAIT:'ОЖИДАНИЕ',OK:'ПОДТВЕРЖДЕНО',BLOCKED:'ЗАПРЕЩЕНО',NODATA:'НЕТ ДАННЫХ'
+};
 export default function FvgDetailsPanel({symbol,records,journal,selectedId,
-  onSelect,price,zoneTimeframes,errors}:{
+  onSelect,price,zoneTimeframes,errors,structure}:{
   symbol:string;records:FvgRecord[];journal:FvgRecord[];selectedId?:string;
   onSelect:(id:string)=>void;price?:number;zoneTimeframes:string[];
-  errors:Record<string,string|undefined>;
+  errors:Record<string,string|undefined>;structure?:StructureReport;
 }){
   const active=records.filter(z=>z.status!=='FILLED'&&z.status!=='INVALID');
   const selected=records.find(z=>z.id===selectedId)??active.at(-1)??records.at(-1);
@@ -112,13 +117,20 @@ export default function FvgDetailsPanel({symbol,records,journal,selectedId,
         </div>
         <div className="asc-fvg-confirmations">
           <strong>ПОДТВЕРЖДЕНИЯ CORE · ОТДЕЛЬНО ОТ ЗОНЫ</strong>
-          {FVG_NO_CORE.map(label=><div key={label}><span>{label}</span>
-            <b>НЕ ПОДКЛЮЧЕНО</b></div>)}
+          {STRUCTURE_ROWS.map(([key,label])=>{
+            const step=structure?.steps[key];
+            return <div key={key} title={step?.detail??'Исследовательская история 1m загружается'}>
+              <span>{label}</span>
+              <b className={step?.status==='OK'?'confirmed':'unknown'}>
+                {step?stateLabel[step.status]:'ОЖИДАНИЕ ДАННЫХ'}</b>
+            </div>;
+          })}
           <div><span>Ретест FVG</span><b className={selected.firstTouchAt?'confirmed':'unknown'}>
             {selected.firstTouchAt?'ДА · НАБЛЮДАЛСЯ':'НЕТ'}</b></div>
-          <div><span>Session Window</span><b>{selected.context.session==='OUTSIDE_WINDOWS'?'ВНЕ ОКНА':'АКТИВНА'}</b></div>
-          <p>Показатели Structure Engine не подключены к этому экрану.
-            Никаких статусов WATCH / SHIFTING / CONFIRMED / ENTRY READY модуль не выдаёт.</p>
+          <div><span>Session Window · при формировании выбранного FVG</span><b>{selected.context.session==='OUTSIDE_WINDOWS'?'ВНЕ ОКНА':'АКТИВНА'}</b></div>
+          <p>Состояния Structure Research относятся к текущим UTC-суткам и выбранной паре,
+            а не к конкретной FVG из исторического списка. Ретест выбранной FVG показывается
+            отдельно. Подтверждения не отправляются в торговый бот.</p>
         </div>
         <div className="asc-fvg-events">
           <strong>ХРОНОЛОГИЯ · ПО ЗАКРЫТЫМ СВЕЧАМ</strong>

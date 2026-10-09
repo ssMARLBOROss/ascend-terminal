@@ -165,7 +165,7 @@ export function computeStructureReport(
   steps.session=ok(sessions.join(' + ')+' · 1m подтверждение внутри окна',micro.at);
   const last=one.at(-1);
   if(!last||last.timestamp+M!==report.asOf||
-     report.asOf-micro.at>2*M){
+     now-report.asOf>2*M||report.asOf-micro.at>2*M){
     steps.entry=blocked('Подтверждение устарело; новое 1m требуется');
     return report;
   }
