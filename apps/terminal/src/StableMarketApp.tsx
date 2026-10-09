@@ -1,5 +1,8 @@
 import {useEffect,useMemo,useState} from 'react';
 import StableCandleChart from './components/StableCandleChart';
+import MexcWorkspace from './components/MexcWorkspace';
+import {useExchangeCatalog} from './market/useExchangeCatalog';
+import {searchContracts,type FuturesExchange} from './market/exchangeCatalog';
 import {STABLE_TIMEFRAMES,useStableMarket,type StableTimeframe} from './market/useStableMarket';
 import {usePreviousDayLevels,type PreviousDayLevels} from './market/usePreviousDayLevels';
 import {usePreviousSessionLevels,type PreviousSessionLevels} from './market/usePreviousSessionLevels';
@@ -182,6 +185,32 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   </main>;
 }
 
+
+function BybitDataWorkspace({symbol,timeframe,settings,onToggle,onUpdate,onReset}:{
+  symbol:string;timeframe:StableTimeframe;settings:IndicatorSettings;
+  onToggle:(key:IndicatorKey)=>void;onUpdate:(patch:Partial<IndicatorSettings>)=>void;
+  onReset:()=>void;
+}){
+  // Bybit-specific hooks run only when the selected exchange is Bybit.
+  const previousDay=usePreviousDayLevels(symbol);
+  const previousSessions=usePreviousSessionLevels(symbol);
+  const vwap=useDailyVwap(symbol);
+  const cvdStream=useContinuousCvd(symbol,settings.cvd||settings.participation,
+    settings.cvdInterval);
+  const liveMetrics=useLiveMarketMetrics(symbol,{
+    tpo:settings.tpo||settings.participation,
+    oi:settings.oi||settings.participation,
+    longShort:settings.longShort,
+    cvd:false
+  });
+  return <Workspace key={symbol+':'+timeframe} symbol={symbol} timeframe={timeframe}
+    previousDay={previousDay.levels} previousDayStatus={previousDay.status}
+    previousSessions={previousSessions.levels} previousSessionsStatus={previousSessions.status}
+    dailyVwap={vwap.daily} vwapStatus={vwap.status} liveMetrics={liveMetrics}
+    cvdStream={cvdStream} settings={settings} onToggle={onToggle}
+    onUpdate={onUpdate} onReset={onReset}/>;
+}
+
 export default function StableMarketApp(){
   const[settings,setSettings]=useState<IndicatorSettings>(loadIndicatorSettings);
   useEffect(()=>{
@@ -192,85 +221,136 @@ export default function StableMarketApp(){
   const updateIndicators=(patch:Partial<IndicatorSettings>)=>
     setSettings(previous=>({...previous,...patch}));
   const resetIndicators=()=>setSettings({...DEFAULT_INDICATORS});
-  const[symbol,setSymbol]=useState('BTCUSDT');
+
+  const[exchange,setExchange]=useState<FuturesExchange>('BYBIT');
+  const[bybitSymbol,setBybitSymbol]=useState('BTCUSDT');
+  const[mexcSymbol,setMexcSymbol]=useState('BTC_USDT');
   const[timeframe,setTimeframe]=useState<StableTimeframe>('15m');
-  const previousDay=usePreviousDayLevels(symbol);
-  const previousSessions=usePreviousSessionLevels(symbol);
-  const vwap=useDailyVwap(symbol);
-  const cvdStream=useContinuousCvd(symbol,settings.cvd||settings.participation,
-    settings.cvdInterval);
-  const liveMetrics=useLiveMarketMetrics(symbol,{
-    tpo:settings.tpo||settings.participation,
-    oi:settings.oi||settings.participation,
-    longShort:settings.longShort,
-    cvd:false // legacy 1000-trade sample, replaced by connected WS CVD
-  });
   const[search,setSearch]=useState('');
   const[inputError,setInputError]=useState('');
-  const matches=useMemo(()=>{
-    const q=search.trim().toUpperCase();
-    const list=FAVORITES.includes(symbol)?FAVORITES:[symbol,...FAVORITES];
-    return list.filter(item=>item.includes(q));
-  },[search,symbol]);
+  const[visibleCount,setVisibleCount]=useState(80);
 
-  const choose=(value:string)=>{
-    setSymbol(value);
-    setSearch('');
-    setInputError('');
+  const catalog=useExchangeCatalog(exchange);
+  const symbol=exchange==='BYBIT'?bybitSymbol:mexcSymbol;
+  const contract=catalog.contracts.find(x=>x.symbol===symbol);
+  const matches=useMemo(()=>searchContracts(catalog.contracts,search),
+    [catalog.contracts,search]);
+  const visible=matches.slice(0,visibleCount);
+
+  const changeExchange=(next:FuturesExchange)=>{
+    if(exchange===next)return;
+    setExchange(next);setSearch('');setInputError('');setVisibleCount(80);
   };
-  const useSearchSymbol=()=>{
-    const upper=search.toUpperCase().trim().replace(/[\s/\-_]/g,'');
-    const candidate=upper.endsWith('USDT')?upper:upper+'USDT';
-    if(!/^[A-Z0-9]{2,20}USDT$/.test(candidate)){
-      setInputError('Введите пару, например BTC или BTCUSDT');
+  const choose=(value:string)=>{
+    if(!catalog.contracts.some(x=>x.symbol===value)){
+      setInputError('Контракт отсутствует в загруженном каталоге '+exchange);
       return;
     }
-    choose(candidate);
+    if(exchange==='BYBIT')setBybitSymbol(value);
+    else setMexcSymbol(value);
+    setSearch('');setInputError('');
+    setVisibleCount(80);
   };
-
+  const useSearchSymbol=()=>{
+    if(!catalog.contracts.length){
+      setInputError('Каталог не загружен. Проверь подключение и обнови список.');
+      return;
+    }
+    const query=search.toUpperCase().replace(/[\s/_-]/g,'');
+    if(!query){setInputError('Введи тикер, например BTC или ETHUSDT');return;}
+    const withQuote=query.endsWith('USDT')?query:query+'USDT';
+    const found=catalog.contracts.find(item=>
+      item.symbol.replace(/_/g,'')===withQuote);
+    if(!found){
+      setInputError('USDT-фьючерс не найден на '+exchange+'. Проверь название.');
+      return;
+    }
+    choose(found.symbol);
+  };
   return <div className={'asc-lite-app'+(settings.coins?'':' asc-hide-coins')}>
     <header className="asc-lite-header">
-      <div className="asc-lite-brand"><span className="asc-lite-logo">A</span><div><strong>ASCEND</strong><small>MARKET · STABLE BASE V1</small></div></div>
-      <div className="asc-lite-header-right"><span>РЫНОК / MARKET</span><b>ГРАФИК + МОНЕТЫ</b></div>
+      <div className="asc-lite-brand"><span className="asc-lite-logo">A</span>
+        <div><strong>ASCEND</strong><small>MARKET · USDT FUTURES · TWO EXCHANGES</small></div>
+      </div>
+      <div className="asc-lite-header-right"><span>РЫНОК / MARKET</span>
+        <b>BYBIT + MEXC</b></div>
     </header>
-
+    <nav className="asc-exchange-switch" aria-label="Выбор фьючерсной биржи">
+      {(['BYBIT','MEXC'] as FuturesExchange[]).map(venue=>
+        <button type="button" key={venue} className={exchange===venue?'active':''}
+          aria-pressed={exchange===venue} onClick={()=>changeExchange(venue)}>
+          {venue} <small>USDT FUTURES</small>
+        </button>)}
+      <span>Источники данных бирж разделены · только публичные рыночные данные</span>
+    </nav>
     <div className="asc-lite-layout">
       <aside className="asc-lite-sidebar">
-        <div className="asc-lite-side-heading"><strong>МОНЕТЫ</strong><small>BYBIT USDT FUTURES</small></div>
+        <div className="asc-lite-side-heading"><strong>USDT ФЬЮЧЕРСЫ</strong>
+          <small>{exchange} · {catalog.status==='ready'?'ЗАГРУЖЕНО':catalog.status==='loading'?'ЗАГРУЗКА':'ОШИБКА'}</small>
+        </div>
+        <div className="asc-exchange-count">
+          <b>{catalog.contracts.length.toLocaleString('ru-RU')}</b>
+          <span>контрактов из API {exchange}</span>
+          <button type="button" onClick={catalog.retry} title="Обновить список биржи">↻</button>
+        </div>
         <div className="asc-lite-search">
-          <input aria-label="Поиск монеты" value={search} onChange={e=>{setSearch(e.target.value);setInputError('')}}
+          <input aria-label={'Поиск USDT-фьючерса '+exchange} value={search}
+            onChange={e=>{setSearch(e.target.value);setInputError('');setVisibleCount(80)}}
             onKeyDown={e=>{if(e.key==='Enter')useSearchSymbol()}}
-            placeholder="BTC, ETH, SOL…"/>
-          <button type="button" onClick={useSearchSymbol} title="Открыть пару">↗</button>
+            placeholder="BTC, ETH, SOL, XRP…"/>
+          <button type="button" onClick={useSearchSymbol} title="Открыть найденный контракт">↗</button>
         </div>
         {inputError&&<p className="asc-lite-search-error">{inputError}</p>}
-        <div className="asc-lite-coin-list">
-          {matches.map(item=><button key={item} type="button" onClick={()=>choose(item)}
-            className={'asc-lite-coin '+(symbol===item?'active':'')}>
-            <span className="asc-lite-coin-icon">{item.slice(0,2)}</span>
-            <span><b>{item.replace('USDT','')}</b><small>USDT PERP</small></span>
-            {symbol===item&&<em>●</em>}
-          </button>)}
-          {!matches.length&&<p className="asc-lite-empty">Нет в избранном. Нажми Enter, чтобы открыть введённую пару.</p>}
+        {catalog.status==='error'&&<p className="asc-lite-search-error" role="alert">
+          Ошибка API {exchange}: {catalog.error??'нет данных'}. Повтори загрузку.
+        </p>}
+        <div className="asc-exchange-results">
+          Найдено {matches.length.toLocaleString('ru-RU')} · показано {visible.length}
         </div>
-        <div className="asc-lite-side-note">Подписываемся только на выбранную пару. Остальные монеты не загружаются в фоне.</div>
+        <div className="asc-lite-coin-list">
+          {visible.map(item=><button key={item.symbol} type="button"
+            onClick={()=>choose(item.symbol)}
+            className={'asc-lite-coin '+(symbol===item.symbol?'active':'')}>
+            <span className="asc-lite-coin-icon">{item.base.slice(0,2)}</span>
+            <span><b>{item.base}</b><small>{item.quote} · {exchange}</small></span>
+            {symbol===item.symbol&&<em>●</em>}
+          </button>)}
+          {matches.length>visible.length&&<button type="button"
+            className="asc-exchange-more" onClick={()=>setVisibleCount(v=>v+80)}>
+            Показать ещё {Math.min(80,matches.length-visible.length)} ↘
+          </button>}
+          {!matches.length&&<p className="asc-lite-empty">
+            {catalog.status==='loading'?'Загружаем полный список с биржи…':
+              'Нет совпадений в текущем каталоге '+exchange+'.'}
+          </p>}
+        </div>
+        <div className="asc-lite-side-note">
+          Список загружается из API выбранной биржи и обновляется каждые 10 минут.
+          Выбор пары не включает автоторговлю.
+        </div>
       </aside>
-
       <section className="asc-lite-main">
         <div className="asc-lite-timeframe-bar">
-          <div><strong>ТАЙМФРЕЙМ</strong><small>TIMEFRAME</small></div>
+          <div><strong>ТАЙМФРЕЙМ</strong><small>{exchange} / {symbol}</small></div>
           <div className="asc-lite-timeframes">
             {STABLE_TIMEFRAMES.map(tf=><button key={tf} type="button"
               className={tf===timeframe?'active':''} onClick={()=>setTimeframe(tf)}>{tf}</button>)}
           </div>
         </div>
-        <Workspace key={symbol+':'+timeframe} symbol={symbol} timeframe={timeframe}
-          previousDay={previousDay.levels} previousDayStatus={previousDay.status}
-          previousSessions={previousSessions.levels} previousSessionsStatus={previousSessions.status}
-          dailyVwap={vwap.daily} vwapStatus={vwap.status} liveMetrics={liveMetrics}
-          cvdStream={cvdStream}
-          settings={settings} onToggle={toggleIndicator}
-          onUpdate={updateIndicators} onReset={resetIndicators}/>
+        {contract?
+          (exchange==='BYBIT'?
+            <BybitDataWorkspace symbol={symbol} timeframe={timeframe}
+              settings={settings} onToggle={toggleIndicator}
+              onUpdate={updateIndicators} onReset={resetIndicators}/>:
+            <MexcWorkspace key={exchange+':'+symbol+':'+timeframe}
+              contract={contract} timeframe={timeframe} settings={settings}/>)
+          :<div className="asc-exchange-wait" role="status">
+            <strong>{catalog.status==='loading'?'Загружаем фьючерсы '+exchange+'…':
+              catalog.status==='error'?'API '+exchange+' не отвечает':
+              'Контракт '+symbol+' недоступен на '+exchange}</strong>
+            <span>Выбери доступный USDT-фьючерс из каталога.
+              Свечи другой биржи подставляться не будут.</span>
+          </div>}
       </section>
     </div>
   </div>;

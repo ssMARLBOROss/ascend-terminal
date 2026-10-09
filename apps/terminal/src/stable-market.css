@@ -776,3 +776,38 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
 .asc-cvd-panel footer{color:#86a2b1;font-size:10px;line-height:1.55;padding-top:12px}
 @media(max-width:1050px){.asc-cvd-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.asc-cvd-head{flex-direction:column}.asc-cvd-status{text-align:left}}
+
+/* Exchange-scoped USDT futures discovery, market selector and MEXC chart. */
+.asc-exchange-switch{display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+ padding:8px 13px;background:#0b1e2c;border-bottom:1px solid #244e63}
+.asc-exchange-switch button{background:#112e41;color:#9cc2d3;border:1px solid #345770;
+ border-radius:6px;padding:8px 14px;font-weight:900;font-size:12px;letter-spacing:.04em}
+.asc-exchange-switch button.active{background:#245671;border-color:#5ca7c5;color:#edfbff}
+.asc-exchange-switch button small{font-size:9px;font-weight:650;margin-left:5px;color:#b4c8d4}
+.asc-exchange-switch>span{margin-left:auto;font-size:10px;color:#86a8b8}
+.asc-exchange-count{display:flex;align-items:center;gap:7px;border:1px solid #2b5365;
+ border-radius:6px;padding:9px;margin-bottom:9px}
+.asc-exchange-count b{color:#9ce0cc;font-size:16px}
+.asc-exchange-count span{color:#92b2bf;font-size:10px;flex:1}
+.asc-exchange-count button{border:1px solid #34667c;background:#173c50;
+ border-radius:4px;color:#9cdfe5;font-size:17px;cursor:pointer}
+.asc-exchange-results{padding:9px 4px;color:#87adbf;font-size:11px;font-weight:850}
+.asc-lite-coin-list{overflow-y:auto;min-height:80px;max-height:min(68vh,950px)}
+.asc-exchange-more{width:100%;margin-top:5px;background:#133347;
+ color:#a4d4e2;border:1px solid #3d667a;border-radius:5px;padding:10px;
+ font-size:11px;font-weight:900}
+.asc-exchange-wait{padding:50px 24px;display:flex;flex-direction:column;gap:9px;
+ align-items:center;text-align:center;min-height:430px;color:#bad6dd}
+.asc-exchange-wait strong{color:#d1eef3}
+.asc-exchange-wait span{font-size:12px;color:#92b6c1}
+.asc-mexc-indicators{display:flex;gap:7px;align-items:center;flex-wrap:wrap;
+ padding:9px 13px;background:#0e2836;border-block:1px solid #31546a}
+.asc-mexc-indicators b{font-size:10px;color:#97c3d2;margin-right:6px}
+.asc-mexc-indicators button{padding:7px 10px;border-radius:5px;border:1px solid #396176;
+ background:#102d3f;color:#91b5c3;font-size:11px;font-weight:900}
+.asc-mexc-indicators button.active{border-color:#4ba7a1;color:#abf1dc;background:#174b48}
+.asc-mexc-research-warning{border-top:1px solid #3b6574;background:#112b35;
+ padding:12px 14px}
+.asc-mexc-research-warning strong{color:#e4c893;font-size:11px}
+.asc-mexc-research-warning p{font-size:11px;line-height:1.55;color:#a2c1ca;margin:7px 0}
+@media(max-width:850px){.asc-exchange-switch>span{width:100%;margin-left:0}}
