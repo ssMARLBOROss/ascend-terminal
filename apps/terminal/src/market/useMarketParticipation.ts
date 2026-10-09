@@ -6,6 +6,7 @@ import type {OrderbookSnapshot} from './useOrderbookClusters';
 import type {PreviousDayLevels} from './usePreviousDayLevels';
 import type {PreviousSessionLevels} from './usePreviousSessionLevels';
 import type {FvgRecord} from './fvgContextEngine';
+import type {ContinuousCvd} from './useContinuousCvd';
 import {buildParticipationSnapshot,detectObservedLevelEvents,frozenReferences,
   type ParticipationSnapshot,type ParticipationEvent} from './marketParticipationEngine';
 
@@ -44,6 +45,7 @@ export function useMarketParticipation(args:{
   enabled:boolean;symbol:string;timeframe:string;candles:Candle[];
   price?:number;priceAt?:number;dailyVwap?:DailyVwap;
   tpo:Metric<TpoProfile>;oi:Metric<OpenInterest>;cvd:Metric<TradeDelta>;
+  continuousCvd?:ContinuousCvd;
   book?:OrderbookSnapshot;previousDay?:PreviousDayLevels;
   previousSessions?:PreviousSessionLevels;fvgs:FvgRecord[];
 }){
@@ -63,8 +65,9 @@ export function useMarketParticipation(args:{
   },[]);
   const snapshot=useMemo(()=>buildParticipationSnapshot({
     symbol,now,price,priceAt,candles,timeframe,vwap:dailyVwap,
-    tpo,oi,cvd,orderbook:book,levels
-  }),[symbol,now,price,priceAt,candles,timeframe,dailyVwap,tpo,oi,cvd,book,levels]);
+    tpo,oi,cvd,continuousCvd:args.continuousCvd,orderbook:book,levels
+  }),[symbol,now,price,priceAt,candles,timeframe,dailyVwap,tpo,oi,cvd,
+    args.continuousCvd,book,levels]);
   useEffect(()=>{
     if(!enabled||journal.symbol!==symbol||document.visibilityState==='hidden')return;
     const started=openedAtRef.current;

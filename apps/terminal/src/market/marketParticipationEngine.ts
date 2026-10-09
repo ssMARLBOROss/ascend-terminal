@@ -2,12 +2,13 @@ import type {Candle} from '@ascend/contracts';
 import type {DailyVwap} from './useDailyVwap';
 import type {Metric,TpoProfile,OpenInterest,TradeDelta} from './useLiveMarketMetrics';
 import type {OrderbookSnapshot} from './useOrderbookClusters';
+import type {ContinuousCvd} from './useContinuousCvd';
 import type {PreviousDayLevels} from './usePreviousDayLevels';
 import type {PreviousSessionLevels} from './usePreviousSessionLevels';
 
 export type ParticipationKind='BALANCE'|'OUTSIDE_VALUE'|'CONTINUATION_CANDIDATE'|
   'ABSORPTION_CANDIDATE'|'FALSE_BREAK_CANDIDATE'|'OBSERVING'|'NO_DATA';
-export type ParticipationSource='BYBIT_TRADES_LAST_1000'|'BYBIT_OI_5M'|
+export type ParticipationSource='BYBIT_TRADES_LAST_1000'|'BYBIT_WS_PUBLIC_TRADES'|'BYBIT_OI_5M'|
   'BYBIT_TPO_30M_APPROX'|'BYBIT_VWAP_5M_APPROX'|'BYBIT_ORDERBOOK_SNAPSHOT'|
   'BYBIT_CANDLES';
 export type ParticipationField={
@@ -62,6 +63,7 @@ export function buildParticipationSnapshot(args:{
   symbol:string;now:number;price?:number;priceAt?:number;
   candles:Candle[];timeframe:string;vwap?:DailyVwap;
   tpo:Metric<TpoProfile>;oi:Metric<OpenInterest>;cvd:Metric<TradeDelta>;
+  continuousCvd?:ContinuousCvd;
   orderbook?:OrderbookSnapshot;levels:FrozenReference[];
 }):ParticipationSnapshot{
   const {symbol,now,price,candles,timeframe,vwap,tpo,oi,cvd,orderbook,levels}=args;
@@ -71,9 +73,16 @@ export function buildParticipationSnapshot(args:{
   const px=field('BYBIT_CANDLES',price,
     args.priceAt??(last?last.timestamp+chartStep[timeframe]:undefined),now,180000,
     'last price; last received websocket tick or latest REST candle');
-  const d= cvd.status==='ready'?cvd.data:undefined;
-  const delta=field('BYBIT_TRADES_LAST_1000',d?.delta,d?.to,now,60000,
-    'rolling signed taker volume from at most 1000 most recent trades; NOT continuous CVD');
+  const d=cvd.status==='ready'?cvd.data:undefined;
+  const live=args.continuousCvd;
+  // Never substitute a recent-1000 snapshot after a WebSocket gap.
+  const delta=live?field('BYBIT_WS_PUBLIC_TRADES',
+      live.status==='LIVE'&&live.data?.health==='LIVE'&&live.data.trades>0?
+        live.data.volumeDelta:undefined,
+      live.status==='LIVE'?live.data?.lastTradeAt:undefined,
+      now,90000,'cumulative taker delta in this connected WebSocket segment; no backfill'):
+    field('BYBIT_TRADES_LAST_1000',d?.delta,d?.to,now,60000,
+      'rolling sample of at most 1000 trades, not continuous CVD');
   const o=oi.status==='ready'?oi.data:undefined;
   const oiValue=field('BYBIT_OI_5M',o?.value,o?.timestamp,now,900000,
     '5m open-interest interval');
@@ -134,7 +143,9 @@ export function buildParticipationSnapshot(args:{
         const oppositeFlow=available(delta)&&(
           rejectionSide==='DOWN'&&delta.value!<0||
           rejectionSide==='UP'&&delta.value!>0);
-        if(oppositeFlow&&d&&d.from>=bar.timestamp&&
+        // The live CVD total is since connection, NOT one candle of delta:
+        // do not claim absorption from its sign alone.
+        if(!live&&oppositeFlow&&d&&d.from>=bar.timestamp&&
           d.to<=bar.timestamp+(chartStep[timeframe]??0)){
           context='ABSORPTION_CANDIDATE';
           explanation='После отвержения уровня в той же свечной области была зарегистрирована встречная агрессивная дельта. Это гипотеза поглощения, не подтверждённый лимитный участник.';
@@ -143,7 +154,9 @@ export function buildParticipationSnapshot(args:{
     }
   }
   return {symbol,observedAt:now,price:px,delta,oi:oiValue,oiDelta,poc,vah,val,
-    vwap:vw,bookBid,bookAsk,cvdWindow:d?{from:d.from,to:d.to,trades:d.trades}:undefined,
+    vwap:vw,bookBid,bookAsk,cvdWindow:live?.data?.trades?{
+      from:live.data.startedAt,to:live.data.lastTradeAt,trades:live.data.trades
+    }:d?{from:d.from,to:d.to,trades:d.trades}:undefined,
     context,explanation,coreDecision:'NOT_CONNECTED',structure:'NOT_CONNECTED',
     confidences:[px,delta,oiValue,poc,vw,bookBid].filter(available)
       .map(x=>x.source)};

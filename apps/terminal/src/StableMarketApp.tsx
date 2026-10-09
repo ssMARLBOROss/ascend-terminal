@@ -13,6 +13,8 @@ import {useFvgResearch} from './market/useFvgResearch';
 import FvgDetailsPanel from './components/FvgDetailsPanel';
 import MarketParticipationPanel,{ParticipationMicroCharts} from './components/MarketParticipationPanel';
 import {useMarketParticipation} from './market/useMarketParticipation';
+import {useContinuousCvd,type ContinuousCvd} from './market/useContinuousCvd';
+import ContinuousCvdPanel from './components/ContinuousCvdPanel';
 import IndicatorManager from './components/IndicatorManager';
 import {loadIndicatorSettings,DEFAULT_INDICATORS,STORAGE_KEY,
   type IndicatorSettings,type IndicatorKey} from './market/indicatorSettings';
@@ -35,12 +37,13 @@ function fmtVolume(value?:number){
   return value.toLocaleString('ru-RU',{maximumFractionDigits:2});
 }
 
-function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus,dailyVwap,vwapStatus,liveMetrics,settings,onToggle,onUpdate,onReset}:{
+function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus,dailyVwap,vwapStatus,liveMetrics,cvdStream,settings,onToggle,onUpdate,onReset}:{
   symbol:string;timeframe:StableTimeframe;
   previousDay?:PreviousDayLevels;previousDayStatus:'loading'|'ready'|'error';
   previousSessions?:PreviousSessionLevels;previousSessionsStatus:'loading'|'ready'|'error';
   dailyVwap?:DailyVwap;vwapStatus:'loading'|'ready'|'error';
   liveMetrics:ReturnType<typeof useLiveMarketMetrics>;
+  cvdStream:ContinuousCvd;
   settings:IndicatorSettings;onToggle:(key:IndicatorKey)=>void;
   onUpdate:(patch:Partial<IndicatorSettings>)=>void;onReset:()=>void;
 }){
@@ -72,7 +75,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const participation=useMarketParticipation({
     enabled:settings.participation,symbol,timeframe,candles,price:displayPrice,
     priceAt:lastUpdate,dailyVwap,tpo:liveMetrics.tpo,oi:liveMetrics.oi,
-    cvd:liveMetrics.cvd,
+    cvd:liveMetrics.cvd,continuousCvd:cvdStream,
     book:liquidity.status==='ready'?liquidity.snapshot:undefined,
     previousDay,previousSessions,fvgs:fvgResearch.zones
   });
@@ -138,6 +141,8 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         <span>{error??'График появится после получения истории Bybit REST'}</span>
       </div>}
         </div>
+        {settings.cvd&&<ContinuousCvdPanel symbol={symbol} live={cvdStream}
+          interval={settings.cvdInterval} onInterval={tf=>onUpdate({cvdInterval:tf})}/>}
         {settings.participation&&<ParticipationMicroCharts journal={participation.journal}/>}
       </div>
       {settings.participation&&<MarketParticipationPanel symbol={symbol}
@@ -150,7 +155,8 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
       price={displayPrice} zoneTimeframes={fvgResearch.loadedTimeframes}
       errors={fvgResearch.errors}/>}
     {settings.week&&<WeekOverlayCompare symbol={symbol}/>}
-    <LiveMarketPanels symbol={symbol} {...liveMetrics} visibility={settings}/>
+    <LiveMarketPanels symbol={symbol} {...liveMetrics} visibility={settings}
+      continuousCvd={cvdStream}/>
     {settings.sessionLevels&&<div className="asc-prev-session-strip" aria-label="Максимумы и минимумы вчерашних сессий">
       <div className="asc-prev-session-title">
         <b>ВЧЕРА · СЕССИИ</b>
@@ -191,11 +197,13 @@ export default function StableMarketApp(){
   const previousDay=usePreviousDayLevels(symbol);
   const previousSessions=usePreviousSessionLevels(symbol);
   const vwap=useDailyVwap(symbol);
+  const cvdStream=useContinuousCvd(symbol,settings.cvd||settings.participation,
+    settings.cvdInterval);
   const liveMetrics=useLiveMarketMetrics(symbol,{
     tpo:settings.tpo||settings.participation,
     oi:settings.oi||settings.participation,
     longShort:settings.longShort,
-    cvd:settings.cvd||settings.participation
+    cvd:false // legacy 1000-trade sample, replaced by connected WS CVD
   });
   const[search,setSearch]=useState('');
   const[inputError,setInputError]=useState('');
@@ -260,6 +268,7 @@ export default function StableMarketApp(){
           previousDay={previousDay.levels} previousDayStatus={previousDay.status}
           previousSessions={previousSessions.levels} previousSessionsStatus={previousSessions.status}
           dailyVwap={vwap.daily} vwapStatus={vwap.status} liveMetrics={liveMetrics}
+          cvdStream={cvdStream}
           settings={settings} onToggle={toggleIndicator}
           onUpdate={updateIndicators} onReset={resetIndicators}/>
       </section>

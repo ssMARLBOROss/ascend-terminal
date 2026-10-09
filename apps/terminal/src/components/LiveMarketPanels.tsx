@@ -1,4 +1,5 @@
 import type {OpenInterest,LongShort,TradeDelta,TpoProfile,Metric} from '../market/useLiveMarketMetrics';
+import type {ContinuousCvd} from '../market/useContinuousCvd';
 
 function money(n:number){
   const max=n>=1000?2:n>=1?4:8;
@@ -42,10 +43,11 @@ function Unavailable<T>({metric}:{metric:Metric<T>}){
   </div>;
 }
 
-export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd,visibility}:{
+export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd,visibility,continuousCvd}:{
   symbol:string;tpo:Metric<TpoProfile>;oi:Metric<OpenInterest>;
   longShort:Metric<LongShort>;cvd:Metric<TradeDelta>;
   visibility:{tpo:boolean;oi:boolean;longShort:boolean;cvd:boolean};
+  continuousCvd:ContinuousCvd;
 }){
   if(!visibility.tpo&&!visibility.oi&&!visibility.longShort&&!visibility.cvd)return null;
   return <section className="asc-live-metrics" aria-label="Онлайн-индикаторы TPO OI Long Short CVD">
@@ -109,20 +111,24 @@ export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd,visibility
         <footer>Это количество long/short-аккаунтов, а не чистый объём позиций.</footer>
       </article>}
       {visibility.cvd&&<article className="asc-live-metric-card cvd">
-        <header><strong>CVD · ПОСЛЕДНИЕ СДЕЛКИ</strong><Status metric={cvd}/></header>
-        {cvd.status==='ready'&&cvd.data?<div className="asc-live-body">
-          <div className="asc-live-main"><span>Buy − Sell, {symbol.replace(/USDT$/,'')}</span>
-            <b className={cvd.data.delta>=0?'asc-live-up':'asc-live-down'}>
-              {(cvd.data.delta>0?'+':'')+money(cvd.data.delta)}</b>
+        <header><strong>CVD · BYBIT PUBLIC TRADES</strong>
+          <small className={'asc-live-status '+(continuousCvd.status==='LIVE'?'ready':'error')}>
+            {continuousCvd.status==='LIVE'?'● LIVE · CONNECTED SEGMENT':
+              continuousCvd.status==='CONNECTING'?'○ CONNECTING':'! '+continuousCvd.status}
+          </small>
+        </header>
+        {continuousCvd.data?.trades?<div className="asc-live-body">
+          <div className="asc-live-main"><span>Накопительная Delta · {symbol.replace(/USDT$/,'')}</span>
+            <b className={continuousCvd.data.volumeDelta>=0?'asc-live-up':'asc-live-down'}>
+              {(continuousCvd.data.volumeDelta>0?'+':'')+money(continuousCvd.data.volumeDelta)}</b>
           </div>
-          <div className="asc-live-values">
-            <span>BUY {money(cvd.data.buyVolume)}</span>
-            <span>SELL {money(cvd.data.sellVolume)}</span>
-          </div>
-          <Sparkline values={cvd.data.history} color="#e8b76e" zero/>
-          <small>{cvd.data.trades} сделок · {timestamp(cvd.data.from)}–{timestamp(cvd.data.to)}</small>
-        </div>:<Unavailable metric={cvd}/>}
-        <footer>Скользящая дельта до 1000 последних сделок, не непрерывный исторический CVD.</footer>
+          <div className="asc-live-values"><span>BUY {money(continuousCvd.data.buyVolume)}</span>
+            <span>SELL {money(continuousCvd.data.sellVolume)}</span></div>
+          <Sparkline values={continuousCvd.data.points.map(p=>p.cumulative)} color="#e8b76e" zero/>
+          <small>{continuousCvd.data.trades.toLocaleString('ru-RU')} сделок ·
+            {timestamp(continuousCvd.data.startedAt)}–{timestamp(continuousCvd.data.lastTradeAt)}</small>
+        </div>:<div className="asc-live-unavailable">Ожидаем публичные сделки по WebSocket</div>}
+        <footer>Только полученные сделки текущего сегмента; при обрыве история не сшивается.</footer>
       </article>}
     </div>
   </section>;

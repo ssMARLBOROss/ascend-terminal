@@ -57,7 +57,8 @@ export default function MarketParticipationPanel({symbol,snapshot,journal,fvgs}:
       <section className="asc-mp-section">
         <h4>Участники рынка</h4>
         <MetricRow label="Дельта последних сделок" metric={snapshot.delta} dp={3}/>
-        <div className="asc-mp-window">CVD: {snapshot.cvdWindow?
+        <div className="asc-mp-window">{snapshot.delta.source==='BYBIT_WS_PUBLIC_TRADES'?
+        'CVD CONNECTED SEGMENT':'TRADE SAMPLE'}: {snapshot.cvdWindow?
           clock(snapshot.cvdWindow.from)+'–'+clock(snapshot.cvdWindow.to)+' UTC · '+
           snapshot.cvdWindow.trades+' сделок':'NO DATA'}</div>
         <MetricRow label="Open Interest" metric={snapshot.oi}/>
@@ -147,7 +148,7 @@ export function ParticipationMicroCharts({journal}:{journal:ParticipationJournal
   const selected=hover>=0&&hover<items.length?hover:Math.max(0,items.length-1);
   const usable=items.filter(x=>x.oi.status==='READY'||x.delta.status==='READY').length;
   if(usable<2)return <div className="asc-mp-mini-start">
-    OI / дельта · ожидаем накопления онлайн-снимков. Нельзя восстановить отсутствующий CVD.
+    OI / CVD · ждём накопления наблюдений. Пропуски потока не восстанавливаются.
   </div>;
   const oi=items.map(x=>x.oi.status==='READY'?x.oi.value:null);
   const delta=items.map(x=>x.delta.status==='READY'?x.delta.value:null);
@@ -161,12 +162,12 @@ export function ParticipationMicroCharts({journal}:{journal:ParticipationJournal
         <TimedLine data={oi} times={times} color="#55bfdc" selected={selected} onSelect={setHover}/>
         <small>{items[selected]?.oi.status==='READY'?fmt(items[selected]?.oi.value):'NO DATA'} ·
           источник {clock(items[selected]?.oi.timestamp)} UTC</small></div>
-      <div><strong>Trade Delta · последние ≤1000 сделок</strong>
+      <div><strong>CVD · накопление с подключения WebSocket</strong>
         <TimedLine data={delta} times={times} color="#e8b76e" selected={selected} onSelect={setHover}/>
         <small>{items[selected]?.delta.status==='READY'?fmt(items[selected]?.delta.value,3):'NO DATA'} ·
           {items[selected]?.cvdWindow?' выборка '+clock(items[selected].cvdWindow!.from)+'–'+clock(items[selected].cvdWindow!.to):' нет выборки'}</small></div>
     </div>
     <p>Линии имеют общую шкалу времени наблюдения; сами интервалы источников различаются.
-      Здесь нет истинного непрерывного CVD и нет оценки доходности сделок.</p>
+      CVD непрерывен только внутри одного WebSocket-сегмента. Нет истории 24/7 и оценки доходности.</p>
   </section>;
 }

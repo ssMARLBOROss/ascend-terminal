@@ -1,5 +1,6 @@
 import type {FvgViewMode} from '../components/fvgOverlay';
 import type {FvgTf,FillMode} from './fvgContextEngine';
+import type {CvdInterval} from './cvdEngine';
 
 export type IndicatorKey=
   'volume'|'vwap'|'sessions'|'sessionClock'|'dayLevels'|'sessionLevels'|
@@ -15,6 +16,7 @@ export type IndicatorSettings=Record<IndicatorKey,boolean>&{
   fvgShowHistorical:boolean;fvgHighlightStructural:boolean;
   fvgOnlyActive:boolean;fvgFillMode:FillMode;fvgOpacity:number;
   fvgMaxZones:number;
+  cvdInterval:CvdInterval;
 };
 export const STORAGE_KEY='ascend.terminal.indicators.v1';
 
@@ -29,7 +31,7 @@ export const DEFAULT_INDICATORS:IndicatorSettings={
   fvgAtrLength:14,fvgMidline:true,fvgShowFill:true,
   fvgShowCreated:true,fvgShowRetest:true,fvgShowHistorical:false,
   fvgHighlightStructural:true,fvgOnlyActive:true,fvgFillMode:'wick',
-  fvgOpacity:42,fvgMaxZones:8
+  fvgOpacity:42,fvgMaxZones:8,cvdInterval:'5m'
 };
 
 export type IndicatorDefinition={
@@ -48,7 +50,7 @@ export const INDICATOR_CATALOG:IndicatorDefinition[]=[
   {key:'sessions',name:'Session Map',detail:'Зоны и границы сессий',group:'График',color:'#95abe0'},
   {key:'oi',name:'Open Interest · OI',detail:'Динамика открытых позиций',group:'Нижние панели',color:'#55bfdc'},
   {key:'longShort',name:'Net Long / Short',detail:'Доля аккаунтов Long и Short',group:'Нижние панели',color:'#ad99ed'},
-  {key:'cvd',name:'CVD · Trade Delta',detail:'Поток последних сделок',group:'Нижние панели',color:'#e8b76e'},
+  {key:'cvd',name:'CVD · Executed Trades',detail:'Накопительная дельта Bybit publicTrade',group:'Нижние панели',color:'#e8b76e'},
   {key:'participation',name:'Market Participation V1',detail:'Контекст участников · панель справа',group:'Нижние панели',color:'#65c8d7'},
   {key:'week',name:'7 дней × 7 дней',detail:'Сопоставление двух недель',group:'Нижние панели',color:'#70cedc'},
   {key:'stats',name:'OHLCV · сводка',detail:'Цены и объём над графиком',group:'Интерфейс',color:'#9cc7d6'},
@@ -81,6 +83,8 @@ export function loadIndicatorSettings():IndicatorSettings{
       for(const key of ['1m','3m','5m','15m','30m'] as const)
         if(typeof tf[key]==='boolean')clean.fvgTimeframes[key]=tf[key] as boolean;
     }
+    if(parsed.cvdInterval==='1m'||parsed.cvdInterval==='5m'||parsed.cvdInterval==='15m')
+      clean.cvdInterval=parsed.cvdInterval;
     if(parsed.fvgFillMode==='wick'||parsed.fvgFillMode==='close')
       clean.fvgFillMode=parsed.fvgFillMode;
     if(Number.isInteger(parsed.fvgAtrLength)&&Number(parsed.fvgAtrLength)>=2&&
