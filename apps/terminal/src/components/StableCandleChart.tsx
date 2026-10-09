@@ -14,17 +14,18 @@ import {drawFvgOverlay,type FvgAppearance} from './fvgOverlay';
 import type {FvgRecord} from '../market/fvgContextEngine';
 import SessionClock from './SessionClock';
 import {drawSessionBands} from './drawSessionBands';
+import {initialChartRange,tightCandlestickRange,TIGHT_FOCUS_BARS,type ChartViewMode} from './chartViewport';
 
 type Snapshot={first?:number;last?:number;length:number};
 
 /** Bounded session canvas only; no indicator computations or extra market subscriptions. */
-export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,fvgAppearance,focusRequest,showVolume,showVwap,showSessions,showSessionClock,showDayLevels,showSessionLevels}:{
+export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,fvgAppearance,focusRequest,viewMode,showVolume,showVwap,showSessions,showSessionClock,showDayLevels,showSessionLevels}:{
   candles:Candle[];timeframe:string;previousDay?:PreviousDayLevels;
   previousSessions?:PreviousSessionLevels;dailyVwap?:DailyVwap;
   orderbook?:OrderbookSnapshot;showBook:boolean;showStops:boolean;
   tpo?:TpoProfile;showTpo:boolean;fvgZones:FvgRecord[];showFvg:boolean;
   fvgAppearance:FvgAppearance;
-  focusRequest:number;
+  focusRequest:number;viewMode:ChartViewMode;
   showVolume:boolean;showVwap:boolean;showSessions:boolean;showSessionClock:boolean;
   showDayLevels:boolean;showSessionLevels:boolean;
 }){
@@ -39,6 +40,8 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
   fvgViewRef.current={fvgZones,showFvg,fvgAppearance};
   const sessionsVisibleRef=useRef(showSessions);
   sessionsVisibleRef.current=showSessions;
+  const viewModeRef=useRef(viewMode);
+  viewModeRef.current=viewMode;
   const candlesRef=useRef(candles);
   const redrawRef=useRef<()=>void>(()=>{});
   candlesRef.current=candles;
@@ -62,7 +65,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
         vertLines:{color:'rgba(40,74,95,.24)'},
         horzLines:{color:'rgba(40,74,95,.3)'}
       },
-      rightPriceScale:{borderColor:'#1d4055',scaleMargins:{top:.08,bottom:.22}},
+      rightPriceScale:{borderColor:'#1d4055',autoScale:true,scaleMargins:{top:.065,bottom:.13}},
       timeScale:{
         borderColor:'#1d4055',timeVisible:true,secondsVisible:false,
         rightOffset:6,barSpacing:7,minBarSpacing:2
@@ -74,7 +77,14 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
     priceRef.current=chart.addCandlestickSeries({
       upColor:'#29b991',downColor:'#df6b7d',
       borderUpColor:'#29b991',borderDownColor:'#df6b7d',
-      wickUpColor:'#64d1b1',wickDownColor:'#ef8a99'
+      wickUpColor:'#64d1b1',wickDownColor:'#ef8a99',
+      autoscaleInfoProvider:original=>{
+        if(viewModeRef.current!=='TIGHT')return original();
+        const window=tightCandlestickRange(candlesRef.current,
+          chart.timeScale().getVisibleLogicalRange(),
+          TIGHT_FOCUS_BARS[timeframe]??115);
+        return window?{priceRange:window}:original();
+      }
     });
     const volume=chart.addHistogramSeries({
       priceFormat:{type:'volume'},priceScaleId:'volume',
@@ -85,7 +95,11 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
     vwapRef.current=chart.addLineSeries({
       color:'#f4d35e',lineWidth:3,lineStyle:LineStyle.Solid,
       priceScaleId:'right',priceLineVisible:false,lastValueVisible:true,
-      crosshairMarkerVisible:true,title:'VWAP UTC'
+      crosshairMarkerVisible:true,title:'VWAP UTC',
+      // The line remains at the ACTUAL VWAP price. In TIGHT, only it is
+      // excluded from autoscale so remote context never compresses candles.
+      autoscaleInfoProvider:original=>
+        viewModeRef.current==='TIGHT'?null:original()
     });
     snapshotRef.current={length:0};
 
@@ -146,12 +160,25 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
     const chart=chartRef.current;
     const length=candlesRef.current.length;
     if(!chart||length<1)return;
-    chart.timeScale().setVisibleLogicalRange({
-      from:Math.max(0,length-100),to:length+5
-    });
+    const range=initialChartRange(timeframe,length,viewMode);
+    if(range)chart.timeScale().setVisibleLogicalRange(range);
     priceRef.current?.priceScale().applyOptions({autoScale:true});
     redrawRef.current();
   },[focusRequest]);
+  // Explicit mode switch: zoom to recent action (TIGHT) or chart history (FULL).
+  // Live candles, order-book polls and overlays never reset user pan/zoom.
+  useEffect(()=>{
+    const chart=chartRef.current;
+    const length=candlesRef.current.length;
+    if(!chart||length<20)return;
+    const range=initialChartRange(timeframe,length,viewMode);
+    if(range)chart.timeScale().setVisibleLogicalRange(range);
+    chart.priceScale('right').applyOptions({
+      autoScale:true,scaleMargins:viewMode==='TIGHT'?
+        {top:.065,bottom:.13}:{top:.08,bottom:.18}
+    });
+    redrawRef.current();
+  },[viewMode,timeframe]);
 
   // Display switches affect only chart series/overlays, never source data or trade rules.
   useEffect(()=>{
@@ -294,8 +321,8 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
     // Set the initial viewport only once history is sufficiently populated.
     // Never force a viewport on live ticks, so user pan/zoom remains untouched.
     if(previous.length<20&&candles.length>=20){
-      const from=Math.max(0,candles.length-110);
-      chart.timeScale().setVisibleLogicalRange({from,to:candles.length+5});
+      const range=initialChartRange(timeframe,candles.length,viewModeRef.current);
+      if(range)chart.timeScale().setVisibleLogicalRange(range);
     }
     snapshotRef.current={first,last,length:candles.length};
     redrawRef.current();
