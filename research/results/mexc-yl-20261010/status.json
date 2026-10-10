@@ -1,0 +1,57 @@
+{
+  "requestedAt": "2026-10-10T17:27:29.291Z",
+  "source": "MEXC Futures public API",
+  "interval": "Min1",
+  "timezone": "UTC",
+  "signals": [
+    {
+      "symbol": "ONDO_USDT",
+      "expected": 2340,
+      "actual": 2340,
+      "gaps": 0,
+      "sourceDay1": 4,
+      "file": "research/results/mexc-yl-20261010/ONDO_USDT.json"
+    },
+    {
+      "symbol": "ALGO_USDT",
+      "expected": 2340,
+      "actual": 2340,
+      "gaps": 0,
+      "sourceDay1": 4,
+      "file": "research/results/mexc-yl-20261010/ALGO_USDT.json"
+    },
+    {
+      "symbol": "QNT_USDT",
+      "expected": 2340,
+      "actual": 2340,
+      "gaps": 0,
+      "sourceDay1": 4,
+      "file": "research/results/mexc-yl-20261010/QNT_USDT.json"
+    },
+    {
+      "symbol": "DOT_USDT",
+      "expected": 2340,
+      "actual": 2340,
+      "gaps": 0,
+      "sourceDay1": 4,
+      "file": "research/results/mexc-yl-20261010/DOT_USDT.json"
+    },
+    {
+      "symbol": "FARTCOIN_USDT",
+      "expected": 2340,
+      "actual": 2340,
+      "gaps": 0,
+      "sourceDay1": 4,
+      "file": "research/results/mexc-yl-20261010/FARTCOIN_USDT.json"
+    },
+    {
+      "symbol": "ZRO_USDT",
+      "expected": 2340,
+      "actual": 2340,
+      "gaps": 0,
+      "sourceDay1": 4,
+      "file": "research/results/mexc-yl-20261010/ZRO_USDT.json"
+    }
+  ],
+  "errors": []
+}
