@@ -51,8 +51,9 @@ export default function LiquidityMapPanel({map,status,reason}:{
             <span className={item?.state==='LIVE'?'live':'state'}>{item?stateText[item.state]:'НЕ СФОРМИРОВАН'}</span>
             <span>{item?(item.distancePct>0?'+':'')+item.distancePct.toFixed(2)+'%':'—'}</span>
             <span title="Время наблюдаемого закрытия свечи, не время сделки внутри свечи">
-              SWEEP: {when(item?.sweepAt)}
-              {item?.depthPct!==undefined&&<em> · {item.depthPct.toFixed(2)}% ({fmt(item.depthPrice??0)})</em>}
+              SWEEP crossing: {when(item?.sweepAt)}
+              {item?.deepestAt!==undefined&&<em> · DEEPEST: {when(item.deepestAt)}
+                {' · '+fmt(item.deepestPrice??0)+' / '+(item.deepestDepthPct??0).toFixed(2)+'%'}</em>}
             </span>
             <span>RECLAIM: {when(item?.reclaimAt)}</span>
             <span>ACCEPT: {when(item?.acceptanceAt)}</span>
@@ -71,7 +72,8 @@ export default function LiquidityMapPanel({map,status,reason}:{
     <footer>ONH/ONL: 00:00–06:00 UTC. RTH: 09:30–16:00 Нью-Йорк
       (с автоматическим учётом DST). IBH/IBL: первый час RTH.
       LIVE-уровень не участвует в SWEEP, пока диапазон не закрыт.
-      Время события — закрытие 1m свечи. ACCEPTANCE = минимум два закрытия за уровнем.
+      SWEEP crossing и DEEPEST (глубочайший экстремум) — разные события;
+      указано время закрытия соответствующей 1m свечи. ACCEPTANCE = минимум два закрытия за уровнем.
       Это расчётные зоны потенциальной ликвидности, не фактические стоп-ордера;
       модуль не создаёт торговых входов.</footer>
   </section>;
