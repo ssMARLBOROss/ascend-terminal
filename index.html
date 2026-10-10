@@ -167,6 +167,14 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
 @media(max-width:1320px){.entry-market-bottom{grid-template-columns:1fr 1fr}.entry-market-bottom>div:first-child{grid-column:1/-1}}
 @media(max-width:1080px){.entry-market-bottom{grid-template-columns:1fr}.entry-market-bottom>div:first-child{grid-column:auto}.entry-analysis-side{order:4}.entry-rsi-panel{height:165px}}
 </style>
+  <script src="/liquidity-map.js"></script>
+  <style>
+    /* Hide old chart drawings while preserving other terminal panels and trade engine. */
+    #chartShell .session-chart-overlay,#chartShell .trade-history-overlay,
+    #chartShell .projection-overlay,#chartShell .session-projection-overlay,
+    #chartShell [id*="Overlay"]:not(#liquidityZoneOverlay),
+    #chartShell [class*="overlay"]:not(#liquidityZoneOverlay){display:none!important}
+  </style>
 </head>
 <body>
 <div class="app">
@@ -889,6 +897,43 @@ function renderMajorPairMenu(asset){
   document.querySelectorAll("[data-major]").forEach(b=>b.classList.toggle("active",b.dataset.major===asset));
 }
 
+
+/* Liquidity-only chart mode: display changes only, no trade engine changes. */
+let liquidityZoneOverlay=null;
+function ascendLiquidityRender(){
+  if(!state.chartReady || !window.AscendLiquidityMap)return;
+  const history=closed(state.tf["1h"]||state.tf["30m"]||[]);
+  const rows=closed(currentRows()), last=rows.at(-1);
+  if(!last)return;
+  const price=Number(last.close), day=Math.floor(Number(last.time)/86400);
+  const prior=history.filter(c=>Math.floor(Number(c.time)/86400)===day-1);
+  const today=history.filter(c=>Math.floor(Number(c.time)/86400)===day);
+  const daily=prior.length>=12?prior:null;
+  const h=history.length>=30?history:rows;
+  const tr=h.slice(1).map((c,i)=>Math.max(Number(c.high)-Number(c.low),Math.abs(Number(c.high)-Number(h[i].close)),Math.abs(Number(c.low)-Number(h[i].close))));
+  const atr=tr.slice(-14).reduce((a,b)=>a+b,0)/Math.min(14,tr.length);
+  const levels={};
+  if(daily){levels.YH=Math.max(...daily.map(x=>Number(x.high)));levels.YL=Math.min(...daily.map(x=>Number(x.low)));}
+  // Overnight UTC 00:00-08:00, only completed candles. Other session levels remain absent if data is insufficient.
+  const overnight=today.filter(c=>{const hour=new Date(Number(c.time)*1000).getUTCHours();return hour<8});
+  if(overnight.length){levels.ONH=Math.max(...overnight.map(x=>Number(x.high)));levels.ONL=Math.min(...overnight.map(x=>Number(x.low)));}
+  const rth=today.filter(c=>{const hour=new Date(Number(c.time)*1000).getUTCHours();return hour>=13&&hour<22});
+  if(rth.length){levels.RTH_H=Math.max(...rth.map(x=>Number(x.high)));levels.RTH_L=Math.min(...rth.map(x=>Number(x.low)));}
+  const ib=today.filter(c=>{const hour=new Date(Number(c.time)*1000).getUTCHours();return hour===13});
+  if(ib.length){levels.IBH=Math.max(...ib.map(x=>Number(x.high)));levels.IBL=Math.min(...ib.map(x=>Number(x.low)));}
+  const model=window.AscendLiquidityMap.build({price,atr,levels,candles:rows.map(x=>({...x,closed:true}))});
+  clearLines();
+  for(const [key,value] of Object.entries(levels)){
+    const upper=/H$|_H$/.test(key);
+    setLine(value,upper?"#ff6b78":"#30d6ac",key);
+  }
+  if(!liquidityZoneOverlay){liquidityZoneOverlay=document.createElement("canvas");liquidityZoneOverlay.id="liquidityZoneOverlay";liquidityZoneOverlay.style.cssText="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4";$("chartShell").appendChild(liquidityZoneOverlay);}
+  const el=liquidityZoneOverlay,w=el.clientWidth,hpx=el.clientHeight,dpr=window.devicePixelRatio||1;
+  el.width=Math.round(w*dpr);el.height=Math.round(hpx*dpr);
+  const ctx=el.getContext("2d");ctx.scale(dpr,dpr);
+  window.AscendLiquidityMap.draw(ctx,{left:6,right:Math.max(6,w-70)},p=>candles.priceToCoordinate(p),model);
+}
+
 function renderChart(){
   renderSessionUI();
   const r=closed(currentRows());if(!r.length||!state.chartReady)return;
@@ -906,7 +951,9 @@ function renderChart(){
   $("sma20").textContent=fmt(ss20.at(-1));$("sma50").textContent=fmt(ss50.at(-1));$("sma200").textContent=fmt(ss200.at(-1));$("vwapNow").textContent=fmt(vw?.value);
   $("chartTitle").textContent=state.symbol.replace("_"," / ")+" · "+state.timeframe+" · MEXC";
   if(state.needsFit){chart.timeScale().fitContent();chart.timeScale().applyOptions({rightOffset:22});state.needsFit=false}else if(state.follow){chart.timeScale().scrollToRealTime()}
-  renderProjectionText();renderMarketPressure();renderTerminalVisualV5();scheduleOverlay();
+  // Keep analytical computations but display only candles and liquidity.
+  [sma20,sma50,sma200,vwapLine,vol].forEach(series=>{try{series.setData([])}catch(_){}});
+  ascendLiquidityRender();
 }
 function scheduleOverlay(){if(overlayRaf)return;overlayRaf=requestAnimationFrame(()=>{overlayRaf=0;syncOverlay()})}
 function priceY(p){const y=candles.priceToCoordinate(Number(p));return Number.isFinite(y)?y:null}
@@ -992,6 +1039,8 @@ function renderTradeHistoryOverlay(){
   layer.innerHTML=html;
 }
 function syncOverlay(){
+  if(state.chartReady){ascendLiquidityRender();return;}
+
   renderSessionChartOverlay();
   renderTradeHistoryOverlay();
   const shell=$("chartShell"),w=shell.clientWidth,h=shell.clientHeight;
