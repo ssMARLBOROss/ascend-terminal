@@ -55,9 +55,10 @@ export function drawLiquidityMap(
     ctx.fillStyle='rgba(5,20,30,.89)';ctx.fillRect(bx,by,tw,20);
     ctx.fillStyle=isUpper?'#ffa2ad':'#8df5ca';
     ctx.fillText(tag,bx+7,by+14,tw-12);
-    if(item.sweepAt!==undefined&&item.depthPct!==undefined&&item.depthPct>0){
-      const caption='SWEEP '+fmt(item.sweepExtreme??item.price)+
-        ' · '+item.depthPct.toFixed(2)+'%';
+    if(item.deepestAt!==undefined&&item.deepestDepthPct!==undefined&&item.deepestDepthPct>0){
+      const clock=new Date(item.deepestAt).toISOString().slice(11,16)+' UTC';
+      const caption='SWEEP EXTREME '+fmt(item.deepestPrice??item.price)+
+        ' · '+item.deepestDepthPct.toFixed(2)+'% · '+clock;
       const cw=Math.min(plotWidth-left-9,ctx.measureText(caption).width+13);
       if(cw>40){
         ctx.fillStyle='rgba(5,20,30,.83)';
