@@ -15,6 +15,8 @@ import {useLiveMarketMetrics} from './market/useLiveMarketMetrics';
 import {selectFvgZones,type FvgAppearance} from './components/fvgOverlay';
 import {useFvgResearch} from './market/useFvgResearch';
 import {useAscendStructureResearch} from './market/useAscendStructureResearch';
+import {computeLiquidityMap} from './market/liquidityMapEngine';
+import LiquidityMapPanel from './components/LiquidityMapPanel';
 import AscendStructurePanel from './components/AscendStructurePanel';
 import FvgDetailsPanel from './components/FvgDetailsPanel';
 import MarketParticipationPanel,{ParticipationMicroCharts} from './components/MarketParticipationPanel';
@@ -60,6 +62,9 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const fvgResearch=useFvgResearch(symbol,timeframe,candles,settings.fvgTimeframes,
     engineSettings,previousDay,previousSessions);
   const structure=useAscendStructureResearch(symbol,previousDay);
+  const liquidityMap=useMemo(()=>structure.bars&&structure.asOf?
+    computeLiquidityMap({symbol,bars:structure.bars,asOf:structure.asOf,previousDay}):undefined,
+    [symbol,structure.bars,structure.asOf,previousDay]);
   const latest=candles[candles.length-1];
   const displayPrice=lastPrice??latest?.close;
   const fvgAppearance=useMemo<FvgAppearance>(()=>({
@@ -136,7 +141,8 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         focusRequest={focusRequest} viewMode={settings.chartViewMode}
         showVolume={settings.volume} showVwap={settings.vwap}
         showSessions={settings.sessions} showSessionClock={settings.sessionClock}
-        showDayLevels={settings.dayLevels} showSessionLevels={settings.sessionLevels}/>
+        showDayLevels={settings.dayLevels} showSessionLevels={settings.sessionLevels}
+        liquidityMap={settings.liquidityMap?liquidityMap:undefined}/>
       {candles.length<20&&<div className="asc-lite-loading" role="status">
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
@@ -150,6 +156,8 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         snapshot={participation.snapshot} journal={participation.journal}
         fvgs={fvgResearch.zones}/>}
     </div>
+    {settings.liquidityMap&&<LiquidityMapPanel map={liquidityMap}
+      status={structure.status} reason={structure.reason}/>}
     <AscendStructurePanel feed={structure} symbol={symbol}/>
     {settings.fvg&&<FvgDetailsPanel symbol={symbol}
       records={fvgResearch.zones} journal={fvgResearch.journal}
