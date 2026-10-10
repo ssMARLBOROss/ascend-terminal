@@ -18,6 +18,7 @@ export type LiquidityLevel={
   freezeAt:number;frozen:boolean;
   sweepAt?:number;reclaimAt?:number;acceptanceAt?:number;
   sweepExtreme?:number;depthPrice?:number;depthPct?:number;
+  deepestPrice?:number;deepestAt?:number;deepestDepthPct?:number;
 };
 export type LiquidityMap={
   symbol:string;asOf:number;dayStartUtc:number;
@@ -77,6 +78,7 @@ function processEvents(candidate:Candidate,bars:Candle[]){
   let state:LiquidityState='FROZEN';
   let sweepAt:number|undefined,reclaimAt:number|undefined,acceptanceAt:number|undefined;
   let sweepExtreme:number|undefined,depthPrice:number|undefined,depthPct:number|undefined;
+  let deepestPrice:number|undefined,deepestAt:number|undefined,deepestDepthPct:number|undefined;
   let priorClose:number|undefined;
   let consecutiveOutside=0;
   const events:LiquidityEvent[]=[];
@@ -87,6 +89,13 @@ function processEvents(candidate:Candidate,bars:Candle[]){
     const crossed=upper?(priorClose===undefined||priorClose<=level):
       (priorClose===undefined||priorClose>=level);
     const at=b.timestamp+MINUTE;
+    if(beyond){
+      const wick=upper?b.high:b.low;
+      const depth=Math.abs(wick-level)/level*100;
+      if(deepestDepthPct===undefined||depth>deepestDepthPct){
+        deepestPrice=wick;deepestAt=at;deepestDepthPct=depth;
+      }
+    }
     if(beyond&&crossed){
       state='SWEEP';sweepAt=at;reclaimAt=undefined;acceptanceAt=undefined;
       sweepExtreme=upper?b.high:b.low;
@@ -122,7 +131,8 @@ function processEvents(candidate:Candidate,bars:Candle[]){
   // Record the FINAL depth for the latest sweep, not merely the first wick.
   const latestSweep=[...events].reverse().find(x=>x.type==='SWEEP');
   if(latestSweep){latestSweep.depthPrice=depthPrice;latestSweep.depthPct=depthPct}
-  return {state,sweepAt,reclaimAt,acceptanceAt,sweepExtreme,depthPrice,depthPct,events};
+  return {state,sweepAt,reclaimAt,acceptanceAt,sweepExtreme,depthPrice,depthPct,
+    deepestPrice,deepestAt,deepestDepthPct,events};
 }
 
 /** Strict closed-1m research snapshot. No inferred order-book or stop quantities. */
@@ -179,7 +189,9 @@ export function computeLiquidityMap(input:{
       distancePct:(price/c.price-1)*100,
       sweepAt:outcome?.sweepAt,reclaimAt:outcome?.reclaimAt,
       acceptanceAt:outcome?.acceptanceAt,sweepExtreme:outcome?.sweepExtreme,
-      depthPrice:outcome?.depthPrice,depthPct:outcome?.depthPct});
+      depthPrice:outcome?.depthPrice,depthPct:outcome?.depthPct,
+      deepestPrice:outcome?.deepestPrice,deepestAt:outcome?.deepestAt,
+      deepestDepthPct:outcome?.deepestDepthPct});
   }
   const upperLevels=levels.filter(l=>l.side==='BSL');
   const lowerLevels=levels.filter(l=>l.side==='SSL');
