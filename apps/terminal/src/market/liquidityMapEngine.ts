@@ -58,14 +58,15 @@ function lastCompleteAtr5m(bars:Candle[],asOf:number):{value:number;at:number}|u
     at:g[0].timestamp,open:g[0].open,high:Math.max(...g.map(c=>c.high)),
     low:Math.min(...g.map(c=>c.low)),close:g[4].close
   }));
-  const recent=complete.slice(-14);
-  if(recent.length!==14||recent.some((b,i)=>i>0&&b.at-recent[i-1].at!==FIVE))
+  if(complete.length<14||complete.some((b,i)=>i>0&&b.at-complete[i-1].at!==FIVE))
     return undefined;
-  const tr=recent.map((b,i)=>{
-    const prev=i===0?b.open:recent[i-1].close;
+  const tr=complete.map((b,i)=>{
+    const prev=i===0?b.open:complete[i-1].close;
     return Math.max(b.high-b.low,Math.abs(b.high-prev),Math.abs(b.low-prev));
   });
-  return {value:tr.reduce((a,b)=>a+b,0)/14,at:recent.at(-1)!.at+FIVE};
+  let atr=tr.slice(0,14).reduce((a,b)=>a+b,0)/14;
+  for(let i=14;i<tr.length;i++)atr=(atr*13+tr[i])/14;
+  return {value:atr,at:complete.at(-1)!.at+FIVE};
 }
 function extreme(bars:Candle[],start:number,end:number,side:LiquiditySide){
   const selected=bars.filter(b=>b.timestamp>=start&&b.timestamp<end);
