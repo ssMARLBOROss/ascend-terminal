@@ -5,7 +5,7 @@ import type {ChartViewMode} from '../components/chartViewport';
 
 export type IndicatorKey=
   'volume'|'vwap'|'sessions'|'sessionClock'|'dayLevels'|'sessionLevels'|
-  'book'|'stops'|'tpo'|'fvg'|'oi'|'longShort'|'cvd'|'participation'|'week'|'stats'|'coins';
+  'book'|'stops'|'liquidityMap'|'tpo'|'fvg'|'oi'|'longShort'|'cvd'|'participation'|'week'|'stats'|'coins';
 
 export type IndicatorSettings=Record<IndicatorKey,boolean>&{
   fvgThreshold:number;
@@ -24,7 +24,7 @@ export const STORAGE_KEY='ascend.terminal.indicators.v1';
 
 export const DEFAULT_INDICATORS:IndicatorSettings={
   volume:true,vwap:true,sessions:true,sessionClock:false,
-  dayLevels:true,sessionLevels:false,book:false,stops:false,
+  dayLevels:true,sessionLevels:false,book:false,stops:false,liquidityMap:true,
   tpo:true,fvg:true,oi:true,longShort:true,cvd:true,participation:true,
   week:false,stats:true,coins:true,
   fvgThreshold:.02,fvgViewMode:'near',
@@ -47,6 +47,7 @@ export const INDICATOR_CATALOG:IndicatorDefinition[]=[
   {key:'tpo',name:'TPO · POC / VAH / VAL',detail:'Профиль ценового баланса',group:'График',color:'#c59beb'},
   {key:'book',name:'Order Book · BID / ASK',detail:'Текущие кластеры стакана',group:'График',color:'#64d9ba'},
   {key:'stops',name:'STOP? · зоны ликвидности',detail:'Оценочные зоны стопов',group:'График',color:'#d9a772'},
+  {key:'liquidityMap',name:'Liquidity Map · BSL / SSL',detail:'Уровни YH/YL, ONH/ONL, RTH и IB · sweep/reclaim',group:'График',color:'#e6aa86'},
   {key:'dayLevels',name:'YH / YL',detail:'Максимум и минимум вчера',group:'График',color:'#8bd5a2'},
   {key:'sessionLevels',name:'Session H / L',detail:'Уровни предыдущих сессий',group:'График',color:'#d08795'},
   {key:'sessions',name:'Session Map',detail:'Зоны и границы сессий',group:'График',color:'#95abe0'},
