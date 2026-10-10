@@ -190,5 +190,6 @@ export function computeLiquidityMap(input:{
     .sort((a,b)=>b.price-a.price)[0]??
     lowerLevels.sort((a,b)=>Math.abs(a.price-price)-Math.abs(b.price-price))[0];
   return {symbol,asOf:endAt,dayStartUtc,price,atr,atrTime:atrResult.at,
-    levels,upper,lower,events:events.sort((a,b)=>a.at-b.at)};
+    levels,upper,lower,events:events.sort((a,b)=>a.at-b.at),
+    rthOpenUtc,rthCloseUtc,ibCloseUtc,overnightCloseUtc};
 }
