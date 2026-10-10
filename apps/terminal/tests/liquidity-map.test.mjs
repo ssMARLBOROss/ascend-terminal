@@ -32,6 +32,8 @@ const bars=candles(430);
 bars[365]={...bars[365],high:101.3,close:100};
 bars[370]={...bars[370],low:98.1,close:99.1};
 bars[371]={...bars[371],low:98.5,close:99.2};
+bars[372]={...bars[372],low:99.0,close:99.3};
+bars[373]={...bars[373],low:99.1,close:99.4};
 bars[374]={...bars[374],low:99.5,close:100};
 const snap=m(bars);
 const onh=snap.levels.find(l=>l.key==='ONH'),onl=snap.levels.find(l=>l.key==='ONL');
