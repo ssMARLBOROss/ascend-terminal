@@ -32,15 +32,21 @@ for(const name of names){
   assert.ok(map?.levels.length>=4,'Real 1m data must compute map: '+name);
   const yl=map.levels.find(l=>l.key==='YL');
   assert.equal(yl?.price,signal.yl,'Frozen YL was preserved');
-  const sweepClose=Date.parse(signal.sweep)+60000;
-  const candidate=map.events.find(e=>e.key==='YL'&&e.type==='SWEEP'&&e.at===sweepClose);
-  assert.ok(candidate,'Archived real YL sweep not located at exact minute: '+name);
-  assert.ok(candidate.depthPct>0,'Real sweep must have positive penetration');
+  const deepestClose=Date.parse(signal.sweep)+60000;
+  assert.equal(yl.deepestAt,deepestClose,
+    'Deepest historical wick must match minute reported by signal: '+name);
+  assert.equal(yl.deepestPrice,signal.sweepLow,
+    'Deepest historical wick must match price reported by signal: '+name);
+  assert.ok(yl.deepestDepthPct>0,'Sweep penetration must be positive');
+  const crossing=map.events.find(e=>e.key==='YL'&&e.type==='SWEEP'&&e.at<=deepestClose);
+  assert.ok(crossing,'A frozen-level crossing must precede deepest wick: '+name);
   const reclaim=map.events.find(e=>e.key==='YL'&&e.type==='RECLAIM'&&
-    e.at>=sweepClose&&e.at<=lastAlert);
-  assert.ok(reclaim,'Real closed-candle reclaim missing before notice: '+name);
-  console.log(name,'YL',yl.price,'SWEEP',new Date(sweepClose).toISOString(),
-    'depth',candidate.depthPct.toFixed(2)+'%',
+    e.at>=deepestClose&&e.at<=lastAlert);
+  assert.ok(reclaim,'Real closed-candle reclaim missing after deepest wick: '+name);
+  console.log(name,'YL',yl.price,
+    'CROSS',new Date(crossing.at).toISOString(),
+    'DEEPEST',new Date(deepestClose).toISOString(),
+    'depth',yl.deepestDepthPct.toFixed(2)+'%',
     'RECLAIM',new Date(reclaim.at).toISOString(),'ATR',map.atr.toPrecision(4));
 }
 console.log('PASS: six archived MEXC Futures 1m YL sweeps/reclaims replayed from real OHLCV');
