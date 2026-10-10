@@ -1,0 +1,30 @@
+name: ASCEND MEXC YL Six-Signal Research
+on:
+  push:
+    branches: [research/mexc-yl-six-signals-20261010]
+    paths:
+      - research/scripts/fetch-mexc-yl-20261010.mjs
+jobs:
+  fetch-market-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fetch verified MEXC historic candles
+        run: node research/scripts/fetch-mexc-yl-20261010.mjs
+      - name: Store research-only OHLCV snapshots
+        run: |
+          git config user.name "ascend-research[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/results/mexc-yl-20261010
+          if ! git diff --cached --quiet; then
+            git commit -m "data(research): snapshot MEXC six YL setups"
+            git push origin HEAD:research/mexc-yl-six-signals-20261010
+          fi
