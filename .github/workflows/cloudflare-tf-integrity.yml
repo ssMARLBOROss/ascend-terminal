@@ -1,0 +1,27 @@
+name: ASCEND MTF Integrity and UI Health regression
+on:
+  push:
+    branches: [fix/ascend-tf-integrity-and-ui-health-20261011]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check market-timeframe-quality.js
+      - run: node --check structure-evidence.js
+      - run: node tests/cloudflare-tf-integrity.test.mjs
+      - run: node tests/cloudflare-session-high-low.test.mjs
+      - run: node tests/cloudflare-choch-10m.test.mjs
+      - run: node tests/cloudflare-structure-evidence.test.mjs
+      - run: node tests/cloudflare-vwap.test.mjs
+      - run: node tests/cloudflare-liquidity-map.test.mjs
+      - run: node tests/cloudflare-workspace-layout.test.mjs
+      - run: node tests/cloudflare-cross-market.test.mjs
+      - run: node tests/cloudflare-macro-fred-replay.test.mjs
