@@ -104,6 +104,71 @@ def parse_bybit(raw: dict, received_ms: int | None = None) -> list[dict]:
         if e:out.append(e)
     return out
 
+class MexcBook:
+    """MEXC contract depth: REST snapshot then strict version+1 websocket deltas."""
+    def __init__(self,symbol: str):
+        self.symbol=norm_symbol(symbol);self.bids={};self.asks={}
+        self.version=None
+    def reset(self):
+        self.version=None;self.bids={};self.asks={}
+    def _patch(self,side:str,updates:list):
+        book=self.bids if side=="bids" else self.asks
+        for item in updates:
+            if not isinstance(item,(list,tuple)) or len(item)<2:
+                raise ValueError("bad depth row")
+            price=float(item[0]);qty=float(item[1])
+            if not math.isfinite(price) or price<=0 or not math.isfinite(qty) or qty<0:
+                raise ValueError("invalid depth price or quantity")
+            if qty==0:book.pop(price,None)
+            else:book[price]=qty
+    def seed(self,payload:dict)->bool:
+        self.reset()
+        if isinstance(payload,dict) and "data" in payload:
+            if payload.get("success") is False:return False
+            payload=payload["data"]
+        if not isinstance(payload,dict):return False
+        try:
+            version=int(payload["version"])
+            if version<=0: return False
+            self._patch("bids",payload["bids"])
+            self._patch("asks",payload["asks"])
+            if not self.bids or not self.asks or max(self.bids)>=min(self.asks):
+                self.reset();return False
+        except (ValueError,TypeError,KeyError):
+            self.reset();return False
+        self.version=version
+        return True
+    def apply(self,message:dict,received_ms:int|None=None)->dict|None:
+        if message.get("channel")!="push.depth" or norm_symbol(message.get("symbol",""))!=self.symbol:
+            return None
+        data=message.get("data") or {}
+        try:version=int(data["version"])
+        except (ValueError,TypeError,KeyError):self.reset();return None
+        if self.version is None:return None
+        if version<=self.version:return None # websocket pushed before REST snapshot
+        if version!=self.version+1:
+            self.reset();return None # GAP: do not claim LIVE
+        try:
+            self._patch("bids",data.get("bids",[]))
+            self._patch("asks",data.get("asks",[]))
+            if not self.bids or not self.asks or max(self.bids)>=min(self.asks):
+                self.reset();return None
+        except (TypeError,ValueError):self.reset();return None
+        self.version=version
+        bids=sorted(self.bids.items(),reverse=True)[:50]
+        asks=sorted(self.asks.items())[:50]
+        best_bid=bids[0][0];best_ask=asks[0][0]
+        ts=message.get("ts") or received_ms or time.time_ns()//1_000_000
+        return event("MEXC",self.symbol,"BOOK",ts,
+            {"best_bid":best_bid,"best_ask":best_ask,
+             "bid_quantity_top50":sum(q for _,q in bids),
+             "ask_quantity_top50":sum(q for _,q in asks),
+             "spread_pct":(best_ask/best_bid-1)*100,
+             "version":version,"snapshot_verified":True,
+             "source":"REST_DEPTH_PLUS_WS_DELTA","unit":"CONTRACTS","levels":50},
+            event_id=str(version),received_ms=received_ms)
+
+
 class BybitBook:
     """Snapshot and deltas must be ordered; never treat dropped deltas as live depth."""
     def __init__(self,symbol: str):
@@ -222,10 +287,15 @@ async def snapshot(pool,symbol: str) -> dict:
           "change_pct":(float(last["payload"]["contracts"])/float(first["payload"]["contracts"])-1)*100,
           "source":"MEXC","unit":"CONTRACTS","from_ms":first["exchange_ts_ms"],
           "to_ms":last["exchange_ts_ms"]}
-    book=by.get(("BYBIT","BOOK"),[])
+    book=by.get(("MEXC","BOOK"),[])
+    venue="MEXC"
+    if not book or result["venues"]["MEXC:BOOK"]["status"]!="LIVE":
+        other=by.get(("BYBIT","BOOK"),[])
+        if other:
+            book=other;venue="BYBIT"
     if book:
-        row=book[0];result["order_book"]={"status":result["venues"]["BYBIT:BOOK"]["status"],
-           "source":"BYBIT","exchange_ts_ms":row["exchange_ts_ms"],**dict(row["payload"])}
+        row=book[0];result["order_book"]={"status":result["venues"][venue+":BOOK"]["status"],
+           "source":venue,"exchange_ts_ms":row["exchange_ts_ms"],**dict(row["payload"])}
     liqs=by.get(("BYBIT","LIQUIDATION"),[])
     if liqs:
         result["liquidations"]={"status":"PARTIAL","source":"BYBIT",
