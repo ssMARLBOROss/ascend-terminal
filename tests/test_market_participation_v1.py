@@ -1,6 +1,6 @@
 import unittest
 from market_participation_v1 import (
-    BybitBook, event, norm_symbol, parse_mexc, parse_bybit, number, snapshot
+    BybitBook, MexcBook, event, norm_symbol, parse_mexc, parse_bybit, number, snapshot
 )
 
 NOW=1791766800000
@@ -55,6 +55,31 @@ class MarketTests(unittest.TestCase):
         self.assertIsNotNone(book)
         self.assertIsNone(b.apply({**delta,"data":{**delta["data"],"seq":100}},NOW))
         self.assertFalse(b.valid)
+
+    def test_mexc_snapshot_delta_and_version_gap(self):
+        book=MexcBook("BTC_USDT")
+        snap={"success":True,"data":{
+            "version":100,"timestamp":NOW-10,
+            "bids":[[99,10,1],[98,20,1]],
+            "asks":[[101,10,1],[102,15,1]]}}
+        self.assertTrue(book.seed(snap))
+        event={"channel":"push.depth","symbol":"BTC_USDT","ts":NOW-10,
+               "data":{"version":101,"bids":[[99,12,1]],"asks":[[101,0,1]]}}
+        result=book.apply(event,NOW)
+        self.assertIsNotNone(result)
+        self.assertEqual(result["payload"]["best_bid"],99)
+        self.assertEqual(result["payload"]["best_ask"],102)
+        self.assertEqual(result["payload"]["unit"],"CONTRACTS")
+        self.assertIsNone(book.apply({**event,"data":{**event["data"],"version":101}},NOW),
+                          "older duplicate ignored")
+        self.assertEqual(book.version,101)
+        self.assertIsNone(book.apply({**event,"data":{**event["data"],"version":103}},NOW),
+                          "version gap resets the book")
+        self.assertIsNone(book.version)
+        self.assertIsNone(book.apply({**event,"data":{**event["data"],"version":104}},NOW))
+        self.assertTrue(book.seed(snap))
+        self.assertIsNotNone(book.apply(event,NOW))
+        self.assertFalse(book.seed({"data":{"version":110,"bids":[[110,1]],"asks":[[100,1]]}}))
 
     def test_bad_prices_and_late_events_rejected(self):
         self.assertIsNone(number(float("nan")))
