@@ -21,7 +21,7 @@ jobs:
       - run: node --check research-panel-v1.js
       - run: node tests/cloudflare-fvg-research-v1.test.mjs
       - run: python -m py_compile market_participation_v1.py market_participation_collector_v1.py bybit_collector.py terminal_api_v2.py
-      - run: python tests/test_market_participation_v1.py
+      - run: PYTHONPATH=. python tests/test_market_participation_v1.py
       - run: node tests/cloudflare-confirmation-v2.test.mjs
       - run: node tests/cloudflare-v2-unified-setup.test.mjs
       - run: node tests/cloudflare-liquidity-map.test.mjs
