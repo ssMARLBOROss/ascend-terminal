@@ -550,6 +550,16 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
                 title="Развернуть график почти на весь экран; Esc возвращает рабочий стол">⛶ На весь экран</button>
               <button id="ascendVwapToggle" type="button" aria-pressed="true" title="Показать или скрыть дневной VWAP (00:00 UTC, закрытые 5m свечи)">VWAP · ON</button>
               <span id="ascendVwapBadge" aria-live="off">VWAP UTC · ожидаем 5m OHLCV</span>
+              <button id="ascendStructureToggle" class="asc-structure-toggle" type="button"
+                aria-pressed="true" aria-controls="ascStructurePanel"
+                title="Показать или скрыть анализ касаний, снятий, закреплений и MTF структуры">
+                СТРУКТУРА · ON
+              </button>
+              <span id="ascStructureMini" class="asc-structure-mini" aria-live="off">Ожидаем свечи</span>
+            </div>
+            <div id="ascStructureRibbon" class="asc-structure-ribbon"
+              aria-label="Статусы структуры и снятия ликвидности">
+              <b>STRUCTURE RESEARCH</b><span>Ожидаем подтверждённые свечи MEXC…</span>
             </div>
             <div class="buy-sell"><div class="tradebox" id="sellBtn" role="button" tabindex="0" title="Открыть теневую SHORT сделку — реальный ордер не отправляется"><span>ПРОДАТЬ · ТЕНЬ</span><b id="sellP">—</b></div><div class="tradebox buy" id="buyBtn" role="button" tabindex="0" title="Открыть теневую LONG сделку — реальный ордер не отправляется"><span>КУПИТЬ · ТЕНЬ</span><b id="buyP">—</b></div><div class="trade-news" id="tradeNews"><span class="impact info">NEWS</span><a href="#" id="tradeNewsLink">Новостной поток загружается…</a></div></div>
             <div class="paper-strip" id="paperStrip"><span id="paperTradeText">Теневых сделок по этой монете нет</span><span class="pnl" id="paperPnl"></span><button class="paper-close" id="paperCloseBtn" type="button">Закрыть вручную</button></div>
@@ -575,6 +585,23 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
                 <div class="anchor-dot entry" id="dotEntry"></div><div class="anchor-dot tp" id="dotTp1"></div><div class="anchor-dot tp" id="dotTp2"></div><div class="anchor-dot tp" id="dotTp3"></div>
               </div>
             </div>
+            <section class="asc-structure-panel" id="ascStructurePanel" aria-label="Хронология касания, снятия, закрепления и структуры">
+              <div class="asc-structure-head">
+                <strong>ASCEND · КАСАНИЕ / SWEEP / BREAK / RETEST</strong>
+                <span id="ascStructureTime">Время: UTC · только закрытые свечи</span>
+              </div>
+              <div class="asc-structure-frames" id="ascStructureFrames"></div>
+              <div class="asc-structure-recent-head"><b>ПОСЛЕДНИЕ СОБЫТИЯ УРОВНЕЙ</b>
+                <small>1m · фиксируем время закрытия · до 4 часов истории</small></div>
+              <div class="asc-structure-events" id="ascStructureEvents"></div>
+              <p class="asc-structure-disclaimer">Касание ≠ снятие. SWEEP — тень за уровнем с возвратом к закрытию;
+                BREAK — закрытие за уровнем; ACCEPTANCE — два 1m закрытия подряд;
+                RECLAIM — возврат закрытием; дополнительный ACCEPT_5M — два полных 5m закрытия;
+                RETEST — новое касание после подтверждённого
+                перехода. Это исследовательские события, не ASCEND ENTRY_READY.
+                30m/15m задают контекст; 10m/5m/3m/1m — структуру, если есть данные.
+                Все времена UTC; неполные исторические окна помечаются отдельно.</p>
+            </section>
             <div class="entry-rsi-panel" id="entryRsiPanel">
               <div class="entry-rsi-head"><div><b>RSI 14</b><span id="rsiChartValue">—</span></div><span id="rsiChartState" class="neutral">NEUTRAL</span></div>
               <div class="entry-rsi-canvas">
@@ -1163,7 +1190,10 @@ function renderMajorPairMenu(asset){
 
 
 /* Liquidity-only chart mode; study data and trading decisions are preserved. */
-let liquidityZoneOverlay=null,latestLiquidityModel=null,liquiditySignature='';
+let liquidityZoneOverlay=null,latestLiquidityModel=null,latestLiquidityMeta={},
+  liquiditySignature='',latestStructureEvidence=null,structureEvidenceKey='';
+let structureEvidenceOn=true;
+try{structureEvidenceOn=localStorage.getItem('ascend_structure_research_v1')!=='off'}catch(_){}
 function ascendLiquidityDraw(){
   const model=latestLiquidityModel,layer=liquidityZoneOverlay;
   if(!layer||!state.chartReady)return;
@@ -1181,6 +1211,27 @@ function ascendLiquidityDraw(){
   const priceToY=p=>candles.priceToCoordinate(Number(p));
   window.AscendLiquidityMap.draw(ctx,{left:6,right:Math.max(6,w-70)},
     priceToY,model);
+  if(structureEvidenceOn&&latestStructureEvidence?.status==='READY'){
+    const tfSeconds={'1m':60,'5m':300,'10m':600,'15m':900,'30m':1800,
+      '1h':3600,'4h':14400,'1d':86400}[state.timeframe]||300;
+    const visible=latestStructureEvidence.recent.filter(e=>
+      ['SWEEP','BREAK','ACCEPTANCE','ACCEPT_5M','RECLAIM','RETEST'].includes(e.type)).slice(0,5);
+    ctx.save();ctx.font='800 10px system-ui,sans-serif';
+    for(const ev of visible){
+      const candleTime=Math.floor((ev.at-60)/tfSeconds)*tfSeconds;
+      const x=chart.timeScale().timeToCoordinate(candleTime),y=priceToY(ev.price);
+      if(!Number.isFinite(x)||!Number.isFinite(y)||x<12||x>w-95||y<25||y>h-38)continue;
+      const color=ev.dir==='LONG'?'#65e6b1':ev.dir==='SHORT'?'#f78da2':'#d3c2a0';
+      ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,3.3,0,Math.PI*2);ctx.fill();
+      if(ev.type==='TOUCH')continue;
+      const label=ev.key+' '+ev.type;
+      const tw=ctx.measureText(label).width+10,bx=Math.max(7,Math.min(w-tw-80,x+7));
+      const by=Math.max(16,Math.min(h-35,y-(ev.dir==='LONG'?20:8)));
+      ctx.fillStyle='rgba(3,18,29,.89)';ctx.fillRect(bx,by-12,tw,16);
+      ctx.fillStyle=color;ctx.fillText(label,bx+5,by);
+    }
+    ctx.restore();
+  }
 }
 function ascendLiquidityRender(){
   if(!state.chartReady||!window.AscendLiquidityMap)return;
@@ -1198,6 +1249,7 @@ function ascendLiquidityRender(){
   const price=Number(last.close);
   const levels=built?.levels||{};
   const meta=built?.meta||{};
+  latestLiquidityMeta=meta;
   const fullCandles=rows1.filter(c=>Number(c.time)+60<=asOf);
   latestLiquidityModel=built&&Number.isFinite(built.atr)?
     window.AscendLiquidityMap.build({
@@ -1273,6 +1325,95 @@ function renderAscendVwap(){
   badge.className=difference>0?'up':difference<0?'down':'';
 }
 
+function structureEvidenceTime(time){
+  if(!Number.isFinite(Number(time)))return '—';
+  return new Date(Number(time)*1000).toISOString().slice(5,16).replace('T',' ')+' UTC';
+}
+function structureEvidenceText(parent,tag,text,cls){
+  const el=document.createElement(tag);if(cls)el.className=cls;
+  el.textContent=String(text);parent.appendChild(el);return el;
+}
+function renderStructureEvidence(){
+  const button=$('ascendStructureToggle'),panel=$('ascStructurePanel'),
+    ribbon=$('ascStructureRibbon'),mini=$('ascStructureMini');
+  if(!button||!panel||!ribbon||!mini||!window.ASCEND_STRUCTURE_EVIDENCE)return;
+  button.setAttribute('aria-pressed',String(structureEvidenceOn));
+  button.textContent=structureEvidenceOn?'СТРУКТУРА · ON':'СТРУКТУРА · OFF';
+  panel.hidden=!structureEvidenceOn;ribbon.hidden=!structureEvidenceOn;
+  if(!structureEvidenceOn){
+    mini.textContent='Структура скрыта';latestStructureEvidence=null;
+    return;
+  }
+  const one=closed(state.tf['1m']||[]),fifteen=closed(state.tf['15m']||[]);
+  const last=one.at(-1),asOf=last?Number(last.time)+60:NaN;
+  const levels=latestLiquidityModel,meta=latestLiquidityMeta;
+  const staleFlag=Number.isFinite(asOf)&&Date.now()/1000-asOf>180;
+  const key=JSON.stringify([state.symbol,asOf,one[0]?.time,
+    fifteen.at(-1)?.time,levels?.asOf,levels?.all?.uppers?.length,
+    levels?.all?.lowers?.length,structureEvidenceOn,staleFlag]);
+  if(key===structureEvidenceKey)return;
+  structureEvidenceKey=key;
+  const report=window.ASCEND_STRUCTURE_EVIDENCE.analyze({
+    one,fifteen,asOf,wallClock:Date.now()/1000,levels,levelMeta:meta
+  });
+  latestStructureEvidence=report;
+  const header=$('ascStructureTime'),frames=$('ascStructureFrames'),events=$('ascStructureEvents');
+  header.textContent=structureEvidenceTime(report.asOf)+' · '
+    +(report.status==='STALE'?'ДАННЫЕ УСТАРЕЛИ':'по закрытым свечам');
+  frames.replaceChildren();events.replaceChildren();ribbon.replaceChildren();
+  structureEvidenceText(ribbon,'b','STRUCTURE RESEARCH');
+  if(!report.frames){
+    mini.textContent='Нет подтверждённых 1m';
+    structureEvidenceText(ribbon,'span',report.reason||'История недоступна');
+    structureEvidenceText(events,'span',report.reason||'Ожидаем свечи');
+    return;
+  }
+  const context=report.context,latest=report.recent[0];
+  mini.textContent='30m/15m '+context+(report.status==='STALE'?' · STALE':'');
+  const historyPartial=report.perLevel.some(x=>x.status==='PARTIAL');
+  const info=(latest?latest.key+' '+latest.type+' · '+structureEvidenceTime(latest.at):
+    'Пока нет наблюдаемых событий в загруженном окне')+
+    (historyPartial?' · история частичная':'');
+  structureEvidenceText(ribbon,'span','КОНТЕКСТ '+context+' · '+info);
+  structureEvidenceText(ribbon,'span',report.aligned?
+    'MTF совпали · RESEARCH, НЕ ENTRY':'MTF ожидает полной последовательности');
+  for(const tf of ['30m','15m','10m','5m','3m','1m']){
+    const frame=report.frames[tf],div=document.createElement('div');
+    div.className='asc-structure-frame '+(
+      frame.trend==='LONG'?'long':frame.trend==='SHORT'?'short':'mixed');
+    structureEvidenceText(div,'b',tf);
+    structureEvidenceText(div,'span',frame.trend);
+    structureEvidenceText(div,'small',frame.pattern);
+    const lastBreak=frame.events?.at(-1);
+    if(lastBreak)structureEvidenceText(div,'small',lastBreak.kind+' · '+
+      structureEvidenceTime(lastBreak.at));
+    frames.appendChild(div);
+  }
+  if(!report.recent.length){
+    structureEvidenceText(events,'span',report.reason||
+      'В загруженной 1m истории нет новых касаний/снятий.');
+  }else{
+    for(const e of report.recent){
+      const row=document.createElement('div');row.className='asc-structure-event';
+      structureEvidenceText(row,'span',structureEvidenceTime(e.at));
+      structureEvidenceText(row,'b',e.key);
+      structureEvidenceText(row,'span',e.type,e.dir==='LONG'?'up':
+        e.dir==='SHORT'?'down':'');
+      const detail=e.type==='SWEEP'?
+        'Глубина '+Number(e.depthPct||0).toFixed(2)+'%':
+        e.type==='RETEST'?'После '+(e.after||'закрепления'):
+        e.type==='ACCEPT_5M'?'Закрепление по 2 закрытым 5m свечам':
+        e.type==='ACCEPTANCE'?'Предварительно · 2 закрытые 1m':
+        e.type==='BREAK'?'Закрытие за уровнем':
+        e.type==='RECLAIM'?'Цена закрылась обратно за уровнем':
+        'Касание ATR-зоны';
+      structureEvidenceText(row,'span',detail+' · '+(
+        e.dir==='LONG'?'LONG контекст':e.dir==='SHORT'?'SHORT контекст':'наблюдение'));
+      events.appendChild(row);
+    }
+  }
+}
+
 function renderChart(){
   renderSessionUI();
   const r=closed(currentRows());if(!r.length||!state.chartReady)return;
@@ -1290,6 +1431,7 @@ function renderChart(){
   // Draw VWAP only on request. Project it onto existing candle timestamps.
   renderAscendVwap();
   ascendLiquidityRender();
+  renderStructureEvidence();
 }
 function scheduleOverlay(){if(overlayRaf)return;overlayRaf=requestAnimationFrame(()=>{overlayRaf=0;syncOverlay();ascendLiquidityDraw()})}
 function priceY(p){const y=candles.priceToCoordinate(Number(p));return Number.isFinite(y)?y:null}
@@ -1781,6 +1923,13 @@ $("sellBtn").addEventListener("click",()=>openManualPaper("SHORT"));
 $("paperCloseBtn").addEventListener("click",closeManualPaper);
 $("shadowTradeList").addEventListener("click",e=>{const b=e.target.closest("[data-shadow-close]");if(b)closeShadowById(b.dataset.shadowClose)});
 $("tfBar").addEventListener("click",e=>{const b=e.target.closest("[data-tf]");if(b)setTimeframe(b.dataset.tf)});
+$("ascendStructureToggle").addEventListener("click",()=>{
+  structureEvidenceOn=!structureEvidenceOn;structureEvidenceKey='';
+  try{localStorage.setItem('ascend_structure_research_v1',
+    structureEvidenceOn?'on':'off')}catch(_){}
+  renderStructureEvidence();
+  ascendLiquidityDraw();
+});
 $("ascendVwapToggle").addEventListener("click",()=>{
   ascendVwapVisible=!ascendVwapVisible;
   try{localStorage.setItem('ascend_vwap_chart_v1',ascendVwapVisible?'on':'off')}catch(_){}
@@ -2528,6 +2677,255 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
 })();
 </script>
 <!-- ASCEND_UI_V1_1_END -->
+<script>
+/* ASCEND Structure Evidence V1 — read-only, close-confirmed, no Core signal routing. */
+(function(root){
+  'use strict';
+  const DAY=86400,MINUTE=60;
+  const TFS=[['30m',1800],['15m',900],['10m',600],['5m',300],['3m',180],['1m',60]];
+  const finite=v=>Number.isFinite(Number(v));
+  function prepared(input,tf,asOf){
+    const sorted=(input||[]).filter(x=>finite(x.time)&&Number(x.time)+tf<=asOf)
+      .sort((a,b)=>Number(a.time)-Number(b.time));
+    if(!sorted.length)return [];
+    const bars=[];
+    for(const b of sorted){
+      const t=Number(b.time),o=Number(b.open),h=Number(b.high),
+        l=Number(b.low),c=Number(b.close);
+      if(![o,h,l,c].every(Number.isFinite)||l<=0||h<l||o<l||o>h||
+        c<l||c>h)continue;
+      if(bars.length&&t<=bars.at(-1).time)continue;
+      bars.push({time:t,open:o,high:h,low:l,close:c,volume:Number(b.volume)||0});
+    }
+    // Keep only the latest continuous segment; never bridge an OHLCV gap.
+    let begin=0;
+    for(let i=1;i<bars.length;i++)if(bars[i].time!==bars[i-1].time+tf)begin=i;
+    return bars.slice(begin);
+  }
+  function grouped(one,seconds,baseStep=60){
+    if(seconds===baseStep)return one;
+    const by=new Map(),out=[];
+    for(const b of one){
+      const time=Math.floor(b.time/seconds)*seconds;
+      if(!by.has(time))by.set(time,[]);
+      by.get(time).push(b);
+    }
+    for(const [t,g] of [...by].sort((a,b)=>a[0]-b[0])){
+      if(g.length!==seconds/baseStep||g.some((b,i)=>b.time!==t+i*baseStep))continue;
+      out.push({time:t,open:g[0].open,high:Math.max(...g.map(x=>x.high)),
+        low:Math.min(...g.map(x=>x.low)),close:g.at(-1).close,
+        volume:g.reduce((s,x)=>s+x.volume,0)});
+    }
+    return prepared(out,seconds,one.at(-1)?.time+baseStep||0);
+  }
+  function pivots(bars,seconds,wing=2){
+    const highs=[],lows=[];
+    for(let i=wing;i+wing<bars.length;i++){
+      const curr=bars[i],surround=bars.slice(i-wing,i).concat(bars.slice(i+1,i+wing+1));
+      const knownAt=bars[i+wing].time+seconds;
+      if(surround.every(x=>x.high<curr.high))
+        highs.push({price:curr.high,at:curr.time,knownAt});
+      if(surround.every(x=>x.low>curr.low))
+        lows.push({price:curr.low,at:curr.time,knownAt});
+    }
+    return {highs,lows};
+  }
+  function snapshot(bars,seconds,asOf){
+    if(bars.length<9)return {trend:'NODATA',pattern:'Недостаточно свечей',events:[],
+      count:bars.length};
+    const p=pivots(bars,seconds),highs=p.highs.filter(x=>x.knownAt<=asOf),
+      lows=p.lows.filter(x=>x.knownAt<=asOf);
+    const lastHigh=highs.at(-1),prevHigh=highs.at(-2),lastLow=lows.at(-1),prevLow=lows.at(-2);
+    const hi=lastHigh&&prevHigh?(lastHigh.price>prevHigh.price?'HH':
+      lastHigh.price<prevHigh.price?'LH':'EH'):'—';
+    const lo=lastLow&&prevLow?(lastLow.price>prevLow.price?'HL':
+      lastLow.price<prevLow.price?'LL':'EL'):'—';
+    const trend=hi==='HH'&&lo==='HL'?'LONG':hi==='LH'&&lo==='LL'?'SHORT':
+      lastHigh&&lastLow?'MIXED':'NODATA';
+    const events=[];
+    for(let i=1;i<bars.length;i++){
+      const b=bars[i],before=bars[i-1],end=b.time+seconds;
+      // A pivot is not tradable until ALL right-side confirming bars have closed.
+      const knownHigh=highs.filter(p=>p.knownAt<=b.time&&p.at<b.time).at(-1);
+      const knownLow=lows.filter(p=>p.knownAt<=b.time&&p.at<b.time).at(-1);
+      if(knownHigh&&before.close<=knownHigh.price&&b.close>knownHigh.price)
+        events.push({at:end,dir:'LONG',kind:'BREAK↑',level:knownHigh.price});
+      if(knownLow&&before.close>=knownLow.price&&b.close<knownLow.price)
+        events.push({at:end,dir:'SHORT',kind:'BREAK↓',level:knownLow.price});
+    }
+    return {trend,pattern:hi+' / '+lo,events:events.slice(-8),
+      lastHigh:lastHigh?.price,lastLow:lastLow?.price,count:bars.length};
+  }
+  function levelHistory(one,item,asOf){
+    if(!item||!finite(item.level)||Number(item.level)<=0)return null;
+    const side=item.side,level=Number(item.level);
+    const freezeAt=Number(item.freezeAt??item.frozenAt??0);
+    if(!freezeAt)return null;
+    const zone=item.zone||{low:level,high:level};
+    const tolLow=Number(zone.low),tolHigh=Number(zone.high);
+    const observed=one.filter(x=>x.time+60>freezeAt&&x.time+60<=asOf);
+    const incomplete=one.length>0&&one[0].time>freezeAt;
+    const events=[];let previousOutside=false,wasNear=false;
+    let outsideStreak=0,lastBreak=0,lastProbe=0,lastResolution=null,lastRetestAt=0;
+    let sweptExtreme=null;
+    for(const c of observed){
+      const t=c.time+MINUTE,upper=side==='upper',
+        penetrated=upper?c.high>level:c.low<level,
+        outside=upper?c.close>level:c.close<level,
+        inside=upper?c.close<=level:c.close>=level,
+        inZone=c.low<=tolHigh&&c.high>=tolLow;
+      if(inZone&&!wasNear){
+        events.push({type:'TOUCH',at:t,key:item.key,price:level,
+          depthPct:0,dir:null});
+      }
+      if(penetrated&&inside){
+        const extreme=upper?c.high:c.low;
+        const depthPct=Math.abs(extreme-level)/level*100;
+        if(!lastProbe||t-lastProbe>=180){
+          events.push({type:'SWEEP',at:t,key:item.key,price:level,
+            depthPct,extreme,dir:upper?'SHORT':'LONG'});
+          lastProbe=t;
+          sweptExtreme=extreme;
+          lastResolution={at:t,dir:upper?'SHORT':'LONG',type:'SWEEP'};
+        }else if(sweptExtreme!==null&&(upper?extreme>sweptExtreme:extreme<sweptExtreme)){
+          sweptExtreme=extreme;
+        }
+      }
+      if(outside&&!previousOutside){
+        events.push({type:'BREAK',at:t,key:item.key,price:level,
+          depthPct:Math.abs(c.close-level)/level*100,
+          dir:upper?'LONG':'SHORT'});
+        lastBreak=t;
+      }
+      outsideStreak=outside?outsideStreak+1:0;
+      if(outsideStreak===2&&lastBreak){
+        const dir=upper?'LONG':'SHORT';
+        events.push({type:'ACCEPTANCE',at:t,key:item.key,price:level,dir});
+        lastResolution={at:t,dir,type:'ACCEPTANCE'};
+      }
+      if(!outside&&previousOutside){
+        events.push({type:'RECLAIM',at:t,key:item.key,price:level,
+          dir:upper?'SHORT':'LONG'});
+        lastResolution={at:t,dir:upper?'SHORT':'LONG',type:'RECLAIM'};
+      }
+      // Retest requires a LATER bar after an accepted break or reclaim.
+      // Only count the first confirming touch for each resolution phase.
+      if(lastResolution&&t>lastResolution.at&&t>lastRetestAt&&inZone){
+        const confirms=lastResolution.dir==='LONG'?c.close>level:c.close<level;
+        if(confirms){
+          events.push({type:'RETEST',at:t,key:item.key,price:level,
+            dir:lastResolution.dir,after:lastResolution.type});
+          lastRetestAt=t;
+          lastResolution=null;
+        }
+      }
+      previousOutside=outside;wasNear=inZone;
+    }
+    // Stronger read-only acceptance tag, separate from provisional 1m 2-close state.
+    // Requires TWO full, contiguous 5m candles closing beyond a frozen level.
+    const five=grouped(one,300);
+    let fiveStreak=0;
+    for(const c of five){
+      const closeAt=c.time+300;
+      if(closeAt<=freezeAt||closeAt>asOf)continue;
+      const outside=side==='upper'?c.close>level:c.close<level;
+      fiveStreak=outside?fiveStreak+1:0;
+      if(fiveStreak===2&&events.some(e=>e.type==='BREAK'&&e.at<=closeAt))
+        events.push({type:'ACCEPT_5M',at:closeAt,key:item.key,price:level,
+          dir:side==='upper'?'LONG':'SHORT'});
+    }
+    events.sort((a,b)=>a.at-b.at);
+    return {key:item.key,side,level,freezeAt,
+      status:asOf<freezeAt?'LIVE':incomplete?'PARTIAL':'FROZEN',
+      events,latest:events.at(-1)||null,
+      historyStart:one[0]?.time??null};
+  }
+  function analyze(input){
+    const asOf=Number(input?.asOf);
+    if(!Number.isFinite(asOf)||!input)return {status:'NODATA',reason:'Нет закрытых минутных свечей'};
+    const one=prepared(input.one,60,asOf),fifteen=prepared(input.fifteen,900,asOf);
+    if(one.length<30)return {status:'NODATA',reason:'Недостаточно непрерывных 1m свечей',asOf};
+    const wallClock=Number(input.wallClock);
+    const stale=Number.isFinite(wallClock)&&wallClock-asOf>180;
+    // Trend is independent from liquidity availability and never reads an open bar.
+    const frames={};
+    for(const [name,seconds] of TFS){
+      const bars=seconds===1800?grouped(fifteen,1800,900):
+        seconds===900?fifteen:grouped(one,seconds);
+      frames[name]=snapshot(bars,seconds,asOf);
+    }
+    const items=(input.levels?.all?.uppers||[]).concat(input.levels?.all?.lowers||[]);
+    const perLevel=items.map(level=>levelHistory(one,{
+      ...level,freezeAt:input.levelMeta?.[level.key]?.freezeAt
+    },asOf)).filter(Boolean);
+    const recent=perLevel.flatMap(x=>x.events).sort((a,b)=>b.at-a.at).slice(0,14);
+    const context=frames['30m'].trend===frames['15m'].trend&&
+      ['LONG','SHORT'].includes(frames['30m'].trend)?frames['30m'].trend:'MIXED';
+    // Isolated BREAK↑/↓ is shown as structure evidence, not assumed CHOCH/BOS.
+    const ten=frames['10m'].events.at(-1)||null,
+      five=frames['5m'].events.at(-1)||null,
+      micro=frames['1m'].events.at(-1)||null;
+    const levelRetest=recent.find(x=>x.type==='RETEST')||null;
+    const direction=levelRetest?.dir||null;
+    const aligned=Boolean(direction&&context===direction&&ten?.dir===direction&&
+      five?.dir===direction&&micro?.dir===direction&&
+      ten.at<=five.at&&five.at<=micro.at&&
+      levelRetest.at<=micro.at);
+    return {status:stale?'STALE':'READY',asOf,frames,perLevel,
+      context,recent,ten,five,micro,levelRetest,aligned,
+      historyStart:one[0].time,
+      reason:items.length?'':'Нет замороженных уровней или недостаточно истории 15m'};
+  }
+  root.ASCEND_STRUCTURE_EVIDENCE=Object.freeze({analyze,pivots,snapshot,prepared,grouped,levelHistory});
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+
+<style>
+/* Structure Evidence: compact, opt-out, absolutely no trade signal routing. */
+.asc-structure-toggle{padding:0 9px;min-height:32px;border:1px solid #5c8a9d;
+ border-radius:6px;background:#153347;color:#bcecff;cursor:pointer;
+ font-size:10px;font-weight:900;white-space:nowrap}
+.asc-structure-toggle[aria-pressed="false"]{background:#111d28;border-color:#354f5b;color:#899fac}
+.asc-structure-mini{font:800 11px system-ui;color:#bed9eb;align-self:center}
+.asc-structure-ribbon{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;
+ padding:7px 12px;background:#082536;border-bottom:1px solid #205069;
+ color:#9ed0e6;font:700 11px system-ui}
+.asc-structure-ribbon b{font-weight:950;letter-spacing:.06em;color:#d3f5ff}
+.asc-structure-panel{padding:10px 13px 14px;background:#071c29;border-top:1px solid #24506b}
+.asc-structure-panel[hidden],.asc-structure-ribbon[hidden]{display:none!important}
+.asc-structure-head,.asc-structure-recent-head{display:flex;justify-content:space-between;
+ align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+.asc-structure-head strong{font-size:12px;color:#c7f0ff;letter-spacing:.02em}
+.asc-structure-head span,.asc-structure-recent-head small{color:#8eaaba;font-size:10px}
+.asc-structure-frames{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;margin-bottom:11px}
+.asc-structure-frame{padding:8px 7px;border:1px solid #2c5368;border-radius:5px;
+ background:#0d2a38;display:flex;flex-direction:column;gap:3px;min-width:0}
+.asc-structure-frame b{font-size:11px;color:#f0f7fa}
+.asc-structure-frame span{font-size:11px;color:#b5c8d1;font-weight:900}
+.asc-structure-frame small{font-size:10px;color:#89aeba;overflow-wrap:anywhere}
+.asc-structure-frame.long{border-left:3px solid #4bd7a4}.asc-structure-frame.long span{color:#6ee7bc}
+.asc-structure-frame.short{border-left:3px solid #e46d80}.asc-structure-frame.short span{color:#ff9aaa}
+.asc-structure-frame.mixed{border-left:3px solid #d0a85e}
+.asc-structure-recent-head{color:#d4e5f0;font-size:11px}
+.asc-structure-events{display:flex;flex-direction:column;gap:4px;max-height:205px;overflow:auto}
+.asc-structure-event{display:grid;grid-template-columns:120px 82px 110px 1fr;
+ gap:8px;align-items:center;border-bottom:1px solid #214252;padding:6px 5px;
+ font-variant-numeric:tabular-nums;font-size:11px;color:#adc9d5}
+.asc-structure-event b{color:#deedf5;font-size:11px}
+.asc-structure-event .up{color:#72e2b7}.asc-structure-event .down{color:#f8a2b2}
+.asc-structure-disclaimer{margin:9px 0 0;color:#93b0be;font-size:10px;line-height:1.55}
+body.asc-layout-focus #ascStructureRibbon{display:flex!important}
+@media(max-width:900px){
+ .asc-structure-frames{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .asc-structure-event{grid-template-columns:83px 75px 85px 1fr;font-size:10px}
+}
+@media(max-width:520px){
+ .asc-structure-frames{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .asc-structure-event{grid-template-columns:88px 80px 1fr}
+ .asc-structure-event>span:last-child{grid-column:1/-1}
+}
+</style>
 
 <style>
 /* ASCEND Workspace Layout V1 — only presentation classes, no chart remount. */
