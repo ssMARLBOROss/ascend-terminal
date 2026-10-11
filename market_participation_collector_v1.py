@@ -12,6 +12,7 @@ import os
 import time
 from typing import Any
 import websockets
+import httpx
 
 import market_participation_v1 as M
 
@@ -72,18 +73,52 @@ class Batch:
                 event_id=str(now)+":"+value,received_ms=now)
             if e:await self.push(e)
 
+async def seed_mexc_book(book:M.MexcBook)->bool:
+    if not book.symbol:return False
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            url="https://contract.mexc.com/api/v1/contract/depth/"+book.symbol[:-4]+"_USDT"
+            r=await client.get(url,params={"limit":100})
+            r.raise_for_status()
+            return book.seed(r.json())
+    except Exception as exc:
+        log.warning("MEXC BOOK REST resync %s: %s",book.symbol,exc)
+        book.reset()
+        return False
+
 async def mexc_reader(batch:Batch):
     delay=2
+    books={s+"USDT":M.MexcBook(s+"USDT") for s in SYMS}
+    last_reseed={}
     while True:
         try:
             async with websockets.connect(MEXC,ping_interval=20,
                ping_timeout=20,max_size=4_000_000) as ws:
                 for sym in SYMS:
-                    for method in ("sub.deal","sub.ticker"):
-                        await ws.send(json.dumps({"method":method,"param":{"symbol":sym+"_USDT"}}))
+                    for method in ("sub.deal","sub.ticker","sub.depth"):
+                        param={"symbol":sym+"_USDT"}
+                        if method=="sub.depth":param["compress"]=False
+                        await ws.send(json.dumps({"method":method,"param":param}))
+                for book in books.values():book.reset()
+                await asyncio.gather(*(seed_mexc_book(b) for b in books.values()))
                 await batch.state("MEXC","CONNECTED");delay=2
                 async for message in ws:
                     obj=json.loads(message)
+                    if obj.get("channel")=="push.depth":
+                        sym=M.norm_symbol(obj.get("symbol",""))
+                        book=books.get(sym)
+                        if book:
+                            book_event=book.apply(obj)
+                            if book_event:
+                                last=batch.last_book.get("MEXC:"+sym,0)
+                                if book_event["exchange_ts_ms"]-last>=10000:
+                                    batch.last_book["MEXC:"+sym]=book_event["exchange_ts_ms"]
+                                    await batch.push(book_event)
+                            elif book.version is None:
+                                now=time.monotonic()
+                                if now-last_reseed.get(sym,0)>=10:
+                                    last_reseed[sym]=now
+                                    await seed_mexc_book(book)
                     events=M.parse_mexc(obj)
                     for e in events:
                         if e["kind"]=="TRADE":await batch.add_trade(e)
@@ -95,6 +130,7 @@ async def mexc_reader(batch:Batch):
         except asyncio.CancelledError:raise
         except Exception as exc:log.warning("MEXC WS reconnect: %s",exc)
         await batch.state("MEXC","DISCONNECTED")
+        for book in books.values():book.reset()
         await asyncio.sleep(delay);delay=min(90,delay*2)
 
 async def bybit_reader(batch:Batch):
