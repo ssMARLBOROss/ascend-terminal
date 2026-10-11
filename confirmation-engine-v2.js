@@ -245,6 +245,21 @@
         ' · R:R '+plan.rr.toFixed(2)},plan.rr>=2?'CONFIRMED':'WAIT');
     if(!contextOk||plan.rr<2)return {...choice,plan,
       reason:!contextOk?'Контекст 30m/15m не согласован':'R:R < 1:2'};
+    // A historical confirmation is NOT a current entry: stop/target hits
+    // after the 1m trigger invalidate further readiness.
+    const after=one.filter(b=>b.time+60>micro.at&&b.time+60<=asOf);
+    const stopHit=after.find(b=>side==='LONG'?b.low<=plan.stop:b.high>=plan.stop);
+    const targetHit=after.find(b=>side==='LONG'?b.high>=plan.target:b.low<=plan.target);
+    if(stopHit||targetHit){
+      const exit=stopHit&&targetHit?
+        (stopHit.time<=targetHit.time?stopHit:targetHit):stopHit||targetHit;
+      update('risk',{at:exit.time+60,level:stopHit===exit?plan.stop:plan.target,
+        price:exit.close,note:stopHit===exit?
+          'После входа достигнут structural SL':'Следующая цель уже достигнута'},
+        'INVALIDATED');
+      return {...choice,plan,status:'INVALIDATED',
+        reason:stopHit===exit?'Structural SL нарушен':'Цель достигнута · новый вход запрещён'};
+    }
     return {...choice,plan,status:'CONFIRMED',ready:true,
       reason:'Семь условий V2 подтверждены · только исследовательский сигнал'};
   }
