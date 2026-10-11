@@ -488,11 +488,18 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
             <div class="pressure-row"><span>VOL ×</span><b id="pSessionVol">—</b></div>
             <div class="pressure-row"><span>Session Fuel</span><b id="pSessionFuel">—</b></div>
           </div></article>
-          <article class="pressure-card partial" data-pressure-card="macro"><button class="pressure-head" type="button"><strong>3. MACRO / CROSS-MARKET</strong><span class="score nodata" id="pMacroScore">NO DATA</span><span class="chev">▾</span></button><div class="pressure-body">
-            <div class="pressure-row"><span>Nasdaq / S&P 500</span><b class="nodata">не подключено</b></div>
-            <div class="pressure-row"><span>DXY / US yields</span><b class="nodata">не подключено</b></div>
-            <div class="pressure-row"><span>Gold / Oil</span><b class="nodata">не подключено</b></div>
-            <div class="pressure-note">Блок готов под реальные источники; значения не подменяются оценками.</div>
+          <article class="pressure-card partial" data-pressure-card="macro"><button class="pressure-head" type="button"><strong>3. MACRO / CROSS-MARKET</strong><span class="score nodata" id="pMacroScore">CRYPTO · WAIT</span><span class="chev">▾</span></button><div class="pressure-body">
+            <div class="pressure-row"><span>BTC · 5m / дневной VWAP</span><b id="pMacroBTC" class="nodata">ожидаем MEXC</b></div>
+            <div class="pressure-row"><span>ETH · 5m / дневной VWAP</span><b id="pMacroETH" class="nodata">ожидаем MEXC</b></div>
+            <div class="pressure-row"><span>SOL · 5m / дневной VWAP</span><b id="pMacroSOL" class="nodata">ожидаем MEXC</b></div>
+            <div class="pressure-row"><span>Радар: LONG / SHORT / NEUTRAL</span><b id="pMacroBreadth" class="nodata">ожидаем</b></div>
+            <div class="pressure-row"><span>Согласованность лидеров</span><b id="pMacroAgreement" class="nodata">—</b></div>
+            <div class="pressure-row"><span>Закрытые свечи</span><b id="pMacroTime" class="nodata">—</b></div>
+            <div class="pressure-note" id="pMacroExplanation">CRYPTO CONTEXT · BTC 45% / ETH 35% / SOL 20%. Источники загружаются только при открытой карточке.</div>
+            <div class="pressure-row"><span>Nasdaq / S&amp;P 500</span><b class="nodata">NO DATA</b></div>
+            <div class="pressure-row"><span>DXY / US yields</span><b class="nodata">NO DATA</b></div>
+            <div class="pressure-row"><span>Gold / Oil</span><b class="nodata">NO DATA</b></div>
+            <div class="pressure-note">TradFi-макроисточники ещё не подключены. Криптоиндекс — исследовательский контекст, не команда ENTRY_READY.</div>
           </div></article>
           <article class="pressure-card partial" data-pressure-card="news"><button class="pressure-head" type="button"><strong>4. NEWS / EVENTS</strong><span class="score nodata" id="pNewsScore">—</span><span class="chev">▾</span></button><div class="pressure-body">
             <div class="pressure-row"><span>HIGH событий</span><b id="pNewsHigh">—</b></div>
@@ -1992,6 +1999,235 @@ loadJournal();loadPaper();initChart();initPressureCards();const activeView=apply
 (async()=>{await loadUniverse();await loadMarket(true);if(activeView==="signals"||activeView==="market")loadCandidates();loadNews()})();
 setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();if(v==="signals"||v==="market")loadCandidates();refreshPaperTrades()},20000);setInterval(loadNews,300000);
 </script>
+
+<script>
+/* ASCEND Cross-Market Crypto Context V1; read-only research, no signal gating. */
+(function(root){
+'use strict';
+const DAY=86400,STEP=300;
+const MAJORS=['BTC_USDT','ETH_USDT','SOL_USDT'];
+const weights={BTC_USDT:.45,ETH_USDT:.35,SOL_USDT:.20};
+const sign=n=>n>0?1:n<0?-1:0;
+function barsClosed(source,asOf){
+  if(!Number.isFinite(asOf)||!Array.isArray(source))return [];
+  const bars=source.filter(x=>Number.isFinite(Number(x.time))&&
+     Number(x.time)+STEP<=asOf)
+     .map(x=>({time:Number(x.time),open:Number(x.open),high:Number(x.high),
+        low:Number(x.low),close:Number(x.close),volume:Number(x.volume)}))
+     .filter(x=>[x.time,x.open,x.high,x.low,x.close,x.volume].every(Number.isFinite)&&
+       x.low>0&&x.high>=x.low&&x.open>=x.low&&x.open<=x.high&&
+       x.close>=x.low&&x.close<=x.high&&x.volume>=0)
+     .sort((a,b)=>a.time-b.time);
+  const dedup=[];
+  for(const b of bars)if(!dedup.length||b.time>dedup.at(-1).time)dedup.push(b);
+  let start=0;
+  for(let i=1;i<dedup.length;i++)
+    if(dedup[i].time-dedup[i-1].time!==STEP)start=i;
+  return dedup.slice(start);
+}
+function pivots(bars){
+  const hi=[],lo=[];
+  for(let i=2;i<bars.length-2;i++){
+    const c=bars[i],near=bars.slice(i-2,i).concat(bars.slice(i+1,i+3));
+    if(near.every(b=>b.high<c.high))hi.push({p:c.high,at:bars[i+2].time+STEP});
+    if(near.every(b=>b.low>c.low))lo.push({p:c.low,at:bars[i+2].time+STEP});
+  }
+  return {hi,lo};
+}
+function leader(symbol,source,now){
+  const asOf=Math.floor(now/STEP)*STEP;
+  const rows=barsClosed(source,asOf);
+  const latest=rows.at(-1);
+  if(!latest||asOf-latest.time-STEP>2*STEP||rows.length<18)
+    return {symbol,status:'NODATA',reason:'История 5m неполная или устарела'};
+  const today=Math.floor(latest.time/DAY)*DAY;
+  const day=rows.filter(x=>x.time>=today);
+  if(!day.length||day[0].time!==today||
+    day.some((b,i)=>b.time!==today+i*STEP))
+    return {symbol,status:'NODATA',reason:'Нет непрерывной истории с 00:00 UTC'};
+  let totalPV=0,totalVol=0;
+  for(const b of day){const typical=(b.high+b.low+b.close)/3;
+    totalPV+=typical*b.volume;totalVol+=b.volume;}
+  if(totalVol<=0)return {symbol,status:'NODATA',reason:'Отсутствует дневной объём'};
+  const vwap=totalPV/totalVol;
+  const price=latest.close,above=(price/vwap-1)*100;
+  const impulse=rows.length>=13?(price/rows.at(-13).close-1)*100:null;
+  const tail=rows.slice(-20),meanVol=tail.length===20?
+    tail.reduce((s,b)=>s+b.volume,0)/20:0;
+  const volx=meanVol>0?latest.volume/meanVol:null;
+  const p=pivots(rows);
+  const highs=p.hi.slice(-2),lows=p.lo.slice(-2);
+  const shape=highs.length===2&&lows.length===2?
+    (highs[1].p>highs[0].p&&lows[1].p>lows[0].p?'HH/HL':
+    highs[1].p<highs[0].p&&lows[1].p<lows[0].p?'LH/LL':'MIXED'):
+    'UNCONFIRMED';
+  const trend=shape==='HH/HL'?'LONG':shape==='LH/LL'?'SHORT':'NEUTRAL';
+  const momentum=impulse===null?0:Math.abs(impulse)<.10?0:sign(impulse);
+  const vwapSide=Math.abs(above)<.05?0:sign(above);
+  const volumeSupport=volx!==null&&volx>=1.8?momentum:0;
+  const score=(trend==='LONG'?40:trend==='SHORT'?-40:0)+
+    vwapSide*25+momentum*20+volumeSupport*15;
+  return {symbol,status:'READY',price,vwap,above,impulse,volx,trend,shape,
+    score,asOf:latest.time+STEP,source:'MEXC futures 5m OHLCV'};
+}
+function breadthScore(raw){
+  if(!raw||raw.source==='fallback'||raw.running===false)
+    return {status:'NODATA',reason:'Radar breadth не подтверждён'};
+  const long=Number(raw.long),short=Number(raw.short),neutral=Number(raw.neutral),
+    available=Number(raw.available);
+  if(![long,short,neutral,available].every(Number.isFinite)||
+    Math.min(long,short,neutral)<0||available<=0||
+    long+short+neutral!==available)
+    return {status:'NODATA',reason:'Не совпадает выборка breadth'};
+  const pressure=(long-short)/available*100;
+  return {status:'READY',long,short,neutral,total:available,pressure,
+    source:'ASCEND reversal radar snapshot',cycle:raw.cycle??null};
+}
+function aggregate(leaders,rawBreadth){
+  const valid=MAJORS.map(n=>leaders[n]).filter(x=>x?.status==='READY');
+  const breadth=breadthScore(rawBreadth);
+  if(valid.length!==3)
+    return {status:'PARTIAL',leaders,breadth,score:null,conflict:false,
+      detail:'Для Cross-Market нужны свежие BTC · ETH · SOL (5m)'};
+  const majors=valid.reduce((sum,row)=>sum+row.score*weights[row.symbol],0);
+  const withBreadth=breadth.status==='READY'?
+    Math.round(majors*.8+breadth.pressure*.2):Math.round(majors);
+  const directions=valid.map(x=>x.score>8?'LONG':x.score< -8?'SHORT':'NEUTRAL');
+  const longs=directions.filter(x=>x==='LONG').length,
+    shorts=directions.filter(x=>x==='SHORT').length;
+  const divergent=longs>0&&shorts>0;
+  const contradicts=breadth.status==='READY'&&
+    Math.abs(breadth.pressure)>=20&&Math.abs(majors)>=20&&
+    sign(breadth.pressure)!==sign(majors);
+  const conflict=divergent||contradicts;
+  const score=Math.min(100,Math.max(-100,withBreadth));
+  const direction=score>15?'LONG':score< -15?'SHORT':'NEUTRAL';
+  return {status:breadth.status==='READY'?'READY':'PARTIAL',leaders,breadth,
+    score,direction,conflict,
+    detail:conflict?'MARKET CONFLICT':
+      'Crypto context · '+(breadth.status==='READY'?'BTC/ETH/SOL + radar breadth':'BTC/ETH/SOL only'),
+    weights,asOf:Math.min(...valid.map(x=>x.asOf))};
+}
+root.ASCEND_CROSS_MARKET=Object.freeze({leader,aggregate,breadthScore,barsClosed});
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<script>
+/* Cross-market UI V1: throttled only while Market and Macro card are visible. */
+(function(root){
+'use strict';
+const symbols=['BTC_USDT','ETH_USDT','SOL_USDT'];
+let cached={},updatedAt=0,busy=false,controller=null,previousBreadthKey='';
+const get=id=>document.getElementById(id);
+function show(id,value,tone=''){
+  const el=get(id);if(el){el.textContent=value;el.className=tone;}
+}
+function signed(n){return (n>0?'+':'')+Number(n).toFixed(0)}
+function tone(n){return n>8?'long':n< -8?'short':'neutral'}
+function eligible(){
+  const card=document.querySelector('[data-pressure-card="macro"]');
+  return card&&!card.classList.contains('collapsed')&&
+    !document.hidden&&document.body.dataset.view==='market';
+}
+function status(){
+  if(!root.ASCEND_CROSS_MARKET)return;
+  const current=Date.now();
+  const freshness=updatedAt>0&&current-updatedAt<180000;
+  const input=freshness?cached:{};
+  const context=root.ASCEND_CROSS_MARKET.aggregate(input,
+    typeof state!=='undefined'?state.breadth:null);
+  const complete=context.score!==null&&context.score!==undefined;
+  show('pMacroScore',complete?
+    (context.conflict?'CONFLICT · ':'')+signed(context.score)+' '+context.direction:
+    'CRYPTO · WAIT',!complete?'nodata':context.conflict?'risk':tone(context.score));
+  for(const [symbol,id] of [['BTC_USDT','pMacroBTC'],['ETH_USDT','pMacroETH'],['SOL_USDT','pMacroSOL']]){
+    const item=context.leaders[symbol];
+    if(!item||item.status!=='READY'){show(id,'NO DATA · '+(item?.reason||'ожидаем 5m'),'nodata');continue;}
+    show(id,item.shape+' · '+signed(item.score)+' · VWAP '+
+      (item.above>0?'+':'')+item.above.toFixed(2)+'% · Δ1h '+
+      (item.impulse===null?'—':(item.impulse>0?'+':'')+item.impulse.toFixed(2)+'%'),
+      tone(item.score));
+  }
+  const b=context.breadth;
+  show('pMacroBreadth',b.status==='READY'?
+    'L '+b.long+' · S '+b.short+' · N '+b.neutral+
+    ' / '+b.total+' · '+signed(b.pressure)+'%':
+    'NO DATA · '+b.reason,b.status==='READY'?tone(b.pressure):'nodata');
+  show('pMacroAgreement',complete?(context.conflict?'MARKET CONFLICT':
+    context.direction+' · '+context.detail):
+    'WAIT · нет трёх свежих лидеров',complete?(context.conflict?'risk':tone(context.score)):'nodata');
+  show('pMacroTime',complete?new Date(context.asOf*1000).toISOString().slice(5,16).replace('T',' ')+' UTC':'—',complete?'':'nodata');
+  const note=get('pMacroExplanation');
+  if(note)note.textContent=complete?
+    'CRYPTO CONTEXT (не макро): BTC 45%, ETH 35%, SOL 20%. '+
+    (b.status==='READY'?'Breadth радара добавлен с весом 20%. ':
+      'Breadth не подтверждён — оценка только BTC/ETH/SOL. ')+
+    '5m HH/HL, дневной VWAP UTC, Δ1h и объём. Эвристика, НЕ ENTRY_READY.':
+    'Подключаем BTC, ETH, SOL из MEXC 5m только при открытой карточке. Отсутствие данных блокирует оценку, не торговлю.';
+}
+async function refresh(force=false){
+  if(!root.ASCEND_CROSS_MARKET||!eligible()||busy)return;
+  if(!force&&updatedAt&&Date.now()-updatedAt<110000){status();return;}
+  busy=true;
+  const ac=new AbortController();controller=ac;
+  const next={};
+  try{
+    const req=await Promise.allSettled(symbols.map(async symbol=>{
+      if(typeof state!=='undefined'&&symbol===state.symbol&&
+        Array.isArray(state.tf['5m'])&&state.tf['5m'].length>=18)
+        return state.tf['5m'];
+      const res=await fetch('/api/v2/klines?symbol='+encodeURIComponent(symbol)+
+        '&timeframe=5m&limit=320',{signal:ac.signal,cache:'no-store'});
+      if(!res.ok)throw Error('HTTP '+res.status);
+      const json=await res.json();
+      if(json.symbol!==symbol||!Array.isArray(json.candles))
+        throw Error('Неверный контракт MEXC');
+      return json.candles;
+    }));
+    if(ac.signal.aborted)return;
+    const now=Date.now()/1000;
+    req.forEach((r,i)=>{
+      const symbol=symbols[i];
+      next[symbol]=r.status==='fulfilled'?
+        root.ASCEND_CROSS_MARKET.leader(symbol,r.value,now):
+        {symbol,status:'NODATA',reason:'API MEXC недоступен'};
+    });
+    cached=next;updatedAt=Date.now();
+    status();
+  }catch(err){
+    if(!ac.signal.aborted)console.warn('Cross-Market data:',err);
+  }finally{
+    if(controller===ac)controller=null;
+    busy=false;
+  }
+}
+function start(){
+  const card=document.querySelector('[data-pressure-card="macro"]');
+  if(!card)return;
+  card.querySelector('.pressure-head')?.addEventListener('click',()=>{
+    // Original card handler is installed earlier; this executes afterwards.
+    if(eligible())refresh();
+    else if(controller)controller.abort();
+  });
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){if(controller)controller.abort();}
+    else refresh();
+  });
+  // Only one low-frequency timer; no WebSocket, no chart redraw.
+  setInterval(()=>{if(eligible())refresh();},120000);
+  setTimeout(refresh,2200);
+}
+root.ASCEND_CROSS_MARKET_UI=Object.freeze({status,refresh});
+start();
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<style>
+[data-pressure-card="macro"] .pressure-body>.pressure-row{gap:10px}
+[data-pressure-card="macro"] .pressure-row b{font-size:11px;overflow-wrap:anywhere;min-width:0;text-align:right;font-variant-numeric:tabular-nums}
+[data-pressure-card="macro"] .pressure-note{line-height:1.5}
+@media(max-width:650px){[data-pressure-card="macro"] .pressure-row{
+  align-items:flex-start;flex-direction:column;gap:3px
+}[data-pressure-card="macro"] .pressure-row b{text-align:left}}
+</style>
 
 <!-- ASCEND_RADAR_UI_V4_START -->
 <style>
