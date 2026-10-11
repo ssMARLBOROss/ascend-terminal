@@ -476,10 +476,16 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
           <article class="pressure-card" data-pressure-card="capital"><button class="pressure-head" type="button"><strong>1. CAPITAL / FLOW</strong><span class="score neutral" id="pCapitalScore">—</span><span class="chev">▾</span></button><div class="pressure-body">
             <div class="pressure-row"><span>Market breadth</span><b id="pCapitalBreadth">—</b></div>
             <div class="pressure-row"><span>Объём выбранной монеты</span><b id="pCapitalVolume">—</b></div>
-            <div class="pressure-row"><span>Spot vs Futures</span><b class="nodata">NO DATA</b></div>
-            <div class="pressure-row"><span>CVD / Taker Buy-Sell</span><b class="nodata">NO DATA</b></div>
-            <div class="pressure-row"><span>OI / Funding / Liquidations</span><b class="nodata">NO DATA</b></div>
-            <div class="pressure-note">PARTIAL: пока считаем только из реально подключённых данных, без имитации OI/CVD.</div>
+            <div class="pressure-row"><span>Spot · оборот 24ч</span><b id="pCapitalSpot" class="nodata">Ожидание MEXC</b></div>
+            <div class="pressure-row"><span>Futures · оборот 24ч</span><b id="pCapitalFutures" class="nodata">Ожидание MEXC</b></div>
+            <div class="pressure-row"><span>Futures / Spot · оборот</span><b id="pCapitalSpotRatio" class="nodata">Ожидание MEXC</b></div>
+            <div class="pressure-row"><span>Taker BUY / SELL · последние сделки</span><b id="pCapitalTradeDelta" class="nodata">Ожидание MEXC</b></div>
+            <div class="pressure-row"><span>CVD · полный накопленный поток</span><b id="pCapitalCVD" class="nodata">NO DATA</b></div>
+            <div class="pressure-row"><span>Open Interest · контракты</span><b id="pCapitalOI" class="nodata">Ожидание MEXC</b></div>
+            <div class="pressure-row"><span>Funding rate</span><b id="pCapitalFunding" class="nodata">Ожидание MEXC</b></div>
+            <div class="pressure-row"><span>Liquidations · фактические</span><b id="pCapitalLiquidations" class="nodata">NO DATA</b></div>
+            <div class="pressure-note" id="pCapitalSample">Снимок последних 100 сделок · не полный CVD</div>
+            <div class="pressure-note" id="pCapitalObservationTime">PARTIAL: OI в контрактах, не USDT; ликвидации не имитируются.</div>
           </div></article>
           <article class="pressure-card" data-pressure-card="sessions"><button class="pressure-head" type="button"><strong>2. SESSIONS</strong><span class="score neutral" id="pSessionScore">—</span><span class="chev">▾</span></button><div class="pressure-body">
             <div class="pressure-row"><span>Активная / новая</span><b id="pSessionName">—</b></div>
@@ -1837,7 +1843,7 @@ async function loadMarket(full){
     if(res[4].status==="fulfilled")state.volumeProfile=res[4].value;
     if(res[5].status==="fulfilled")state.breadth=res[5].value;
     if(needHtf){if(res[6]?.status==="fulfilled")state.tf["1h"]=res[6].value.candles||[];if(res[7]?.status==="fulfilled")state.tf["4h"]=res[7].value.candles||[];if(res[8]?.status==="fulfilled")state.tf["1d"]=res[8].value.candles||[];state.htfAt=now}
-    $("pairTop").textContent=s.replace("_","/");$("coinBadge").textContent=s[0];$("sideSymbol").textContent=s.split("_")[0];updatePrices();const pt=activePaper(s);if(pt)managePaperTrade(pt,Number(state.ticker?.last_price));renderVolume();renderBreadth();renderStructure();renderChart();renderBaseChecks();applyNewsMarkers();setLive("LIVE · "+((res.filter(x=>x.status==="fulfilled").length)+"/"+res.length),"#18e889")
+    $("pairTop").textContent=s.replace("_","/");$("coinBadge").textContent=s[0];$("sideSymbol").textContent=s.split("_")[0];updatePrices();const pt=activePaper(s);if(pt)managePaperTrade(pt,Number(state.ticker?.last_price));renderVolume();renderBreadth();renderStructure();renderChart();renderBaseChecks();applyNewsMarkers();window.ASCEND_CAPITAL_FLOW_UI?.refresh();setLive("LIVE · "+((res.filter(x=>x.status==="fulfilled").length)+"/"+res.length),"#18e889")
   }catch(e){if(requestSeq===state.marketRequestSeq){console.error(e);setLive("PARTIAL DATA","#ffc64d")}}finally{if(requestSeq===state.marketRequestSeq)state.refreshBusy=false}
 }
 function setLive(text,color){const e=$("live");e.style.color=color;e.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 16px '+color+'"></span> '+text}
@@ -2453,6 +2459,134 @@ start();
   color:#b4d4e0;padding:4px;border-bottom:1px solid #23414e}
 </style>
 
+<script>
+/* ASCEND Capital Flow V1: view-only MEXC samples. Never feeds the trading Core. */
+(function(root){
+'use strict';
+const get=id=>document.getElementById(id);
+let activeSymbol='',updatedAt=0,current=null,controller=null,busy=false;
+function visible(){
+ const card=document.querySelector('[data-pressure-card="capital"]');
+ return !!card&&!card.classList.contains('collapsed')&&!document.hidden&&
+   document.body.dataset.view==='market';
+}
+function put(id,message,kind='nodata'){
+ const target=get(id);if(!target)return;
+ target.textContent=message;target.className=kind;
+}
+function fmt(x){
+ if(!Number.isFinite(Number(x)))return '—';
+ const n=Number(x),a=Math.abs(n);
+ return (n<0?'-':'')+(a>=1e9?(a/1e9).toFixed(2)+'B':
+   a>=1e6?(a/1e6).toFixed(2)+'M':
+   a>=1e3?(a/1e3).toFixed(2)+'K':
+   a.toLocaleString('en-US',{maximumFractionDigits:3}));
+}
+function direction(x){return x>0?'long':x<0?'short':'neutral'}
+function reset(){
+ const pending=['pCapitalSpot','pCapitalFutures','pCapitalSpotRatio',
+   'pCapitalTradeDelta','pCapitalOI','pCapitalFunding'];
+ for(const id of pending)put(id,'Ожидание MEXC');
+ put('pCapitalCVD','NO DATA · нужна непрерывная лента');
+ put('pCapitalLiquidations','NO DATA · нет подтверждённого потока');
+ put('pCapitalSample','Последние сделки, не полный CVD');
+}
+function render(){
+ if(!visible())return;
+ if(!current||current.symbol!==activeSymbol||Date.now()-updatedAt>90000){
+   reset();return;
+ }
+ const spot=current.spot||{},fut=current.futures||{},deals=current.recent_trades||{};
+ put('pCapitalSpot',spot.status==='READY'?
+   fmt(spot.quote_turnover_24h_usdt)+' USDT · 24ч':'NO DATA · '+(spot.reason||'нет spot котировок'),
+   spot.status==='READY'?'neutral':'nodata');
+ put('pCapitalFutures',fut.turnover_24h_usdt!==null&&Number.isFinite(fut.turnover_24h_usdt)?
+   fmt(fut.turnover_24h_usdt)+' USDT · 24ч':'NO DATA · нет turnover',
+   fut.turnover_24h_usdt!==null?'neutral':'nodata');
+ put('pCapitalSpotRatio',Number.isFinite(current.futures_to_spot_turnover_ratio)?
+   current.futures_to_spot_turnover_ratio.toFixed(2)+'× · Futures / Spot':
+   'NO DATA · объёмы несопоставимы',
+   Number.isFinite(current.futures_to_spot_turnover_ratio)?'neutral':'nodata');
+ if(deals.status==='READY'){
+   const delta=Number(deals.sample_delta_contracts);
+   put('pCapitalTradeDelta','BUY '+fmt(deals.buy_contracts)+' / SELL '+
+     fmt(deals.sell_contracts)+' · Δ '+(delta>0?'+':'')+fmt(delta)+' контр.',direction(delta));
+   put('pCapitalSample',deals.trade_count+' последних сделок · '+
+     deals.sample_window_sec.toFixed(1)+' сек · MEXC Futures','neutral');
+ }else{
+   put('pCapitalTradeDelta','NO DATA · '+(deals.reason||'нет сделок'));
+   put('pCapitalSample','Выборка сделок недоступна');
+ }
+ put('pCapitalCVD','NO DATA · нужен непрерывный поток сделок');
+ put('pCapitalOI',fut.open_interest_contracts!==null&&
+   Number.isFinite(fut.open_interest_contracts)?
+   fmt(fut.open_interest_contracts)+' контр. · ΔOI не рассчитан':
+   'NO DATA · нет OI',fut.open_interest_contracts!==null?'neutral':'nodata');
+ put('pCapitalFunding',fut.funding_pct!==null&&Number.isFinite(fut.funding_pct)?
+   (fut.funding_pct>0?'+':'')+fut.funding_pct.toFixed(4)+'% · MEXC':
+   'NO DATA · нет funding',fut.funding_pct!==null?direction(fut.funding_pct):'nodata');
+ put('pCapitalLiquidations','NO DATA · нет подтверждённого потока');
+ const stamp=get('pCapitalObservationTime');
+ if(stamp)stamp.textContent='MEXC · '+new Date(current.as_of_ms).toISOString().slice(11,19)+
+   ' UTC · выборка не является полной историей потока';
+}
+async function refresh(force=false){
+ if(!visible())return;
+ const symbol=typeof state==='undefined'?null:state.symbol;
+ if(!symbol)return;
+ if(controller&&activeSymbol!==symbol)controller.abort();
+ if(busy)return;
+ if(!force&&activeSymbol===symbol&&Date.now()-updatedAt<30000){
+   render();return;
+ }
+ activeSymbol=symbol;reset();
+ const ac=new AbortController();controller=ac;busy=true;
+ try{
+   const r=await fetch('/api/v2/capital-flow?symbol='+encodeURIComponent(symbol),
+     {signal:ac.signal,cache:'no-store',headers:{Accept:'application/json'}});
+   if(!r.ok)throw Error('HTTP '+r.status);
+   const data=await r.json();
+   if(ac.signal.aborted||data.symbol!==symbol||state.symbol!==symbol)return;
+   current=data;updatedAt=Date.now();render();
+ }catch(err){
+   if(!ac.signal.aborted){
+     current=null;updatedAt=Date.now();
+     put('pCapitalSample','Данные недоступны · '+String(err).slice(0,55));
+   }
+ }finally{
+   if(controller===ac)controller=null;
+   busy=false;
+ }
+}
+function start(){
+ const card=document.querySelector('[data-pressure-card="capital"]');
+ if(!card)return;
+ card.querySelector('.pressure-head')?.addEventListener('click',()=>{
+   if(!visible()&&controller)controller.abort();
+   else setTimeout(()=>refresh(true),0);
+ });
+ document.addEventListener('visibilitychange',()=>{
+   if(document.hidden&&controller)controller.abort();
+   if(!document.hidden)refresh();
+ });
+ setInterval(()=>{if(visible())refresh();},30000);
+ setTimeout(()=>refresh(),1600);
+}
+root.ASCEND_CAPITAL_FLOW_UI=Object.freeze({refresh,render});
+start();
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<style>
+[data-pressure-card="capital"] .pressure-body .pressure-row{gap:12px}
+[data-pressure-card="capital"] .pressure-body .pressure-row b{font-size:11px;
+  min-width:0;max-width:63%;text-align:right;overflow-wrap:anywhere;
+  font-variant-numeric:tabular-nums}
+[data-pressure-card="capital"] #pCapitalSample,#pCapitalObservationTime{font-size:10px;color:#90b7c8}
+@media(max-width:680px){[data-pressure-card="capital"] .pressure-body .pressure-row{
+ flex-wrap:wrap;gap:4px}
+[data-pressure-card="capital"] .pressure-body .pressure-row b{
+ max-width:100%;text-align:left}}
+</style>
 <!-- ASCEND_RADAR_UI_V4_START -->
 <style>
   /* ASCEND RADAR UI V4 · intentionally restrained */
