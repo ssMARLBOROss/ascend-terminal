@@ -158,9 +158,13 @@ def _yahoo_rows(payload: Any, now: datetime) -> list[tuple[str, float]]:
             return []
         out = {}
         for ts, price in zip(dates, closes):
-            value = float(price)
-            date = datetime.fromtimestamp(int(ts), timezone.utc).date()
-            if math.isfinite(value) and value > 0 and date <= now.date():
+            try:
+                value = float(price)
+                date = datetime.fromtimestamp(int(ts), timezone.utc).date()
+            except (TypeError, ValueError, OverflowError, OSError):
+                continue
+            # Today's daily Yahoo bar may still be forming. Only PRIOR UTC dates.
+            if math.isfinite(value) and value > 0 and date < now.date():
                 out[date.isoformat()] = value
         return sorted(out.items())
     except (TypeError, ValueError, KeyError, IndexError, OverflowError, OSError):
