@@ -46,7 +46,7 @@
       return {high,low,highAt,lowAt,start,end,
         observedUntil:usedEnd,status:closed?'FROZEN':'LIVE',
         timeframe:step===STEP5?'5m':'15m',complete:closed,
-        coveragePct:Math.round(Math.min(100,(usedEnd-start)/(end-start)*10000))/100};
+        coveragePct:Math.round(Math.min(1,(usedEnd-start)/(end-start))*10000)/100};
     }
     return null;
   }
