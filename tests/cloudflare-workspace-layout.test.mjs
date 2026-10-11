@@ -15,10 +15,13 @@ assert.ok(html.includes('body.asc-layout-focus #market .chart-card'));
 assert.ok(html.includes('body.asc-layout-focus #market .chart-card>.chart-shell'));
 assert.ok(html.includes('id="ascendRadarRail"'));
 assert.ok(html.includes('id="chartShell"'));
+assert.match(html, /<button id="ascendLayoutMenu"[^>]*class="asc-layout-action"/);
+assert.match(html, /<button id="ascendLayoutRadar"[^>]*class="asc-layout-action"/);
+assert.match(html, /<button id="ascendLayoutFocus"[^>]*class="asc-layout-focus-action"/);
 assert.ok(!/candles\.setData|renderChart\(|chart\.remove\(/.test(source),
   'workspace controls must not redraw or recreate candle series');
 
-function environment({mobile=false,initial=null}={}){
+function environment({mobile=false,initial=null,preexisting=false,radarReady=true}={}){
   const handlers=new Map(),nodes=new Map(),stored=new Map();
   if(initial!==null)stored.set('ascend_workspace_layout_v1',JSON.stringify(initial));
   class FakeNode{
@@ -39,7 +42,15 @@ function environment({mobile=false,initial=null}={}){
   const sidebar=new FakeNode('sidebar'),nav=new FakeNode('nav'),
     radar=new FakeNode('ascendRadarRail'),graph=new FakeNode('chart');
   graph.clientWidth=920;graph.clientHeight=650;
-  nodes.set('tfBar',tfbar);nodes.set('ascendRadarRail',radar);nodes.set('chart',graph);
+  nodes.set('tfBar',tfbar);
+  if(radarReady)nodes.set('ascendRadarRail',radar);
+  nodes.set('chart',graph);
+  if(preexisting){
+    for(const id of ['ascendLayoutMenu','ascendLayoutRadar','ascendLayoutFocus']){
+      const el=new FakeNode(id);el.parentNode=id==='ascendLayoutFocus'?tfbar:topbar;
+      nodes.set(id,el);
+    }
+  }
   const body=new FakeNode('body');body.dataset={view:'market'};
   const document={
     readyState:'complete',body,
@@ -85,6 +96,19 @@ assert.equal(x.nodes.get('ascendLayoutFocus').getAttribute('aria-pressed'),'true
 x.handlers.get('keydown')({key:'Escape',preventDefault:()=>{}});
 assert.equal(x.ctx.window.ASCEND_WORKSPACE_LAYOUT.getState().focus,false);
 assert.equal(x.body.classList.contains('asc-layout-focus'),false);
+const staticFirst=environment({preexisting:true,radarReady:false});
+assert.equal(staticFirst.body.dataset.ascWorkspaceBound,'true');
+assert.equal(staticFirst.nodes.get('ascendLayoutRadar').getAttribute('aria-expanded'),'true');
+staticFirst.nodes.get('ascendLayoutMenu').click();
+assert.equal(staticFirst.body.classList.contains('asc-layout-menu-hidden'),true,
+  'static button works even before radar mounts');
+staticFirst.nodes.get('ascendLayoutRadar').click();
+assert.equal(staticFirst.body.classList.contains('asc-layout-radar-hidden'),true);
+staticFirst.handlers.get('window:load')();
+assert.equal(staticFirst.body.dataset.ascWorkspaceBound,'true','late load must be idempotent');
+staticFirst.nodes.get('ascendLayoutMenu').click();
+assert.equal(staticFirst.body.classList.contains('asc-layout-menu-hidden'),false,
+  'no duplicated event listener');
 const persisted=environment({initial:{menu:false,radar:false}});
 assert.equal(persisted.ctx.window.ASCEND_WORKSPACE_LAYOUT.getState().menu,false);
 assert.equal(persisted.ctx.window.ASCEND_WORKSPACE_LAYOUT.getState().radar,false);
@@ -94,4 +118,4 @@ mob.nodes.get('ascendLayoutMenu').click();
 assert.equal(mob.ctx.window.ASCEND_WORKSPACE_LAYOUT.getState().menu,true);
 mob.handlers.get('keydown')({key:'Escape',preventDefault:()=>{}});
 assert.equal(mob.ctx.window.ASCEND_WORKSPACE_LAYOUT.getState().menu,false);
-console.log('PASS Workspace: menu/radar toggle, persisted state, mobile drawer, chart focus/Escape, resize without candle reload');
+console.log('PASS Workspace: static buttons bind without Radar, no double listeners, persists state, focus/Escape, responsive resize');
