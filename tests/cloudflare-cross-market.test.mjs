@@ -60,9 +60,13 @@ for(const [name,src] of [['cross-market-crypto.js',engine],['cross-market-ui.js'
 for(const id of ['pMacroBTC','pMacroETH','pMacroSOL','pMacroBreadth',
    'pMacroAgreement','pMacroTime','pMacroScore','pMacroExplanation'])
  assert.ok(html.includes('id="'+id+'"'),id+' must exist');
-for(const sourceName of ['Nasdaq / S&amp;P 500','DXY / US yields','Gold / Oil']){
- assert.ok(html.includes(sourceName)&&html.includes('NO DATA'));
-}
+for(const sourceName of ['Nasdaq Composite','UST 10Y','Нефть WTI · spot',
+  'Broad USD Index · прокси, НЕ DXY','DXY · индекс ICE','Золото XAU/USD'])
+ assert.ok(html.includes(sourceName),sourceName+' macro row required');
+assert.ok(html.includes('id="pMacroDXY" class="nodata">NO DATA</b>'),
+  'unverified DXY must remain NO DATA');
+assert.ok(html.includes('id="pMacroGold" class="nodata">NO DATA</b>'),
+  'unverified gold must remain NO DATA');
 assert.ok(ui.includes('!document.hidden')&&ui.includes("!card.classList.contains('collapsed')"));
 assert.ok(ui.includes('setInterval(()=>{if(eligible())refresh();},120000)'));
 assert.ok(!ui.includes('WebSocket('));

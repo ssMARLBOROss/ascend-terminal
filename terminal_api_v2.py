@@ -14,6 +14,7 @@ from fastapi import HTTPException, Query
 from fastapi.responses import JSONResponse
 
 import history_store
+import macro_fred
 
 MEXC_BASE_URL = "https://api.mexc.com"
 MEXC_KLINE_URL = MEXC_BASE_URL + "/api/v1/contract/kline/{symbol}"
@@ -661,6 +662,12 @@ async def _news() -> list[dict[str, str]]:
 
 
 def install(app: Any) -> None:
+    @app.get("/api/v2/macro/daily")
+    async def macro_daily():
+        # Observations only; not a live quote and not a trading filter.
+        return JSONResponse(await macro_fred.snapshot(),
+                            headers={"Cache-Control": "private, no-store"})
+
     @app.get("/api/v2/status")
     async def status():
         return {

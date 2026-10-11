@@ -1,0 +1,30 @@
+name: Cloudflare External Macro FRED and BTC Sweep Replay checks
+on:
+  push:
+    branches: [feature/macro-fred-btc-event-context-20261011]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install httpx
+      - run: python -m unittest discover -s tests -p test_macro_fred.py
+      - run: python -m py_compile macro_fred.py terminal_api_v2.py
+      - run: node --check btc-sweep-crossmarket-replay.js
+      - run: node --check macro-fred-ui.js
+      - run: node tests/cloudflare-macro-fred-replay.test.mjs
+      - run: node tests/cloudflare-cross-market.test.mjs
+      - run: node tests/cloudflare-structure-evidence.test.mjs
+      - run: node tests/cloudflare-vwap.test.mjs
+      - run: node tests/cloudflare-liquidity-map.test.mjs
+      - run: node tests/cloudflare-workspace-layout.test.mjs

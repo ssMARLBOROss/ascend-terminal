@@ -496,10 +496,21 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
             <div class="pressure-row"><span>Согласованность лидеров</span><b id="pMacroAgreement" class="nodata">—</b></div>
             <div class="pressure-row"><span>Закрытые свечи</span><b id="pMacroTime" class="nodata">—</b></div>
             <div class="pressure-note" id="pMacroExplanation">CRYPTO CONTEXT · BTC 45% / ETH 35% / SOL 20%. Источники загружаются только при открытой карточке.</div>
-            <div class="pressure-row"><span>Nasdaq / S&amp;P 500</span><b class="nodata">NO DATA</b></div>
-            <div class="pressure-row"><span>DXY / US yields</span><b class="nodata">NO DATA</b></div>
-            <div class="pressure-row"><span>Gold / Oil</span><b class="nodata">NO DATA</b></div>
-            <div class="pressure-note">TradFi-макроисточники ещё не подключены. Криптоиндекс — исследовательский контекст, не команда ENTRY_READY.</div>
+            <div class="macro-trad-head"><strong>ВНЕШНИЕ МАКРОРЫНКИ · FRED DAILY</strong>
+              <small id="pMacroFREDStatus">FRED NO DATA · ожидание</small></div>
+            <div class="pressure-row"><span>S&amp;P 500</span><b id="pMacroSP500" class="nodata">ожидаем FRED</b></div>
+            <div class="pressure-row"><span>Nasdaq Composite</span><b id="pMacroNASDAQ" class="nodata">ожидаем FRED</b></div>
+            <div class="pressure-row"><span>UST 10Y (изменение в bp)</span><b id="pMacroUST10" class="nodata">ожидаем FRED</b></div>
+            <div class="pressure-row"><span>UST 2Y (изменение в bp)</span><b id="pMacroUST2" class="nodata">ожидаем FRED</b></div>
+            <div class="pressure-row"><span>Broad USD Index · прокси, НЕ DXY</span><b id="pMacroBroadUSD" class="nodata">ожидаем FRED</b></div>
+            <div class="pressure-row"><span>Нефть WTI · spot</span><b id="pMacroWTI" class="nodata">ожидаем FRED</b></div>
+            <div class="pressure-row"><span>DXY · индекс ICE</span><b id="pMacroDXY" class="nodata">NO DATA</b></div>
+            <div class="pressure-row"><span>Золото XAU/USD</span><b id="pMacroGold" class="nodata">NO DATA</b></div>
+            <div class="pressure-note" id="pMacroFREDNote">Дневные наблюдения FRED, не intraday. Не привязываем дату наблюдения к точному времени публикации.</div>
+            <div class="macro-trad-head"><strong>BTC · SWEEP YL → ДВИЖЕНИЕ BTC/ETH/SOL</strong>
+              <small>5 / 15 / 30 / 60 минут после события · research</small></div>
+            <div class="macro-btc-replay" id="pMacroSweepReplay">Ожидаем BTC 1m и ETH/SOL 5m</div>
+            <div class="pressure-note">Не оцениваем влияние ежедневного FRED на событие внутри минуты без данных о времени публикации. Нет исторического breadth во время SWEEP.</div>
           </div></article>
           <article class="pressure-card partial" data-pressure-card="news"><button class="pressure-head" type="button"><strong>4. NEWS / EVENTS</strong><span class="score nodata" id="pNewsScore">—</span><span class="chev">▾</span></button><div class="pressure-body">
             <div class="pressure-row"><span>HIGH событий</span><b id="pNewsHigh">—</b></div>
@@ -1364,6 +1375,7 @@ function renderStructureEvidence(){
     one,fifteen,asOf,wallClock:Date.now()/1000,levels,levelMeta:meta
   });
   latestStructureEvidence=report;
+  if(window.ASCEND_FRED_MACRO_UI)window.ASCEND_FRED_MACRO_UI.renderReplay();
   const header=$('ascStructureTime'),frames=$('ascStructureFrames'),events=$('ascStructureEvents');
   header.textContent=structureEvidenceTime(report.asOf)+' · '
     +(report.status==='STALE'?'ДАННЫЕ УСТАРЕЛИ':'по закрытым свечам');
@@ -2116,7 +2128,7 @@ root.ASCEND_CROSS_MARKET=Object.freeze({leader,aggregate,breadthScore,barsClosed
 (function(root){
 'use strict';
 const symbols=['BTC_USDT','ETH_USDT','SOL_USDT'];
-let cached={},updatedAt=0,busy=false,controller=null,previousBreadthKey='';
+let cached={},history={},updatedAt=0,busy=false,controller=null,previousBreadthKey='';
 const get=id=>document.getElementById(id);
 function show(id,value,tone=''){
   const el=get(id);if(el){el.textContent=value;el.className=tone;}
@@ -2169,7 +2181,7 @@ async function refresh(force=false){
   if(!force&&updatedAt&&Date.now()-updatedAt<110000){status();return;}
   busy=true;
   const ac=new AbortController();controller=ac;
-  const next={};
+  const next={},nextHistory={};
   try{
     const req=await Promise.allSettled(symbols.map(async symbol=>{
       if(typeof state!=='undefined'&&symbol===state.symbol&&
@@ -2187,11 +2199,12 @@ async function refresh(force=false){
     const now=Date.now()/1000;
     req.forEach((r,i)=>{
       const symbol=symbols[i];
+      if(r.status==='fulfilled')nextHistory[symbol]=r.value;
       next[symbol]=r.status==='fulfilled'?
         root.ASCEND_CROSS_MARKET.leader(symbol,r.value,now):
         {symbol,status:'NODATA',reason:'API MEXC недоступен'};
     });
-    cached=next;updatedAt=Date.now();
+    cached=next;history=nextHistory;updatedAt=Date.now();
     status();
   }catch(err){
     if(!ac.signal.aborted)console.warn('Cross-Market data:',err);
@@ -2216,9 +2229,11 @@ function start(){
   setInterval(()=>{if(eligible())refresh();},120000);
   setTimeout(refresh,2200);
 }
-root.ASCEND_CROSS_MARKET_UI=Object.freeze({status,refresh});
+root.ASCEND_CROSS_MARKET_UI=Object.freeze({status,refresh,
+  getHistory:()=>Date.now()-updatedAt<180000?history:{}});
 start();
 })(typeof window!=='undefined'?window:globalThis);
+
 </script>
 <style>
 [data-pressure-card="macro"] .pressure-body>.pressure-row{gap:10px}
@@ -2227,6 +2242,212 @@ start();
 @media(max-width:650px){[data-pressure-card="macro"] .pressure-row{
   align-items:flex-start;flex-direction:column;gap:3px
 }[data-pressure-card="macro"] .pressure-row b{text-align:left}}
+</style>
+
+<script>
+/* BTC sweep replay vs ETH/SOL — observational only; no causal or trade signal inference. */
+(function(root){
+'use strict';
+const STEP=300,MIN=60,HORIZONS=[5,15,30,60];
+function norm(arr,seconds,asOf){
+  if(!Array.isArray(arr))return [];
+  return arr.filter(b=>Number.isFinite(Number(b.time))&&
+    Number(b.time)+seconds<=asOf)
+    .map(b=>({time:Number(b.time),close:Number(b.close)}))
+    .filter(b=>Number.isFinite(b.close)&&b.close>0)
+    .sort((a,b)=>a.time-b.time);
+}
+function exactCloseAt(rows,closedAt,seconds){
+  return rows.find(b=>b.time+seconds===closedAt)?.close??null;
+}
+function fiveMinutePrior(rows,time){
+  let best=null;
+  for(const b of rows){
+    if(b.time+STEP<=time)best=b;
+    else break;
+  }
+  return best&&time-(best.time+STEP)<STEP?best.close:null;
+}
+function response(eventAt,one,eth,sol,asOf){
+  if(!Number.isInteger(eventAt)||eventAt>asOf||eventAt<asOf-5*3600)
+    return null;
+  const b1=norm(one,MIN,asOf),e5=norm(eth,STEP,asOf),s5=norm(sol,STEP,asOf);
+  // The starting BTC close is exactly at the event candle CLOSE, not any future quote.
+  const btcBase=exactCloseAt(b1,eventAt,MIN);
+  const eBase=fiveMinutePrior(e5,eventAt),sBase=fiveMinutePrior(s5,eventAt);
+  if(!btcBase)return null;
+  function pct(v,base){return v===null||base===null?null:Math.round((v/base-1)*10000)/100}
+  const future=HORIZONS.map(minutes=>{
+    const t=eventAt+minutes*MIN;
+    const pending=t>asOf;
+    const btc=pending?null:exactCloseAt(b1,t,MIN);
+    // Align macro crypto comparison to a completed 5m close ≤ target.
+    const e=pending?null:fiveMinutePrior(e5,t);
+    const s=pending?null:fiveMinutePrior(s5,t);
+    return {minute:minutes,pending,
+      btc:pct(btc,btcBase),eth:pct(e,eBase),sol:pct(s,sBase)};
+  });
+  return {at:eventAt,btcPrice:btcBase,ethBase:eBase,solBase:sBase,
+    horizons:future,historyStart:b1[0]?.time??null};
+}
+function replay(events,one,eth,sol,asOf){
+  const relevant=(events||[]).filter(e=>e.type==='SWEEP'&&
+    e.key==='YL'&&Number.isInteger(e.at))
+    .sort((a,b)=>b.at-a.at);
+  const unique=new Set(),results=[];
+  for(const e of relevant){
+    const key=e.key+'|'+e.at;
+    if(unique.has(key))continue;
+    unique.add(key);
+    const r=response(e.at,one,eth,sol,asOf);
+    if(r)results.push({...r,level:e.key,depthPct:e.depthPct??null});
+    if(results.length===4)break;
+  }
+  return results;
+}
+root.ASCEND_BTC_SWEEP_REPLAY=Object.freeze({response,replay});
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<script>
+/* ASCEND verified daily FRED macro panel and limited BTC sweep replay. */
+(function(root){
+'use strict';
+const ID={
+ SP500:'pMacroSP500',NASDAQCOM:'pMacroNASDAQ',DGS10:'pMacroUST10',
+ DGS2:'pMacroUST2',DTWEXBGS:'pMacroBroadUSD',
+ DCOILWTICO:'pMacroWTI',DXY:'pMacroDXY',XAUUSD:'pMacroGold'
+};
+const toText=(id,text,cls)=>{
+ const el=document.getElementById(id);
+ if(el){el.textContent=text;el.className=cls||''}
+};
+let cached=null,updated=0,busy=false,ac=null;
+function visible(){
+ const card=document.querySelector('[data-pressure-card="macro"]');
+ return card&&!card.classList.contains('collapsed')&&!document.hidden&&
+   document.body.dataset.view==='market';
+}
+function printSeries(series){
+ if(!series||series.status!=='READY')
+   return {text:'NO DATA · '+String(series?.reason||'не подключено').slice(0,85),tone:'nodata'};
+ const val=Number(series.value);
+ if(!Number.isFinite(val))return {text:'NO DATA · неверное значение',tone:'nodata'};
+ const delta=Number(series.change),unit=series.change_unit==='bp'?'bp':'%';
+ const number=val.toLocaleString('ru-RU',{maximumFractionDigits:4});
+ const change=(delta>0?'+':'')+delta.toFixed(unit==='bp'?1:2)+unit;
+ return {text:number+' · '+change+' · '+series.observation_date+' · FRED daily',
+   tone:delta>0?'long':delta<0?'short':'neutral'};
+}
+function render(){
+ if(!visible())return;
+ const old=updated&&Date.now()-updated>60*60*1000;
+ const market=old?null:cached?.markets;
+ for(const [key,id] of Object.entries(ID)){
+  const row=printSeries(market?.[key]);
+  toText(id,row.text,row.tone);
+ }
+ const ready=market?Object.values(market).filter(x=>x.status==='READY').length:0;
+ toText('pMacroFREDStatus',ready?
+   'FRED DAILY · '+ready+'/8 рядов · '+new Date(cached.retrieved_utc).toISOString().slice(11,16)+' UTC':
+   'FRED NO DATA · проверь Railway API',ready?'neutral':'nodata');
+ const warning=document.getElementById('pMacroFREDNote');
+ if(warning)warning.textContent=
+   'Только опубликованные дневные наблюдения FRED; не intraday и не сигнал. '+
+   'Broad USD (DTWEXBGS) ≠ DXY. GLD/Gold spot пока не подключён. '+
+   'Изменение UST показано в bp. В выходные даты могут быть пятничными.';
+ renderReplay();
+}
+function renderReplay(){
+ if(!visible())return;
+ const host=document.getElementById('pMacroSweepReplay');if(!host)return;
+ host.replaceChildren();
+ const paragraph=(text)=>{const div=document.createElement('div');div.className='macro-replay-row';
+   div.textContent=text;host.appendChild(div)};
+ if(typeof state==='undefined'||state.symbol!=='BTC_USDT'){
+   paragraph('Выбери BTC/USDT, чтобы сравнить его YL SWEEP с реакцией ETH/SOL.');
+   return;
+ }
+ const report=typeof latestStructureEvidence==='undefined'?null:latestStructureEvidence;
+ if(!root.ASCEND_BTC_SWEEP_REPLAY||!report||report.status!=='READY'){
+   paragraph('Нет подтверждённых событий 1m BTC или история устарела.');return;
+ }
+ const history=root.ASCEND_CROSS_MARKET_UI?.getHistory?.()||{};
+ const one=state.tf['1m']||[];
+ const asOf=Number(report.asOf);
+ const events=report.perLevel?.flatMap(x=>x.events)||report.recent;
+ const replay=root.ASCEND_BTC_SWEEP_REPLAY.replay(events,one,
+   history['ETH_USDT']||[],history['SOL_USDT']||[],asOf);
+ if(!replay.length){paragraph('За доступные ~4 часа истории 1m BTC нет подтверждённых YL SWEEP.');return;}
+ for(const e of replay){
+  const time=new Date(e.at*1000).toISOString().slice(11,16)+' UTC';
+  const depth=Number.isFinite(e.depthPct)?' · глубина '+e.depthPct.toFixed(2)+'%':'';
+  paragraph('YL SWEEP '+time+depth+' · BTC @ '+e.btcPrice);
+  for(const b of e.horizons){
+   const fmt=n=>n===null?'—':(n>0?'+':'')+n.toFixed(2)+'%';
+   paragraph('+'+b.minute+'m · BTC '+fmt(b.btc)+
+      ' | ETH '+fmt(b.eth)+' | SOL '+fmt(b.sol)+
+      (b.pending?' · ожидание закрытия':''));
+  }
+ }
+ paragraph('Это наблюдаемые движения после события, не прибыль и не причинность. '+
+   'Исторического breadth на момент SWEEP нет; дневные данные FRED не привязываются к минуте события.');
+}
+async function refresh(force=false){
+ if(!visible()||busy)return;
+ if(!force&&updated&&Date.now()-updated<25*60*1000){render();return;}
+ busy=true;const controller=new AbortController();ac=controller;
+ try{
+  const response=await fetch('/api/v2/macro/daily',{
+    signal:controller.signal,cache:'no-store',
+    headers:{Accept:'application/json'}
+  });
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const data=await response.json();
+  if(!data||typeof data!=='object'||!data.markets||typeof data.markets!=='object')
+    throw Error('Invalid macro provider payload');
+  if(controller.signal.aborted)return;
+  cached=data;updated=Date.now();render();
+ }catch(err){
+  if(!controller.signal.aborted){
+   cached=null;updated=Date.now();render();
+   const note=document.getElementById('pMacroFREDNote');
+   if(note)note.textContent='Данные FRED не получены ('+String(err).slice(0,75)+
+     '). Не подменяем прошлой котировкой. Повторная попытка после паузы.';
+  }
+ }finally{
+  if(ac===controller)ac=null;
+  busy=false;
+ }
+}
+function start(){
+ const card=document.querySelector('[data-pressure-card="macro"]');
+ if(!card)return;
+ card.querySelector('.pressure-head')?.addEventListener('click',()=>{
+   if(visible())refresh();else if(ac)ac.abort();
+ });
+ document.addEventListener('visibilitychange',()=>{
+   if(document.hidden){if(ac)ac.abort();}
+   else if(visible())refresh();
+ });
+ setInterval(()=>{if(visible())refresh();},5*60*1000);
+ setTimeout(()=>refresh(),3000);
+}
+root.ASCEND_FRED_MACRO_UI=Object.freeze({refresh,render,renderReplay});
+start();
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+<style>
+[data-pressure-card="macro"] .macro-trad-head{display:flex;justify-content:space-between;
+  align-items:center;gap:8px;flex-wrap:wrap;margin:9px 0 6px;padding-top:9px;
+  border-top:1px solid #2a4b58;color:#cfe9f4;font-size:11px}
+[data-pressure-card="macro"] .macro-trad-head strong{letter-spacing:.025em}
+[data-pressure-card="macro"] .macro-trad-head small{color:#97bac8}
+[data-pressure-card="macro"] .macro-btc-replay{display:flex;flex-direction:column;gap:3px;
+  background:#091e2b;border:1px solid #285061;border-radius:6px;padding:7px;
+  max-height:185px;overflow:auto}
+[data-pressure-card="macro"] .macro-replay-row{font-size:11px;font-variant-numeric:tabular-nums;
+  color:#b4d4e0;padding:4px;border-bottom:1px solid #23414e}
 </style>
 
 <!-- ASCEND_RADAR_UI_V4_START -->

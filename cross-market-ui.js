@@ -2,7 +2,7 @@
 (function(root){
 'use strict';
 const symbols=['BTC_USDT','ETH_USDT','SOL_USDT'];
-let cached={},updatedAt=0,busy=false,controller=null,previousBreadthKey='';
+let cached={},history={},updatedAt=0,busy=false,controller=null,previousBreadthKey='';
 const get=id=>document.getElementById(id);
 function show(id,value,tone=''){
   const el=get(id);if(el){el.textContent=value;el.className=tone;}
@@ -55,7 +55,7 @@ async function refresh(force=false){
   if(!force&&updatedAt&&Date.now()-updatedAt<110000){status();return;}
   busy=true;
   const ac=new AbortController();controller=ac;
-  const next={};
+  const next={},nextHistory={};
   try{
     const req=await Promise.allSettled(symbols.map(async symbol=>{
       if(typeof state!=='undefined'&&symbol===state.symbol&&
@@ -73,11 +73,12 @@ async function refresh(force=false){
     const now=Date.now()/1000;
     req.forEach((r,i)=>{
       const symbol=symbols[i];
+      if(r.status==='fulfilled')nextHistory[symbol]=r.value;
       next[symbol]=r.status==='fulfilled'?
         root.ASCEND_CROSS_MARKET.leader(symbol,r.value,now):
         {symbol,status:'NODATA',reason:'API MEXC недоступен'};
     });
-    cached=next;updatedAt=Date.now();
+    cached=next;history=nextHistory;updatedAt=Date.now();
     status();
   }catch(err){
     if(!ac.signal.aborted)console.warn('Cross-Market data:',err);
@@ -102,6 +103,7 @@ function start(){
   setInterval(()=>{if(eligible())refresh();},120000);
   setTimeout(refresh,2200);
 }
-root.ASCEND_CROSS_MARKET_UI=Object.freeze({status,refresh});
+root.ASCEND_CROSS_MARKET_UI=Object.freeze({status,refresh,
+  getHistory:()=>Date.now()-updatedAt<180000?history:{}});
 start();
 })(typeof window!=='undefined'?window:globalThis);
