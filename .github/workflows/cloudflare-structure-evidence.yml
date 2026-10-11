@@ -1,0 +1,21 @@
+name: Cloudflare ASCEND Structure Evidence V1 checks
+on:
+  push:
+    branches: [feature/cloudflare-structure-events-v1-20261011]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check structure-evidence.js
+      - run: node tests/cloudflare-structure-evidence.test.mjs
+      - run: node tests/cloudflare-liquidity-map.test.mjs
+      - run: node tests/cloudflare-vwap.test.mjs
+      - run: node tests/cloudflare-workspace-layout.test.mjs
