@@ -44,17 +44,21 @@
     const menu=$('ascendLayoutMenu'),radar=$('ascendLayoutRadar'),focus=$('ascendLayoutFocus');
     if(menu){
       menu.setAttribute('aria-expanded',String(view.menu));
-      menu.textContent=view.menu?'☰ Скрыть меню':'☰ Открыть меню';
-      menu.title=view.menu?'Скрыть левую навигацию':'Открыть левую навигацию';
+      menu.textContent=view.menu?'☰ Меню −':'☰ Меню +';
+      menu.title=view.menu?'Скрыть левое меню терминала':'Открыть левое меню терминала';
+      menu.setAttribute('aria-label',menu.title);
     }
     if(radar){
       radar.setAttribute('aria-expanded',String(view.radar));
-      radar.textContent=view.radar?'◫ Скрыть радар':'◫ Показать радар';
+      radar.textContent=view.radar?'◫ Радар −':'◫ Радар +';
+      radar.title=view.radar?'Скрыть Smart Radar':'Показать Smart Radar';
+      radar.setAttribute('aria-label',radar.title);
     }
     if(focus){
       focus.setAttribute('aria-pressed',String(view.focus));
       focus.textContent=view.focus?'↙ Вернуть график':'⛶ На весь экран';
       focus.title=view.focus?'Вернуться к рабочему столу (Esc)':'Развернуть график почти на весь экран';
+      focus.setAttribute('aria-label',focus.title);
     }
     resizeChart();
   }
