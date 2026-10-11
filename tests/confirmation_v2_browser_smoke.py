@@ -128,6 +128,21 @@ async def test_browser():
         assert v2['stepCount']==7
         assert not v2['report']['ready'] and v2['core']!='ENTRY READY'
         assert v2['global']!='ENTRY READY'
+        # The manual SHADOW control must be fail-closed when V2 is incomplete.
+        denial=await page.evaluate("""async () => {
+          let alertText='',posts=0;
+          const savedAlert=window.alert,savedAdmin=window.adminFetch;
+          const before=state.paperTrades.length;
+          window.alert=message=>{alertText=String(message)};
+          window.adminFetch=async()=>{posts++;throw Error('Unexpected server trade POST')};
+          try{await openManualPaper('LONG')}finally{
+            window.alert=savedAlert;window.adminFetch=savedAdmin;
+          }
+          return {alertText,posts,before,after:state.paperTrades.length};
+        }""")
+        print('V2_MANUAL_DENIAL',json.dumps(denial,ensure_ascii=False))
+        assert denial['posts']==0 and denial['before']==denial['after']
+        assert 'запрещён' in denial['alertText']
         await page.locator('#ascConfirmV2Toggle').click()
         assert await page.evaluate("document.getElementById('ascConfirmV2Steps').hidden")
         await page.locator('#ascConfirmV2Toggle').click()
