@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 
 import history_store
 
@@ -27,10 +28,24 @@ async def main() -> None:
         raise RuntimeError("history storage could not initialize")
 
     logger.info("Bybit history collector running")
+    participation_task = None
+    if os.getenv("MARKET_PARTICIPATION_ENABLED", "0") == "1":
+        import market_participation_collector_v1
+        participation_task = asyncio.create_task(
+            market_participation_collector_v1.run(history_store._pool),
+            name="ascend-market-participation-v1",
+        )
     try:
         while True:
-            await asyncio.sleep(3600)
+            if participation_task is not None and participation_task.done():
+                # Do not silently lose the collector: Railway must restart on fatal errors.
+                await participation_task
+                raise RuntimeError("market participation collector exited")
+            await asyncio.sleep(10)
     finally:
+        if participation_task is not None:
+            participation_task.cancel()
+            await asyncio.gather(participation_task, return_exceptions=True)
         await history_store.shutdown()
 
 
