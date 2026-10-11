@@ -596,7 +596,8 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
               <div class="asc-structure-events" id="ascStructureEvents"></div>
               <p class="asc-structure-disclaimer">Касание ≠ снятие. SWEEP — тень за уровнем с возвратом к закрытию;
                 BREAK — закрытие за уровнем; ACCEPTANCE — два 1m закрытия подряд;
-                RECLAIM — возврат закрытием; RETEST — новое касание после подтверждённого
+                RECLAIM — возврат закрытием; дополнительный ACCEPT_5M — два полных 5m закрытия;
+                RETEST — новое касание после подтверждённого
                 перехода. Это исследовательские события, не ASCEND ENTRY_READY.
                 30m/15m задают контекст; 10m/5m/3m/1m — структуру, если есть данные.
                 Все времена UTC; неполные исторические окна помечаются отдельно.</p>
@@ -1214,7 +1215,7 @@ function ascendLiquidityDraw(){
     const tfSeconds={'1m':60,'5m':300,'10m':600,'15m':900,'30m':1800,
       '1h':3600,'4h':14400,'1d':86400}[state.timeframe]||300;
     const visible=latestStructureEvidence.recent.filter(e=>
-      ['SWEEP','BREAK','ACCEPTANCE','RECLAIM','RETEST'].includes(e.type)).slice(0,5);
+      ['SWEEP','BREAK','ACCEPTANCE','ACCEPT_5M','RECLAIM','RETEST'].includes(e.type)).slice(0,5);
     ctx.save();ctx.font='800 10px system-ui,sans-serif';
     for(const ev of visible){
       const candleTime=Math.floor((ev.at-60)/tfSeconds)*tfSeconds;
@@ -1346,9 +1347,10 @@ function renderStructureEvidence(){
   const one=closed(state.tf['1m']||[]),fifteen=closed(state.tf['15m']||[]);
   const last=one.at(-1),asOf=last?Number(last.time)+60:NaN;
   const levels=latestLiquidityModel,meta=latestLiquidityMeta;
+  const staleFlag=Number.isFinite(asOf)&&Date.now()/1000-asOf>180;
   const key=JSON.stringify([state.symbol,asOf,one[0]?.time,
     fifteen.at(-1)?.time,levels?.asOf,levels?.all?.uppers?.length,
-    levels?.all?.lowers?.length,structureEvidenceOn]);
+    levels?.all?.lowers?.length,structureEvidenceOn,staleFlag]);
   if(key===structureEvidenceKey)return;
   structureEvidenceKey=key;
   const report=window.ASCEND_STRUCTURE_EVIDENCE.analyze({
@@ -1368,8 +1370,10 @@ function renderStructureEvidence(){
   }
   const context=report.context,latest=report.recent[0];
   mini.textContent='30m/15m '+context+(report.status==='STALE'?' · STALE':'');
+  const historyPartial=report.perLevel.some(x=>x.status==='PARTIAL');
   const info=(latest?latest.key+' '+latest.type+' · '+structureEvidenceTime(latest.at):
-    'Пока нет наблюдаемых событий в загруженном окне');
+    'Пока нет наблюдаемых событий в загруженном окне')+
+    (historyPartial?' · история частичная':'');
   structureEvidenceText(ribbon,'span','КОНТЕКСТ '+context+' · '+info);
   structureEvidenceText(ribbon,'span',report.aligned?
     'MTF совпали · RESEARCH, НЕ ENTRY':'MTF ожидает полной последовательности');
@@ -1398,7 +1402,8 @@ function renderStructureEvidence(){
       const detail=e.type==='SWEEP'?
         'Глубина '+Number(e.depthPct||0).toFixed(2)+'%':
         e.type==='RETEST'?'После '+(e.after||'закрепления'):
-        e.type==='ACCEPTANCE'?'2 закрытые 1m свечи':
+        e.type==='ACCEPT_5M'?'Закрепление по 2 закрытым 5m свечам':
+        e.type==='ACCEPTANCE'?'Предварительно · 2 закрытые 1m':
         e.type==='BREAK'?'Закрытие за уровнем':
         e.type==='RECLAIM'?'Цена закрылась обратно за уровнем':
         'Касание ATR-зоны';
@@ -2816,6 +2821,20 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
       }
       previousOutside=outside;wasNear=inZone;
     }
+    // Stronger read-only acceptance tag, separate from provisional 1m 2-close state.
+    // Requires TWO full, contiguous 5m candles closing beyond a frozen level.
+    const five=grouped(one,300);
+    let fiveStreak=0;
+    for(const c of five){
+      const closeAt=c.time+300;
+      if(closeAt<=freezeAt||closeAt>asOf)continue;
+      const outside=side==='upper'?c.close>level:c.close<level;
+      fiveStreak=outside?fiveStreak+1:0;
+      if(fiveStreak===2&&events.some(e=>e.type==='BREAK'&&e.at<=closeAt))
+        events.push({type:'ACCEPT_5M',at:closeAt,key:item.key,price:level,
+          dir:side==='upper'?'LONG':'SHORT'});
+    }
+    events.sort((a,b)=>a.at-b.at);
     return {key:item.key,side,level,freezeAt,
       status:asOf<freezeAt?'LIVE':incomplete?'PARTIAL':'FROZEN',
       events,latest:events.at(-1)||null,
