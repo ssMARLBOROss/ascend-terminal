@@ -44,17 +44,21 @@
     const menu=$('ascendLayoutMenu'),radar=$('ascendLayoutRadar'),focus=$('ascendLayoutFocus');
     if(menu){
       menu.setAttribute('aria-expanded',String(view.menu));
-      menu.textContent=view.menu?'☰ Скрыть меню':'☰ Открыть меню';
-      menu.title=view.menu?'Скрыть левую навигацию':'Открыть левую навигацию';
+      menu.textContent=view.menu?'☰ Меню −':'☰ Меню +';
+      menu.title=view.menu?'Скрыть левое меню терминала':'Открыть левое меню терминала';
+      menu.setAttribute('aria-label',menu.title);
     }
     if(radar){
       radar.setAttribute('aria-expanded',String(view.radar));
-      radar.textContent=view.radar?'◫ Скрыть радар':'◫ Показать радар';
+      radar.textContent=view.radar?'◫ Радар −':'◫ Радар +';
+      radar.title=view.radar?'Скрыть Smart Radar':'Показать Smart Radar';
+      radar.setAttribute('aria-label',radar.title);
     }
     if(focus){
       focus.setAttribute('aria-pressed',String(view.focus));
       focus.textContent=view.focus?'↙ Вернуть график':'⛶ На весь экран';
       focus.title=view.focus?'Вернуться к рабочему столу (Esc)':'Развернуть график почти на весь экран';
+      focus.setAttribute('aria-label',focus.title);
     }
     resizeChart();
   }
@@ -72,18 +76,24 @@
     return b;
   }
   function mount(){
-    if($('ascendLayoutMenu'))return;
+    // Controls exist in HTML even if the radar initializes late or API data fails.
+    // Do not abort because the radar is not ready yet.
+    if(document.body.dataset.ascWorkspaceBound==='true')return;
     const topbar=document.querySelector('.main .topbar');
     const tfbar=$('tfBar'),sidebar=document.querySelector('.app > aside.sidebar');
-    const radar=$('ascendRadarRail');
-    if(!topbar||!tfbar||!sidebar||!radar)return;
+    if(!topbar||!tfbar||!sidebar)return;
     sidebar.id='ascendNavSidebar';
-    const menu=button('ascendLayoutMenu','asc-layout-action','ascendNavSidebar');
-    const radarButton=button('ascendLayoutRadar','asc-layout-action','ascendRadarRail');
-    const focus=button('ascendLayoutFocus','asc-layout-focus-action',null);
-    topbar.insertBefore(menu,topbar.firstChild);
-    topbar.insertBefore(radarButton,menu.nextSibling);
-    tfbar.appendChild(focus);
+    const menu=$('ascendLayoutMenu')||
+      button('ascendLayoutMenu','asc-layout-action','ascendNavSidebar');
+    const radarButton=$('ascendLayoutRadar')||
+      button('ascendLayoutRadar','asc-layout-action','ascendRadarRail');
+    const focus=$('ascendLayoutFocus')||
+      button('ascendLayoutFocus','asc-layout-focus-action',null);
+    if(!menu.parentNode)topbar.insertBefore(menu,topbar.firstChild);
+    if(!radarButton.parentNode)topbar.insertBefore(radarButton,menu.nextSibling);
+    if(!focus.parentNode)tfbar.appendChild(focus);
+    // Record binding independently of element existence to avoid double listeners.
+    document.body.dataset.ascWorkspaceBound='true';
     menu.addEventListener('click',menuToggle);
     radarButton.addEventListener('click',radarToggle);
     focus.addEventListener('click',()=>focusToggle());
@@ -99,10 +109,7 @@
         view.menu=false;persist();sync();
       }
     });
-    window.addEventListener('resize',()=>{
-      if(view.focus)resizeChart();
-      else resizeChart();
-    },{passive:true});
+    window.addEventListener('resize',resizeChart,{passive:true});
     window.addEventListener('popstate',()=>{
       if(document.body.dataset.view!=='market'&&view.focus)focusToggle(false);
       else sync();
@@ -113,6 +120,8 @@
   if(document.readyState==='loading')
     document.addEventListener('DOMContentLoaded',mount,{once:true});
   else mount();
+  // Retry once after dependent UI constructors settle; mounting is idempotent.
+  window.addEventListener('load',mount,{once:true});
   window.ASCEND_WORKSPACE_LAYOUT={
     toggleMenu:menuToggle,toggleRadar:radarToggle,toggleFocus:focusToggle,
     getState:()=>({...view}),sync
