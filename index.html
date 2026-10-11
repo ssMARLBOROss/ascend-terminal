@@ -443,6 +443,12 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
   </aside>
   <main class="main">
     <div class="topbar">
+      <button id="ascendLayoutMenu" class="asc-layout-action" type="button"
+        aria-controls="ascendNavSidebar" aria-expanded="true" aria-label="Скрыть или открыть меню терминала"
+        title="Скрыть или открыть меню: Рынок, Монеты, Пользователи, Аналитика, Сигналы, Журнал">☰ Меню −</button>
+      <button id="ascendLayoutRadar" class="asc-layout-action" type="button"
+        aria-controls="ascendRadarRail" aria-expanded="true" aria-label="Скрыть или открыть Smart Radar"
+        title="Скрыть или открыть Smart Radar">◫ Радар −</button>
       <div class="pair" id="pairTop">BTC/USDT</div>
       <div class="live" id="live"><span class="dot"></span> LIVE</div>
       <div class="major-wrap" id="majorWrap">
@@ -539,6 +545,9 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
             <div class="chart-actions" id="tfBar">
               <button class="tf-btn" data-tf="1m">1м</button><button class="tf-btn active" data-tf="5m">5м</button><button class="tf-btn" data-tf="10m">10м</button><button class="tf-btn" data-tf="15m">15м</button><button class="tf-btn" data-tf="30m">30м</button><button class="tf-btn" data-tf="1h">1ч</button><button class="tf-btn" data-tf="4h">4ч</button><button class="tf-btn" data-tf="1d">1д</button>
               <button class="chart-btn" id="centerBtn">По центру</button><button class="chart-btn follow active" id="followBtn">Следить за ценой</button>
+              <button id="ascendLayoutFocus" class="asc-layout-focus-action" type="button"
+                aria-pressed="false" aria-label="Развернуть график на весь экран"
+                title="Развернуть график почти на весь экран; Esc возвращает рабочий стол">⛶ На весь экран</button>
               <button id="ascendVwapToggle" type="button" aria-pressed="true" title="Показать или скрыть дневной VWAP (00:00 UTC, закрытые 5m свечи)">VWAP · ON</button>
               <span id="ascendVwapBadge" aria-live="off">VWAP UTC · ожидаем 5m OHLCV</span>
             </div>
@@ -2588,10 +2597,18 @@ body.asc-layout-focus #ascendLayoutFocus{margin-left:auto}
     min-height:36px;padding:5px 8px
   }
 }
-@media(max-width:640px){
-  #ascendLayoutMenu{font-size:0}
-  #ascendLayoutMenu::first-letter{font-size:13px}
-  #ascendLayoutRadar{font-size:10px}
+/* Keep menu/radar visible in the narrow global toolbar without covering the pair selector. */
+body.ascend-ui-v11 .topbar{gap:8px}
+#ascendLayoutMenu,#ascendLayoutRadar{min-width:70px;max-width:85px;padding:0 6px;
+  overflow:hidden;text-overflow:ellipsis;font-size:10px}
+#ascendLayoutMenu{border-color:#4d9abc;background:#0e3142;color:#d9f4ff}
+#ascendLayoutRadar{border-color:#a78e54;background:#302916;color:#ffe4a9}
+#ascendLayoutFocus{border-color:#e4b45a;background:#42301a;color:#ffe4a3}
+@media(max-width:820px){
+  #ascendLayoutMenu,#ascendLayoutRadar{min-width:32px;max-width:34px;width:34px;font-size:0}
+  #ascendLayoutMenu::before{content:'☰';font-size:15px}
+  #ascendLayoutRadar::before{content:'◫';font-size:15px}
+  #ascendLayoutFocus{font-size:10px}
 }
 </style>
 <script>
