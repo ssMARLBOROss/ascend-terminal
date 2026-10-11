@@ -3678,7 +3678,7 @@ start();
       return {high,low,highAt,lowAt,start,end,
         observedUntil:usedEnd,status:closed?'FROZEN':'LIVE',
         timeframe:step===STEP5?'5m':'15m',complete:closed,
-        coveragePct:Math.round(Math.min(100,(usedEnd-start)/(end-start)*10000))/100};
+        coveragePct:Math.round(Math.min(1,(usedEnd-start)/(end-start))*10000)/100};
     }
     return null;
   }
@@ -3704,6 +3704,7 @@ start();
   }
   root.ASCEND_SESSION_HL=Object.freeze({clean,computeWindow,build,NAMES,COLORS});
 })(typeof window!=='undefined'?window:globalThis);
+
 </script>
 <script>
 /* ASCEND Structure Evidence V1 — read-only, close-confirmed, no Core signal routing. */
