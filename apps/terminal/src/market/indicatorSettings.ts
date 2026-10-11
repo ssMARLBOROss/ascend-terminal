@@ -8,6 +8,7 @@ export type IndicatorKey=
   'book'|'stops'|'liquidityMap'|'tpo'|'fvg'|'oi'|'longShort'|'cvd'|'participation'|'week'|'stats'|'coins';
 
 export type IndicatorSettings=Record<IndicatorKey,boolean>&{
+  liquidityOnly:boolean; // Visual-only mode: candles + BSL/SSL, underlying studies preserved.
   fvgThreshold:number;
   fvgViewMode:FvgViewMode;
   fvgTimeframes:Record<FvgTf,boolean>;
@@ -23,6 +24,7 @@ export type IndicatorSettings=Record<IndicatorKey,boolean>&{
 export const STORAGE_KEY='ascend.terminal.indicators.v1';
 
 export const DEFAULT_INDICATORS:IndicatorSettings={
+  liquidityOnly:true,
   volume:true,vwap:true,sessions:true,sessionClock:false,
   dayLevels:true,sessionLevels:false,book:false,stops:false,liquidityMap:true,
   tpo:true,fvg:true,oi:true,longShort:true,cvd:true,participation:true,
@@ -67,6 +69,8 @@ export function loadIndicatorSettings():IndicatorSettings{
     if(!raw)return {...DEFAULT_INDICATORS};
     const parsed=JSON.parse(raw) as Record<string,unknown>;
     const clean={...DEFAULT_INDICATORS};
+    // Opt out explicitly; old browser settings default to the approved clean map.
+    if(typeof parsed.liquidityOnly==='boolean')clean.liquidityOnly=parsed.liquidityOnly;
     for(const item of INDICATOR_CATALOG){
       if(typeof parsed[item.key]==='boolean')clean[item.key]=parsed[item.key] as boolean;
     }

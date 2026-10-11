@@ -50,6 +50,9 @@ export default function IndicatorManager({
   },[open]);
 
   const enabled=INDICATOR_CATALOG.filter(x=>settings[x.key]);
+  const visibleGraph= settings.liquidityOnly?
+    INDICATOR_CATALOG.filter(x=>x.key==='liquidityMap'):
+    enabled.filter(x=>x.group==='График');
   const filtered=INDICATOR_CATALOG.filter(x=>
     (x.name+' '+x.detail).toLocaleLowerCase().includes(filter.trim().toLocaleLowerCase())
   );
@@ -62,17 +65,25 @@ export default function IndicatorManager({
         <span className="asc-indicator-count">{enabled.length}</span>
         <span aria-hidden="true">{open?'▴':'▾'}</span>
       </button>
-      <div className="asc-indicator-active-strip" aria-label="Активные индикаторы">
-        {enabled.filter(item=>item.group==='График').slice(0,7).map(item=>
+      <button type="button" className={'asc-liq-mode-button'+(settings.liquidityOnly?' active':'')}
+        aria-pressed={settings.liquidityOnly}
+        title={settings.liquidityOnly?'Только свечи, уровни и BSL/SSL. Открыть расширенный график':
+          'Скрыть все остальные наложения, сохранить их настройки и расчёты'}
+        onClick={()=>onUpdate({liquidityOnly:!settings.liquidityOnly})}>
+        {settings.liquidityOnly?'◈ ЧИСТАЯ КАРТА':'◈ РАСШИРЕННЫЙ ГРАФИК'}
+      </button>
+      <div className="asc-indicator-active-strip" aria-label="Отображаемые на графике индикаторы">
+        {visibleGraph.slice(0,7).map(item=>
           <button key={item.key} type="button" className="asc-indicator-chip"
-            title={'Скрыть '+item.name} onClick={()=>onToggle(item.key)}>
+            title={settings.liquidityOnly?'В чистом режиме Liquidity Map обязателен': 'Скрыть '+item.name}
+            disabled={settings.liquidityOnly} onClick={()=>onToggle(item.key)}>
             <i style={{background:item.color}}/>
             <span>{item.name}</span>
             <b aria-hidden="true">×</b>
           </button>
         )}
-        {enabled.filter(item=>item.group==='График').length>7&&
-          <span className="asc-indicator-more">+{enabled.filter(item=>item.group==='График').length-7}</span>}
+        {visibleGraph.length>7&&
+          <span className="asc-indicator-more">+{visibleGraph.length-7}</span>}
       </div>
       <div className="asc-chart-view-switch" role="group" aria-label="Вертикальный масштаб графика">
         <button type="button" className={settings.chartViewMode==='TIGHT'?'active':''}
@@ -99,6 +110,10 @@ export default function IndicatorManager({
         <input type="search" value={filter} onChange={e=>setFilter(e.target.value)}
           placeholder="Поиск индикатора…" aria-label="Найти индикатор"/>
       </div>
+      {settings.liquidityOnly&&<div className="asc-liq-map-mode-explain">
+        Центральный график: только свечи, BSL/SSL и восемь уровней.
+        Остальные индикаторы сохранены, но скрыты с графика до выключения режима «Чистая карта».
+      </div>}
       <div className="asc-indicator-list">
         {GROUPS.map(group=>{
           const items=filtered.filter(x=>x.group===group);
@@ -117,7 +132,9 @@ export default function IndicatorManager({
                 <button type="button" className={'asc-indicator-eye'+(settings[item.key]?' active':'')}
                   title={(settings[item.key]?'Скрыть ':'Показать ')+item.name}
                   aria-label={(settings[item.key]?'Скрыть ':'Показать ')+item.name}
-                  aria-pressed={settings[item.key]} onClick={()=>onToggle(item.key)}>
+                  aria-pressed={settings.liquidityOnly&&item.key==='liquidityMap'?true:settings[item.key]}
+                  disabled={settings.liquidityOnly&&item.key==='liquidityMap'}
+                  onClick={()=>onToggle(item.key)}>
                   <Eye enabled={settings[item.key]}/>
                 </button>
               </div>
