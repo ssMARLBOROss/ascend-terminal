@@ -1,0 +1,26 @@
+name: ASCEND Comparative V2 Historical Research
+on:
+  push:
+    branches: [research/comparative-v2-20261012]
+    paths: ['research/**', '.github/workflows/research-comparative-v2.yml']
+  workflow_dispatch:
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check research/compare_v2.mjs
+      - name: Run causally reconstructed real-candle comparison
+        run: node research/compare_v2.mjs
+      - name: Preserve reproducible results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ascend-v2-historical-comparison
+          path: research/comparative_v2_results_20261012.json
+          retention-days: 30
+          if-no-files-found: warn
