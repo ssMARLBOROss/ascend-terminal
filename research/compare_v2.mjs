@@ -290,6 +290,7 @@ for(const symbol of symbols){
   }
   per.scenarios=scenarios;all.push(per);
   console.log('SYMBOL '+symbol+' diagnostics '+JSON.stringify(per.diagnostics));
+  console.log('FEATURES '+symbol+' '+JSON.stringify({IS:scenarios.IN_SAMPLE.feature_coverage,OOS:scenarios.OOS.feature_coverage}));
 }
 const summary={status:'RESEARCH_ONLY',engine:'ASCEND Confirmation Engine V2 unchanged',
   scope:'BINANCE USD-M FUTURES (NOT MEXC), previous UTC-day high/low only; UI legacy RSI/VWAP Core not replayed',
