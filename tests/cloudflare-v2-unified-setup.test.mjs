@@ -83,7 +83,7 @@ assert.ok(html.includes('source:\'CONFIRMATION_V2_FROZEN_LIQUIDITY\''));
 assert.ok(html.includes('function recordConfirmationV2(report,decision)'));
 assert.ok(html.includes('state.projection=projection(r); // sync chart/paper prices with latest V2 result'));
 assert.ok(html.includes('НЕ ENTRY READY: открыть для проверки V2'));
-for(const [i,tag] of [...html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)].entries()){
+for(const [i,tag] of [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].entries()){
  if(tag[1].trim())new vm.Script(tag[1],{filename:'index.inline.'+i+'.js'});
 }
 console.log('PASS V2 unified setup: 7 stages, stale/mismatch/out-of-order veto, bid/ask drift and RR, shadow gate, tested Cloudflare inline');
