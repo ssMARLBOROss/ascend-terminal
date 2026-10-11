@@ -610,6 +610,7 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
             <section id="ascResearchPanel" class="asc-confirm-v2-panel" aria-label="ASCEND Research Lab" style="margin-bottom:10px;padding:10px">
               <div class="asc-confirm-v2-head"><strong>ASCEND · HISTORY / FVG / MARKET PARTICIPATION</strong><span>RESEARCH ONLY · не влияет на ENTRY READY</span></div>
               <div id="ascResearchFvg" style="font-size:11px;margin:8px 0;color:#8ce1ff">FVG · NO DATA</div>
+              <div id="ascResearchHistory" style="font-size:11px;margin:8px 0;color:#e0d7b7">HISTORY LAB · NO DATA</div>
               <div id="ascResearchParticipation" style="font-size:11px;margin:8px 0;color:#a8b6c8">MARKET PARTICIPATION · NO DATA</div>
               <small style="font-size:9px;color:#8398ad">FVG: закрытые 3m свечи. Потоки: MEXC — сделки/OI; Bybit — стакан/ликвидации. Не смешивать биржи.</small>
             </section>
@@ -4958,6 +4959,22 @@ body.ascend-ui-v11 .topbar{gap:8px}
         (v?' · '+dir+' '+v.cls+' · '+number(v.lower)+'–'+number(v.upper)+
           ' · '+v.status+' · fill '+number(v.fillFraction*100,1)+'%':
           ' · активных зон нет')+' · RESEARCH ONLY';
+    }
+    const h=$('ascResearchHistory');
+    if(h){
+      const done=(state.paperTrades||[]).filter(x=>x.status==='CLOSED'&&
+        x.level_source==='V2_NEXT_FROZEN_LIQUIDITY');
+      const pnl=done.reduce((a,x)=>a+(Number(x.realized)||0)-(Number(x.entry_fee)||0),0);
+      const wins=done.filter(x=>(Number(x.realized)||0)-(Number(x.entry_fee)||0)>0).length;
+      h.textContent='HISTORY LAB · local V2 SHADOW '+done.length+' закрытых сделок'+
+        (done.length?' · WR '+number(100*wins/done.length,1)+'% · P&L '+number(pnl,3)+' USDT':' · WR Н/Д')+
+        ' · server SETUP пока NO DATA · исполнения не проверены';
+    }
+    const sweep=typeof latestConfirmationV2!=='undefined'?
+      latestConfirmationV2?.steps?.find(x=>x.name==='sweep'&&x.status==='CONFIRMED'):null;
+    if(report&&Number.isFinite(sweep?.at)){
+      const after=engine.scan(qaAggregate(q,60,180),asOf).filter(z=>z.formedAt>sweep.at);
+      box.textContent+=' · ПОСЛЕ SWEEP '+after.length+' / active '+after.filter(z=>z.status!=='FILLED').length;
     }
     const status=$('ascResearchParticipation');
     if(status){
