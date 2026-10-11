@@ -1843,7 +1843,7 @@ async function loadMarket(full){
     if(res[4].status==="fulfilled")state.volumeProfile=res[4].value;
     if(res[5].status==="fulfilled")state.breadth=res[5].value;
     if(needHtf){if(res[6]?.status==="fulfilled")state.tf["1h"]=res[6].value.candles||[];if(res[7]?.status==="fulfilled")state.tf["4h"]=res[7].value.candles||[];if(res[8]?.status==="fulfilled")state.tf["1d"]=res[8].value.candles||[];state.htfAt=now}
-    $("pairTop").textContent=s.replace("_","/");$("coinBadge").textContent=s[0];$("sideSymbol").textContent=s.split("_")[0];updatePrices();const pt=activePaper(s);if(pt)managePaperTrade(pt,Number(state.ticker?.last_price));renderVolume();renderBreadth();renderStructure();renderChart();renderBaseChecks();applyNewsMarkers();setLive("LIVE · "+((res.filter(x=>x.status==="fulfilled").length)+"/"+res.length),"#18e889")
+    $("pairTop").textContent=s.replace("_","/");$("coinBadge").textContent=s[0];$("sideSymbol").textContent=s.split("_")[0];updatePrices();const pt=activePaper(s);if(pt)managePaperTrade(pt,Number(state.ticker?.last_price));renderVolume();renderBreadth();renderStructure();renderChart();renderBaseChecks();applyNewsMarkers();window.ASCEND_CAPITAL_FLOW_UI?.refresh();setLive("LIVE · "+((res.filter(x=>x.status==="fulfilled").length)+"/"+res.length),"#18e889")
   }catch(e){if(requestSeq===state.marketRequestSeq){console.error(e);setLive("PARTIAL DATA","#ffc64d")}}finally{if(requestSeq===state.marketRequestSeq)state.refreshBusy=false}
 }
 function setLive(text,color){const e=$("live");e.style.color=color;e.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 16px '+color+'"></span> '+text}
