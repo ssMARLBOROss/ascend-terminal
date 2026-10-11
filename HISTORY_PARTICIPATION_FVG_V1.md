@@ -13,11 +13,12 @@ Railway `ascend-terminal-api` has healthy API, PostgreSQL, history collector and
 | `push.deal` | MEXC Futures | minute-aggregated BUY/SELL in contracts (batch written after 1m close) | PARTIAL: no before-start reconstruction and no complete tick continuity guarantee |
 | `push.ticker`/`holdVol` | MEXC Futures | OI (contracts) at ~30s intervals | ΔOI only once 15m prior sample exists |
 | `orderbook.50` | Bybit linear | local in-memory BID/ASK 50 depth (10s observation) | snapshot required; resets on reconnect; `NO DATA` until complete |
+| `REST depth` + uncompressed `push.depth` | MEXC Futures | 50-level BID/ASK from REST snapshot plus strict version+1 WS deltas | on gap/reset fetch a new REST snapshot, discard stale delta; `NO DATA` without verified snapshot |
 | `allLiquidation` | Bybit linear | exact liquidation position side and bankruptcy price, timestamp and native qty | PARTIAL until observation history exists; not MEXC liquidation data |
 | FVG closed 3m | MEXC candles displayed in Terminal | OPEN/PARTIAL/FILLED, size divided by ATR14, formedAt/firstTouchAt | no candle before close / no look-ahead |
 | SETUP event table | trustworthy server event producer | reserved schema; **no producer connected yet** | `NO DATA` until verified server-side signal source is installed |
 
-MEXC native depth WS delta is **not** interpreted as full book without snapshot/version replay. At present the BOOK display is clearly labeled `BYBIT`; MEXC book is `NO DATA` rather than guessed.
+MEXC native depth WS delta is interpreted only after a REST snapshot with a verified contiguous version chain. The panel prefers fresh `MEXC` book; when absent it displays independent `BYBIT` with the source label. It never infers execution solely from the removal of visible orders.
 
 Bybit liquidation `S=Buy` means liquidated **LONG** position; `S=Sell` liquidated **SHORT** position. Bybit supplies the bankruptcy price, not guaranteed execution fill.
 
@@ -59,5 +60,5 @@ GitHub workflow: `ASCEND History Participation FVG V1`; all previous V2 core log
 1. Verify Railway websocket connection plus streaming records, age/status, reconnect tests, DB counts. Until checked, do not claim production LIVE.
 2. Authoritative server-side V2 SETUP producer with confirmed closed-candle timestamps and `setup_id`; avoid accepting unauthenticated, client-computed `ENTRY READY` submissions.
 3. Independent paper execution ledger: immutable entry/SL/TP and fee snapshot; MFE/MAE, stop-first OHLC policy, slippage, funding.
-4. Venue-specific MEXC book snapshot plus version-consistent updates; long-term raw stream archive in object storage if volume budgets allow.
+4. Verify MEXC REST depth + WS chain in production and event continuity. Long-term raw stream archive in object storage if volume budgets allow.
 5. 30/90-day calendar research IS/OOS, fee sensitivity and sample-size validity. The pilot Binance BTC/ETH/SOL research in `research/comparative-v2-20261012` is separate and produced **zero valid completed V2 setups**, so WR is undefined.
