@@ -34,7 +34,7 @@ const noFuture=one.map((b,i)=>i>60?{...b,close:100000}:b);
 assert.equal(R.response(AT,noFuture,ETH,SOL,AT).horizons[1].btc,null,
   'future extreme cannot affect as-of baseline');
 const bad=one.filter(b=>b.time!==AT-60);
-assert.equal(R.response(AT,bad,ETH,SOL,AT+3600).btcPrice,null,
+assert.equal(R.response(AT,bad,ETH,SOL,AT+3600),null,
   'missing starting exact candle must fail closed');
 const samples=[
  {key:'YL',type:'SWEEP',at:AT,depthPct:1.25},
