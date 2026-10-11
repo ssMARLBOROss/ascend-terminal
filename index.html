@@ -1189,7 +1189,10 @@ function renderMajorPairMenu(asset){
 
 
 /* Liquidity-only chart mode; study data and trading decisions are preserved. */
-let liquidityZoneOverlay=null,latestLiquidityModel=null,liquiditySignature='';
+let liquidityZoneOverlay=null,latestLiquidityModel=null,latestLiquidityMeta={},
+  liquiditySignature='',latestStructureEvidence=null,structureEvidenceKey='';
+let structureEvidenceOn=true;
+try{structureEvidenceOn=localStorage.getItem('ascend_structure_research_v1')!=='off'}catch(_){}
 function ascendLiquidityDraw(){
   const model=latestLiquidityModel,layer=liquidityZoneOverlay;
   if(!layer||!state.chartReady)return;
@@ -1207,6 +1210,27 @@ function ascendLiquidityDraw(){
   const priceToY=p=>candles.priceToCoordinate(Number(p));
   window.AscendLiquidityMap.draw(ctx,{left:6,right:Math.max(6,w-70)},
     priceToY,model);
+  if(structureEvidenceOn&&latestStructureEvidence?.status==='READY'){
+    const tfSeconds={'1m':60,'5m':300,'10m':600,'15m':900,'30m':1800,
+      '1h':3600,'4h':14400,'1d':86400}[state.timeframe]||300;
+    const visible=latestStructureEvidence.recent.filter(e=>
+      ['SWEEP','BREAK','ACCEPTANCE','RECLAIM','RETEST'].includes(e.type)).slice(0,5);
+    ctx.save();ctx.font='800 10px system-ui,sans-serif';
+    for(const ev of visible){
+      const candleTime=Math.floor((ev.at-60)/tfSeconds)*tfSeconds;
+      const x=chart.timeScale().timeToCoordinate(candleTime),y=priceToY(ev.price);
+      if(!Number.isFinite(x)||!Number.isFinite(y)||x<12||x>w-95||y<25||y>h-38)continue;
+      const color=ev.dir==='LONG'?'#65e6b1':ev.dir==='SHORT'?'#f78da2':'#d3c2a0';
+      ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,3.3,0,Math.PI*2);ctx.fill();
+      if(ev.type==='TOUCH')continue;
+      const label=ev.key+' '+ev.type;
+      const tw=ctx.measureText(label).width+10,bx=Math.max(7,Math.min(w-tw-80,x+7));
+      const by=Math.max(16,Math.min(h-35,y-(ev.dir==='LONG'?20:8)));
+      ctx.fillStyle='rgba(3,18,29,.89)';ctx.fillRect(bx,by-12,tw,16);
+      ctx.fillStyle=color;ctx.fillText(label,bx+5,by);
+    }
+    ctx.restore();
+  }
 }
 function ascendLiquidityRender(){
   if(!state.chartReady||!window.AscendLiquidityMap)return;
@@ -1224,6 +1248,7 @@ function ascendLiquidityRender(){
   const price=Number(last.close);
   const levels=built?.levels||{};
   const meta=built?.meta||{};
+  latestLiquidityMeta=meta;
   const fullCandles=rows1.filter(c=>Number(c.time)+60<=asOf);
   latestLiquidityModel=built&&Number.isFinite(built.atr)?
     window.AscendLiquidityMap.build({
@@ -1299,6 +1324,91 @@ function renderAscendVwap(){
   badge.className=difference>0?'up':difference<0?'down':'';
 }
 
+function structureEvidenceTime(time){
+  if(!Number.isFinite(Number(time)))return '—';
+  return new Date(Number(time)*1000).toISOString().slice(5,16).replace('T',' ')+' UTC';
+}
+function structureEvidenceText(parent,tag,text,cls){
+  const el=document.createElement(tag);if(cls)el.className=cls;
+  el.textContent=String(text);parent.appendChild(el);return el;
+}
+function renderStructureEvidence(){
+  const button=$('ascendStructureToggle'),panel=$('ascStructurePanel'),
+    ribbon=$('ascStructureRibbon'),mini=$('ascStructureMini');
+  if(!button||!panel||!ribbon||!mini||!window.ASCEND_STRUCTURE_EVIDENCE)return;
+  button.setAttribute('aria-pressed',String(structureEvidenceOn));
+  button.textContent=structureEvidenceOn?'СТРУКТУРА · ON':'СТРУКТУРА · OFF';
+  panel.hidden=!structureEvidenceOn;ribbon.hidden=!structureEvidenceOn;
+  if(!structureEvidenceOn){
+    mini.textContent='Структура скрыта';latestStructureEvidence=null;
+    return;
+  }
+  const one=closed(state.tf['1m']||[]),fifteen=closed(state.tf['15m']||[]);
+  const last=one.at(-1),asOf=last?Number(last.time)+60:NaN;
+  const levels=latestLiquidityModel,meta=latestLiquidityMeta;
+  const key=JSON.stringify([state.symbol,asOf,one[0]?.time,
+    fifteen.at(-1)?.time,levels?.asOf,levels?.all?.uppers?.length,
+    levels?.all?.lowers?.length,structureEvidenceOn]);
+  if(key===structureEvidenceKey)return;
+  structureEvidenceKey=key;
+  const report=window.ASCEND_STRUCTURE_EVIDENCE.analyze({
+    one,fifteen,asOf,wallClock:Date.now()/1000,levels,levelMeta:meta
+  });
+  latestStructureEvidence=report;
+  const header=$('ascStructureTime'),frames=$('ascStructureFrames'),events=$('ascStructureEvents');
+  header.textContent=structureEvidenceTime(report.asOf)+' · '
+    +(report.status==='STALE'?'ДАННЫЕ УСТАРЕЛИ':'по закрытым свечам');
+  frames.replaceChildren();events.replaceChildren();ribbon.replaceChildren();
+  structureEvidenceText(ribbon,'b','STRUCTURE RESEARCH');
+  if(!report.frames){
+    mini.textContent='Нет подтверждённых 1m';
+    structureEvidenceText(ribbon,'span',report.reason||'История недоступна');
+    structureEvidenceText(events,'span',report.reason||'Ожидаем свечи');
+    return;
+  }
+  const context=report.context,latest=report.recent[0];
+  mini.textContent='30m/15m '+context+(report.status==='STALE'?' · STALE':'');
+  const info=(latest?latest.key+' '+latest.type+' · '+structureEvidenceTime(latest.at):
+    'Пока нет наблюдаемых событий в загруженном окне');
+  structureEvidenceText(ribbon,'span','КОНТЕКСТ '+context+' · '+info);
+  structureEvidenceText(ribbon,'span',report.aligned?
+    'MTF совпали · RESEARCH, НЕ ENTRY':'MTF ожидает полной последовательности');
+  for(const tf of ['30m','15m','10m','5m','3m','1m']){
+    const frame=report.frames[tf],div=document.createElement('div');
+    div.className='asc-structure-frame '+(
+      frame.trend==='LONG'?'long':frame.trend==='SHORT'?'short':'mixed');
+    structureEvidenceText(div,'b',tf);
+    structureEvidenceText(div,'span',frame.trend);
+    structureEvidenceText(div,'small',frame.pattern);
+    const lastBreak=frame.events?.at(-1);
+    if(lastBreak)structureEvidenceText(div,'small',lastBreak.kind+' · '+
+      structureEvidenceTime(lastBreak.at));
+    frames.appendChild(div);
+  }
+  if(!report.recent.length){
+    structureEvidenceText(events,'span',report.reason||
+      'В загруженной 1m истории нет новых касаний/снятий.');
+  }else{
+    for(const e of report.recent){
+      const row=document.createElement('div');row.className='asc-structure-event';
+      structureEvidenceText(row,'span',structureEvidenceTime(e.at));
+      structureEvidenceText(row,'b',e.key);
+      structureEvidenceText(row,'span',e.type,e.dir==='LONG'?'up':
+        e.dir==='SHORT'?'down':'');
+      const detail=e.type==='SWEEP'?
+        'Глубина '+Number(e.depthPct||0).toFixed(2)+'%':
+        e.type==='RETEST'?'После '+(e.after||'закрепления'):
+        e.type==='ACCEPTANCE'?'2 закрытые 1m свечи':
+        e.type==='BREAK'?'Закрытие за уровнем':
+        e.type==='RECLAIM'?'Цена закрылась обратно за уровнем':
+        'Касание ATR-зоны';
+      structureEvidenceText(row,'span',detail+' · '+(
+        e.dir==='LONG'?'LONG контекст':e.dir==='SHORT'?'SHORT контекст':'наблюдение'));
+      events.appendChild(row);
+    }
+  }
+}
+
 function renderChart(){
   renderSessionUI();
   const r=closed(currentRows());if(!r.length||!state.chartReady)return;
@@ -1316,6 +1426,7 @@ function renderChart(){
   // Draw VWAP only on request. Project it onto existing candle timestamps.
   renderAscendVwap();
   ascendLiquidityRender();
+  renderStructureEvidence();
 }
 function scheduleOverlay(){if(overlayRaf)return;overlayRaf=requestAnimationFrame(()=>{overlayRaf=0;syncOverlay();ascendLiquidityDraw()})}
 function priceY(p){const y=candles.priceToCoordinate(Number(p));return Number.isFinite(y)?y:null}
@@ -1807,6 +1918,13 @@ $("sellBtn").addEventListener("click",()=>openManualPaper("SHORT"));
 $("paperCloseBtn").addEventListener("click",closeManualPaper);
 $("shadowTradeList").addEventListener("click",e=>{const b=e.target.closest("[data-shadow-close]");if(b)closeShadowById(b.dataset.shadowClose)});
 $("tfBar").addEventListener("click",e=>{const b=e.target.closest("[data-tf]");if(b)setTimeframe(b.dataset.tf)});
+$("ascendStructureToggle").addEventListener("click",()=>{
+  structureEvidenceOn=!structureEvidenceOn;structureEvidenceKey='';
+  try{localStorage.setItem('ascend_structure_research_v1',
+    structureEvidenceOn?'on':'off')}catch(_){}
+  renderStructureEvidence();
+  ascendLiquidityDraw();
+});
 $("ascendVwapToggle").addEventListener("click",()=>{
   ascendVwapVisible=!ascendVwapVisible;
   try{localStorage.setItem('ascend_vwap_chart_v1',ascendVwapVisible?'on':'off')}catch(_){}
