@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 
 import history_store
 import macro_fred
+import capital_flow_mexc
 
 MEXC_BASE_URL = "https://api.mexc.com"
 MEXC_KLINE_URL = MEXC_BASE_URL + "/api/v1/contract/kline/{symbol}"
@@ -706,6 +707,17 @@ def install(app: Any) -> None:
         safe = _safe_symbol(symbol)
         row = await _ticker_one(safe)
         return JSONResponse(row, headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/v2/capital-flow")
+    async def capital_flow(symbol: str = Query(default="BTC_USDT")):
+        safe = _safe_symbol(symbol)
+        # Reuse the futures ticker already cached by the terminal API.
+        try:
+            ticker = await _ticker_one(safe)
+        except HTTPException:
+            ticker = None
+        return JSONResponse(await capital_flow_mexc.snapshot(safe, ticker),
+                            headers={"Cache-Control": "private, no-store"})
 
     @app.get("/api/v2/klines")
     async def klines(
