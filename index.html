@@ -3547,7 +3547,13 @@ start();
     const _loadNews=loadNews;loadNews=async function(){const out=await _loadNews();updateContext();return out};
     const _chooseSymbol=chooseSymbol;chooseSymbol=function(sym){const out=_chooseSymbol(sym);setTimeout(()=>{renderRadar();updateContext()},0);return out};
     const _openManualPaper=openManualPaper;openManualPaper=function(dir){
-      const side=dir==='LONG'?'LONG':'SHORT';
+      const side=dir==='LONG'?'LONG':'SHORT',em=entryModel();
+      // Do not show an encouraging OPEN dialog when V2 is incomplete.
+      if(!em.setup?.ready||em.setup.side!==side){
+        window.alert('Теневой вход запрещён: '+(em.setup?.reason||'ожидаем V2')+
+          '. Нужен ENTRY READY '+side+'.');
+        return;
+      }
       if(!window.confirm('Открыть ТЕНЕВУЮ '+side+' сделку по '+String(state.symbol||'').replace('_','/')+'?\\n\\nРеальный ордер на биржу НЕ отправляется.'))return;
       return _openManualPaper(dir);
     };
