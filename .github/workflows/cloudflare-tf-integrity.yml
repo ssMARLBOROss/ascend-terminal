@@ -1,0 +1,45 @@
+name: ASCEND MTF Integrity and UI Health regression
+on:
+  push:
+    branches: [fix/ascend-tf-integrity-and-ui-health-20261011]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check market-timeframe-quality.js
+      - run: node --check structure-evidence.js
+      - run: node tests/cloudflare-tf-integrity.test.mjs
+      - run: node tests/cloudflare-session-high-low.test.mjs
+      - run: node tests/cloudflare-choch-10m.test.mjs
+      - run: node tests/cloudflare-structure-evidence.test.mjs
+      - run: node tests/cloudflare-vwap.test.mjs
+      - run: node tests/cloudflare-liquidity-map.test.mjs
+      - run: node tests/cloudflare-workspace-layout.test.mjs
+      - run: node tests/cloudflare-cross-market.test.mjs
+      - run: node tests/cloudflare-macro-fred-replay.test.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install playwright==1.55.0
+      - name: Start local browser test server
+        run: |
+          python -m http.server 8765 --bind 127.0.0.1 > /tmp/ascend-ui-http.log 2>&1 &
+          sleep 2
+      - name: Check visible chart, MTF status and symbol changes in Chrome
+        run: python tests/tf_integrity_visual_smoke.py
+      - name: Save screenshots from test browser
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ascend-tf-integrity-ui
+          path: ui-smoke-results/*.png
+          if-no-files-found: ignore
+          retention-days: 1

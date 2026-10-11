@@ -163,15 +163,22 @@
   function analyze(input){
     const asOf=Number(input?.asOf);
     if(!Number.isFinite(asOf)||!input)return {status:'NODATA',reason:'Нет закрытых минутных свечей'};
-    const one=prepared(input.one,60,asOf),fifteen=prepared(input.fifteen,900,asOf);
+    const one=prepared(input.one,60,asOf),
+      fiveBars=prepared(input.five,300,asOf),
+      fifteen=prepared(input.fifteen,900,asOf);
     if(one.length<30)return {status:'NODATA',reason:'Недостаточно непрерывных 1m свечей',asOf};
     const wallClock=Number(input.wallClock);
     const stale=Number.isFinite(wallClock)&&wallClock-asOf>180;
     // Trend is independent from liquidity availability and never reads an open bar.
     const frames={};
     for(const [name,seconds] of TFS){
+      // 10m/5m use the full already-fetched 5m history (~26h),
+      // not just 260 1m bars (~4h). Never mix incomplete windows.
       const bars=seconds===1800?grouped(fifteen,1800,900):
-        seconds===900?fifteen:grouped(one,seconds);
+        seconds===900?fifteen:
+        seconds===600?(fiveBars.length?grouped(fiveBars,600,300):grouped(one,600)):
+        seconds===300?(fiveBars.length?fiveBars:grouped(one,300)):
+        grouped(one,seconds);
       frames[name]=snapshot(bars,seconds,asOf);
     }
     const items=(input.levels?.all?.uppers||[]).concat(input.levels?.all?.lowers||[]);
@@ -184,7 +191,8 @@
     // CHOCH is an independent confirmed protected-pivot break.
     // Legacy BREAK↑/↓ remains only a generic structural break.
     const choch=root.ASCEND_CHOCH_10M?
-      root.ASCEND_CHOCH_10M.scan(grouped(one,600),asOf):{
+      root.ASCEND_CHOCH_10M.scan(fiveBars.length?
+        grouped(fiveBars,600,300):grouped(one,600),asOf):{
         status:'NO_DATA',events:[],latest:null,protectedLevel:null,
         expected:'WAIT',reason:'Модуль CHOCH не загружен'};
     const ten=frames['10m'].events.at(-1)||null,

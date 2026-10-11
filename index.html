@@ -592,6 +592,8 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
                 ПРЕД. СЕССИИ · OFF
               </button>
             </div>
+            <div id="ascTFHealth" class="asc-tf-health" role="status"
+              aria-live="off">ДАННЫЕ MTF · ожидаем свечи MEXC</div>
             <div id="ascSessionHLPanel" class="asc-session-hl-panel" aria-label="Максимумы и минимумы торговых сессий">
               <div class="asc-session-hl-header"><b>SESSION HIGH / LOW</b>
                 <small id="ascSessionHLStatus">Текущая и последняя завершённая сессия · закрытые свечи</small>
@@ -782,6 +784,62 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
 </div>
 
 <script>
+/* ASCEND Candle QA V1 — verified close times and aligned aggregates.
+   Presentation/data-integrity only; no trade setup or ENTRY rule changes. */
+(function(root){
+  'use strict';
+  const SECONDS={ '1m':60,'3m':180,'5m':300,'10m':600,
+    '15m':900,'30m':1800,'1h':3600,'4h':14400,'1d':86400 };
+  function complete(rows,seconds,asOf=Date.now()/1000){
+    if(!Array.isArray(rows)||!Number.isInteger(seconds)||seconds<60||
+      !Number.isFinite(asOf))return [];
+    const result=[],seen=new Set();
+    for(const row of rows){
+      const t=Number(row?.time),o=Number(row?.open),h=Number(row?.high),
+        l=Number(row?.low),c=Number(row?.close);
+      if(![t,o,h,l,c].every(Number.isFinite)||!Number.isInteger(t)||
+        t%seconds!==0||t+seconds>asOf||l<=0||h<l||
+        o<l||o>h||c<l||c>h||seen.has(t))continue;
+      seen.add(t);
+      result.push({time:t,open:o,high:h,low:l,close:c,
+        volume:Number.isFinite(Number(row.volume))?Number(row.volume):0});
+    }
+    return result.sort((a,b)=>a.time-b.time);
+  }
+  function aggregate(rows,sourceSeconds,targetSeconds,asOf=Date.now()/1000){
+    if(!Number.isInteger(targetSeconds)||targetSeconds<sourceSeconds||
+      targetSeconds%sourceSeconds!==0)return [];
+    const source=complete(rows,sourceSeconds,asOf),groups=new Map();
+    const count=targetSeconds/sourceSeconds;
+    for(const b of source){
+      const t=Math.floor(b.time/targetSeconds)*targetSeconds;
+      if(!groups.has(t))groups.set(t,[]);
+      groups.get(t).push(b);
+    }
+    const output=[];
+    for(const [t,group] of [...groups].sort((a,b)=>a[0]-b[0])){
+      if(t+targetSeconds>asOf||group.length!==count||
+        group.some((bar,i)=>bar.time!==t+i*sourceSeconds))continue;
+      output.push({time:t,open:group[0].open,
+        high:Math.max(...group.map(x=>x.high)),
+        low:Math.min(...group.map(x=>x.low)),
+        close:group.at(-1).close,
+        volume:group.reduce((sum,x)=>sum+x.volume,0)});
+    }
+    return output;
+  }
+  function status(rows,seconds,asOf=Date.now()/1000){
+    const usable=complete(rows,seconds,asOf);
+    if(!usable.length)return {state:'NO DATA',count:0,lagSeconds:null,lastClose:null};
+    const last=usable.at(-1).time+seconds,age=asOf-last;
+    const stale=age>seconds*2+30;
+    return {state:stale?'STALE':'LIVE',count:usable.length,
+      lagSeconds:Math.max(0,Math.round(age)),lastClose:last};
+  }
+  root.ASCEND_TF_QA=Object.freeze({complete,aggregate,status,SECONDS});
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<script>
 if(new URLSearchParams(location.search).get("guest")==="1"){
   document.documentElement.dataset.guest="1";
 }
@@ -798,25 +856,27 @@ const $=id=>document.getElementById(id);
 function fmt(v){v=Number(v);if(!Number.isFinite(v))return "—";const a=Math.abs(v);if(a>=1000000)return (v/1000000).toFixed(2)+"M";if(a>=1000)return v.toLocaleString("en-US",{maximumFractionDigits:1});if(a>=1)return v.toFixed(4);if(a>=.01)return v.toFixed(6);return v.toFixed(8)}
 function avg(a){const x=a.filter(Number.isFinite);return x.length?x.reduce((s,v)=>s+v,0)/x.length:0}
 function median(a){const x=a.filter(v=>Number.isFinite(v)&&v>0).sort((a,b)=>a-b);if(!x.length)return 0;const m=Math.floor(x.length/2);return x.length%2?x[m]:(x[m-1]+x[m])/2}
+// Legacy Core closed() semantics are retained unchanged for backwards compatibility.
 function closed(a){return a&&a.length>2?a.slice(0,-1):(a||[])}
+function qaRows(rows,tf){
+  const sec=window.ASCEND_TF_QA?.SECONDS?.[tf];
+  return sec?window.ASCEND_TF_QA.complete(rows,sec):closed(rows);
+}
+function qaAggregate(rows,source,target){
+  return window.ASCEND_TF_QA?.aggregate(rows,source,target)||[];
+}
 function sma(rows,n){let q=[],s=0,out=[];rows.forEach(x=>{q.push(Number(x.close));s+=Number(x.close);if(q.length>n)s-=q.shift();out.push(q.length===n?s/n:null)});return out}
 async function api(url){const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
 function humanVolume(v){v=Number(v)||0;if(v>=1e9)return (v/1e9).toFixed(2)+"B";if(v>=1e6)return (v/1e6).toFixed(2)+"M";if(v>=1e3)return (v/1e3).toFixed(2)+"K";return v.toFixed(2)}
 function directionClass(d){return d==="LONG"?"long":d==="SHORT"?"short":"neutral"}
 function dirRu(d){return d==="LONG"?"LONG ↑":d==="SHORT"?"SHORT ↓":"NEUTRAL"}
-function aggregate10m(rows){const r=closed(rows),out=[];for(let i=0;i+1<r.length;i+=2){const g=r.slice(i,i+2);if(g.length<2)continue;out.push({time:g[0].time,open:g[0].open,high:Math.max(...g.map(x=>x.high)),low:Math.min(...g.map(x=>x.low)),close:g[g.length-1].close,volume:g.reduce((s,x)=>s+(Number(x.volume)||0),0)})}return out}
-function aggregate30m(rows){
-  const groups=new Map();
-  (rows||[]).forEach(x=>{
-    const t=Number(x.time)||0,b=Math.floor(t/1800)*1800;
-    if(!groups.has(b))groups.set(b,[]);
-    groups.get(b).push(x);
-  });
-  return [...groups.entries()].sort((a,b)=>a[0]-b[0]).map(([time,g])=>{
-    g.sort((a,b)=>Number(a.time)-Number(b.time));
-    return{time,open:Number(g[0].open),high:Math.max(...g.map(x=>Number(x.high))),low:Math.min(...g.map(x=>Number(x.low))),close:Number(g.at(-1).close),volume:g.reduce((s,x)=>s+(Number(x.volume)||0),0)}
-  });
+function aggregate10m(rows){
+  return qaAggregate(rows,300,600);
 }
+function aggregate30m(rows){
+  return qaAggregate(rows,900,1800);
+}
+
 function trend(rows){const r=closed(rows);if(r.length<12)return "NEUTRAL";const c=r.map(x=>Number(x.close)),last=c.at(-1),s20=avg(c.slice(-Math.min(20,c.length))),s50=avg(c.slice(-Math.min(50,c.length))),slope=last-c[Math.max(0,c.length-6)];if(last>s20&&s20>=s50&&slope>0)return "LONG";if(last<s20&&s20<=s50&&slope<0)return "SHORT";return "NEUTRAL"}
 function bosDirection(rows){const r=closed(rows);if(r.length<9)return "NEUTRAL";const last=r.at(-1),prev=r.slice(-8,-1),hi=Math.max(...prev.map(x=>Number(x.high))),lo=Math.min(...prev.map(x=>Number(x.low)));if(Number(last.close)>hi)return "LONG";if(Number(last.close)<lo)return "SHORT";return "NEUTRAL"}
 function currentRows(){return state.tf[state.timeframe]||state.tf["5m"]||[]}
@@ -1252,6 +1312,7 @@ function renderMajorPairMenu(asset){
 /* Liquidity-only chart mode; study data and trading decisions are preserved. */
 let liquidityZoneOverlay=null,latestLiquidityModel=null,latestLiquidityMeta={},
   liquiditySignature='',latestStructureEvidence=null,structureEvidenceKey='';
+let chartBarsSignature='';
 let structureEvidenceOn=true;
 try{structureEvidenceOn=localStorage.getItem('ascend_structure_research_v1')!=='off'}catch(_){}
 let sessionHLOn=true,sessionHLPrevious=false,latestSessionHL=null,
@@ -1277,6 +1338,32 @@ function buildSessionHLWindows(asOf){
 function formatSessionHLTime(at){
   return Number.isFinite(at)?new Date(at*1000).toISOString().slice(5,16).replace('T',' ')+' UTC':'—';
 }
+function renderTFHealth(){
+  const panel=$('ascTFHealth'),qa=window.ASCEND_TF_QA;
+  if(!panel||!qa)return;
+  const now=Date.now()/1000;
+  const checks=[['1m','1m'],['5m','5m'],['15m','15m']]
+    .map(([tf,label])=>({...qa.status(state.tf[tf]||[],qa.SECONDS[tf],now),tf,label}));
+  const allOk=checks.every(x=>x.state==='LIVE');
+  panel.className='asc-tf-health '+(allOk?'ok':'warning');
+  panel.replaceChildren();
+  const title=document.createElement('b');
+  title.textContent='DATA HEALTH · '+(allOk?'LIVE':'PARTIAL / STALE');
+  panel.appendChild(title);
+  for(const check of checks){
+    const span=document.createElement('span');
+    span.className=check.state==='LIVE'?'ok':'bad';
+    const at=check.lastClose?new Date(check.lastClose*1000).toISOString().slice(11,16)+' UTC':'—';
+    span.textContent=check.label+': '+check.state+
+      (check.lastClose?' · '+at+' · лаг '+check.lagSeconds+'с':'');
+    panel.appendChild(span);
+  }
+  const note=document.createElement('small');
+  note.textContent='Таймфреймы и уровни — только по закрытым свечам. '+
+    'MTF CHOCH 10m / 5m из полных групп 5m. Core не изменён.';
+  panel.appendChild(note);
+}
+
 function renderSessionHL(){
   const btn=$('ascSessionHLToggle'),prevBtn=$('ascSessionHLPrevious'),
     panel=$('ascSessionHLPanel'),container=$('ascSessionHLRows'),
@@ -1288,14 +1375,15 @@ function renderSessionHL(){
   prevBtn.setAttribute('aria-pressed',String(sessionHLPrevious));
   panel.hidden=!sessionHLOn;
   if(!sessionHLOn){latestSessionHL=null;return;}
-  const minutes=closed(state.tf['1m']||[]);
+  const minutes=qaRows(state.tf['1m']||[],'1m');
   const last=minutes.at(-1),asOf=last?Number(last.time)+60:NaN;
   if(!Number.isFinite(asOf)||Date.now()/1000-asOf>300||
     !Number.isFinite(Number(last.close))){
     latestSessionHL=null;status.textContent='NO DATA / STALE · нет свежих закрытых 1m';
     container.replaceChildren();return;
   }
-  const bars5=closed(state.tf['5m']||[]),bars15=closed(state.tf['15m']||[]);
+  const bars5=qaRows(state.tf['5m']||[],'5m'),
+    bars15=qaRows(state.tf['15m']||[],'15m');
   const key=JSON.stringify([state.symbol,asOf,bars5[0]?.time,bars5.at(-1)?.time,
     bars15[0]?.time,bars15.at(-1)?.time,sessionHLOn,sessionHLPrevious]);
   if(key===sessionHLRenderKey)return;
@@ -1436,14 +1524,17 @@ function ascendLiquidityRender(){
   if(!state.chartReady||!window.AscendLiquidityMap)return;
   // Use all available closed 15m candles for full UTC-day levels.
   // Do not backfill nonexistent historical points from shorter TFs.
-  const rows15=closed(state.tf["15m"]||[]);
-  const rows5=closed(state.tf["5m"]||[]);
-  const rows1=closed(state.tf["1m"]||[]);
+  const rows15=qaRows(state.tf["15m"]||[],'15m');
+  const rows5=qaRows(state.tf["5m"]||[],'5m');
+  const rows1=qaRows(state.tf["1m"]||[],'1m');
   const last=rows1.at(-1);
   if(!last)return;
   const asOf=Number(last.time)+60;
-  const fresh=Date.now()/1000-asOf<300;
-  const built=fresh?window.AscendLiquidityMap.levelsFromHistory(
+  const fresh=asOf<=Date.now()/1000+10&&Date.now()/1000-asOf<180;
+  const anchorValid=['5m','15m'].every(tf=>
+    window.ASCEND_TF_QA?.status(state.tf[tf]||[],
+      window.ASCEND_TF_QA.SECONDS[tf],Date.now()/1000).state==='LIVE');
+  const built=fresh&&anchorValid?window.AscendLiquidityMap.levelsFromHistory(
     rows15,rows5,asOf):null;
   const price=Number(last.close);
   const levels=built?.levels||{};
@@ -1490,14 +1581,16 @@ function renderAscendVwap(){
     if(badge){badge.textContent='VWAP UTC · скрыт';badge.className='off'}
     return;
   }
-  const rows1=closed(state.tf['1m']||[]);
+  const rows1=qaRows(state.tf['1m']||[],'1m');
   const latest=rows1.at(-1);
   const asOf=latest?Number(latest.time)+60:NaN;
   const isFresh=Number.isFinite(asOf)&&Date.now()/1000-asOf<300&&
     asOf<=Date.now()/1000+30;
-  const snapshot=isFresh?window.ASCEND_DAILY_VWAP.daily(
-    closed(state.tf['5m']||[]),asOf):null;
-  const chartRows=closed(currentRows());
+  const fiveCurrent=window.ASCEND_TF_QA?.status(
+    state.tf['5m']||[],300,Date.now()/1000).state==='LIVE';
+  const snapshot=isFresh&&fiveCurrent?window.ASCEND_DAILY_VWAP.daily(
+    qaRows(state.tf['5m']||[],'5m'),asOf):null;
+  const chartRows=qaRows(currentRows(),state.timeframe);
   const projected=window.ASCEND_DAILY_VWAP.project(snapshot,chartRows,state.timeframe);
   const relation=window.ASCEND_DAILY_VWAP.relationship(latest?.close,snapshot);
   const last=chartRows.at(-1);
@@ -1543,18 +1636,27 @@ function renderStructureEvidence(){
     mini.textContent='Структура скрыта';latestStructureEvidence=null;
     return;
   }
-  const one=closed(state.tf['1m']||[]),fifteen=closed(state.tf['15m']||[]);
+  const one=qaRows(state.tf['1m']||[],'1m'),
+    five=qaRows(state.tf['5m']||[],'5m'),
+    fifteen=qaRows(state.tf['15m']||[],'15m');
   const last=one.at(-1),asOf=last?Number(last.time)+60:NaN;
   const levels=latestLiquidityModel,meta=latestLiquidityMeta;
   const staleFlag=Number.isFinite(asOf)&&Date.now()/1000-asOf>180;
   const key=JSON.stringify([state.symbol,asOf,one[0]?.time,
-    fifteen.at(-1)?.time,levels?.asOf,levels?.all?.uppers?.length,
+    five.at(-1)?.time,fifteen.at(-1)?.time,levels?.asOf,levels?.all?.uppers?.length,
     levels?.all?.lowers?.length,structureEvidenceOn,staleFlag]);
   if(key===structureEvidenceKey)return;
   structureEvidenceKey=key;
   const report=window.ASCEND_STRUCTURE_EVIDENCE.analyze({
-    one,fifteen,asOf,wallClock:Date.now()/1000,levels,levelMeta:meta
+    one,five,fifteen,asOf,wallClock:Date.now()/1000,levels,levelMeta:meta
   });
+  const secondaryFresh=['5m','15m'].every(tf=>
+    window.ASCEND_TF_QA?.status(state.tf[tf]||[],
+      window.ASCEND_TF_QA.SECONDS[tf],Date.now()/1000).state==='LIVE');
+  if(report.status==='READY'&&!secondaryFresh){
+    report.status='STALE';
+    report.reason='5m / 15m не обновились — MTF подтверждение остановлено';
+  }
   latestStructureEvidence=report;
   if(window.ASCEND_FRED_MACRO_UI)window.ASCEND_FRED_MACRO_UI.renderReplay();
   // Pressure panel reads latest evidence; never changes Core's bosDirection().
@@ -1655,9 +1757,18 @@ function renderStructureEvidence(){
 
 function renderChart(){
   renderSessionUI();
-  const r=closed(currentRows());if(!r.length||!state.chartReady)return;
+  renderTFHealth();
+  const r=qaRows(currentRows(),state.timeframe);
+  if(!r.length||!state.chartReady)return;
   const last=r.at(-1),prev=r.at(-2)||last,ss20=sma(r,20),ss50=sma(r,50),ss200=sma(r,200),vw=vwapSnapshot(currentRows());
-  candles.setData(r.map(x=>({time:Number(x.time),open:Number(x.open),high:Number(x.high),low:Number(x.low),close:Number(x.close)})));
+  const first=r[0],end=r.at(-1);
+  const barsKey=JSON.stringify([state.symbol,state.timeframe,r.length,first.time,
+    end.time,end.open,end.high,end.low,end.close]);
+  if(barsKey!==chartBarsSignature){
+    candles.setData(r.map(x=>({time:Number(x.time),open:Number(x.open),
+      high:Number(x.high),low:Number(x.low),close:Number(x.close)})));
+    chartBarsSignature=barsKey;
+  }
   // Full SMA/VWAP/volume and trade-plan calculations remain available to Core
   // and the non-chart panels; hidden chart series are never repopulated per tick.
   state.vwap=vw;
@@ -1672,6 +1783,7 @@ function renderChart(){
   renderSessionHL();
   ascendLiquidityRender();
   renderStructureEvidence();
+  scheduleOverlay();
 }
 function scheduleOverlay(){if(overlayRaf)return;overlayRaf=requestAnimationFrame(()=>{overlayRaf=0;syncOverlay();ascendLiquidityDraw()})}
 function priceY(p){const y=candles.priceToCoordinate(Number(p));return Number.isFinite(y)?y:null}
@@ -2033,6 +2145,7 @@ async function loadUniverse(){
   try{const d=await api("/api/v2/symbols");state.universe=d.symbols||[];const sel=$("symbol"),current=state.symbol;sel.innerHTML=state.universe.map(x=>'<option value="'+x.symbol+'">'+x.symbol.replace("_","/")+"</option>").join("");if(state.universe.some(x=>x.symbol===current))sel.value=current;else if(state.universe[0]){state.symbol=state.universe[0].symbol;sel.value=state.symbol}renderCoins()}catch(e){console.error("universe",e)}
 }
 async function loadMarket(full){
+  if(state.refreshBusy&&!full)return;
   const requestSeq=++state.marketRequestSeq;
   const s=state.symbol;
   state.refreshBusy=true;setLive("ОБНОВЛЕНИЕ…","#ffc64d");
@@ -2057,7 +2170,11 @@ async function loadMarket(full){
     if(res[4].status==="fulfilled")state.volumeProfile=res[4].value;
     if(res[5].status==="fulfilled")state.breadth=res[5].value;
     if(needHtf){if(res[6]?.status==="fulfilled")state.tf["1h"]=res[6].value.candles||[];if(res[7]?.status==="fulfilled")state.tf["4h"]=res[7].value.candles||[];if(res[8]?.status==="fulfilled")state.tf["1d"]=res[8].value.candles||[];state.htfAt=now}
-    $("pairTop").textContent=s.replace("_","/");$("coinBadge").textContent=s[0];$("sideSymbol").textContent=s.split("_")[0];updatePrices();const pt=activePaper(s);if(pt)managePaperTrade(pt,Number(state.ticker?.last_price));renderVolume();renderBreadth();renderStructure();renderChart();renderBaseChecks();applyNewsMarkers();window.ASCEND_CAPITAL_FLOW_UI?.refresh();setLive("LIVE · "+((res.filter(x=>x.status==="fulfilled").length)+"/"+res.length),"#18e889")
+    $("pairTop").textContent=s.replace("_","/");$("coinBadge").textContent=s[0];$("sideSymbol").textContent=s.split("_")[0];updatePrices();const pt=activePaper(s);if(pt)managePaperTrade(pt,Number(state.ticker?.last_price));renderVolume();renderBreadth();renderStructure();renderChart();renderBaseChecks();applyNewsMarkers();window.ASCEND_CAPITAL_FLOW_UI?.refresh();
+    const count=res.filter(x=>x.status==="fulfilled").length;
+    const essentialsOk=[1,2,3].every(i=>res[i]?.status==="fulfilled");
+    setLive((essentialsOk?"LIVE · ":"PARTIAL DATA · ")+count+"/"+res.length,
+      essentialsOk?"#18e889":"#ffc64d")
   }catch(e){if(requestSeq===state.marketRequestSeq){console.error(e);setLive("PARTIAL DATA","#ffc64d")}}finally{if(requestSeq===state.marketRequestSeq)state.refreshBusy=false}
 }
 function setLive(text,color){const e=$("live");e.style.color=color;e.innerHTML='<span class="dot" style="background:'+color+';box-shadow:0 0 16px '+color+'"></span> '+text}
@@ -2147,7 +2264,13 @@ function pushJournal(status,dir,volx){
 function renderJournal(){const rows=state.journal||[];$("journalTable").innerHTML=rows.length?rows.map(x=>'<div class="journal-row"><span>'+x.time+'</span><b>'+x.symbol+'</b><span class="'+directionClass(x.dir)+'">'+x.dir+' · '+x.status+'</span><span>'+x.volx+"</span></div>").join(""):'<div class="muted">Пока нет событий текущей сессии.</div>'}
 function loadJournal(){try{state.journal=JSON.parse(localStorage.getItem("ascend_terminal_journal_v2")||"[]")||[]}catch(_){state.journal=[]}renderJournal()}
 function clock(){renderShadowNotebook();if(state.paperTrades.some(t=>t.symbol===state.symbol))scheduleOverlay();const n=new Date(),u=n.getTime()+n.getTimezoneOffset()*60000,k=new Date(u+3*3600000),h=k.getHours(),m=k.getMinutes(),s=k.getSeconds();$("clock").textContent=[h,m,s].map(x=>String(x).padStart(2,"0")).join(":");if($("timePointer"))$("timePointer").style.left=((h+m/60+s/3600)/24*100)+"%";$("kyivDate").textContent=k.toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit"})+" · "+String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+" Киев"}
-function chooseSymbol(sym){$("majorPairMenu")?.classList.remove("open");document.querySelectorAll("[data-major]").forEach(b=>b.classList.remove("active"));if(!sym||sym===state.symbol&&state.tf["5m"]?.length)return;state.symbol=sym;$("symbol").value=sym;$("quickSearch").value=sym.replace("_","/");state.needsFit=true;state.htfAt=0;state.tf={};state.projection=null;if(state.chartReady){candles.setData([]);sma20.setData([]);sma50.setData([]);sma200.setData([]);vol.setData([]);candles.setMarkers([])}$("pairTop").textContent=sym.replace("_","/");$("chartTitle").textContent=sym.replace("_"," / ")+" · загрузка…";if(currentView()!=="market"){history.pushState(null,"","/?view=market");applyView()}loadMarket(true)}
+function chooseSymbol(sym){$("majorPairMenu")?.classList.remove("open");document.querySelectorAll("[data-major]").forEach(b=>b.classList.remove("active"));if(!sym||sym===state.symbol&&state.tf["5m"]?.length)return;state.symbol=sym;$("symbol").value=sym;$("quickSearch").value=sym.replace("_","/");state.needsFit=true;state.htfAt=0;state.tf={};state.projection=null;
+chartBarsSignature='';ascendVwapSignature='';liquiditySignature='';
+latestLiquidityModel=null;latestLiquidityMeta={};
+latestStructureEvidence=null;structureEvidenceKey='';
+latestSessionHL=null;sessionHLRenderKey='';
+if(state.chartReady){clearLines();ascendLiquidityDraw();}
+renderTFHealth();if(state.chartReady){candles.setData([]);sma20.setData([]);sma50.setData([]);sma200.setData([]);vol.setData([]);candles.setMarkers([])}$("pairTop").textContent=sym.replace("_","/");$("chartTitle").textContent=sym.replace("_"," / ")+" · загрузка…";if(currentView()!=="market"){history.pushState(null,"","/?view=market");applyView()}loadMarket(true)}
 function setTimeframe(tf){if(!state.tf[tf]?.length)return;state.timeframe=tf;state.needsFit=true;document.querySelectorAll("[data-tf]").forEach(b=>b.classList.toggle("active",b.dataset.tf===tf));renderStructure();renderChart()}
 function currentView(){const v=new URLSearchParams(location.search).get("view")||"market";return ["market","users","analytics","signals","journal","coins"].includes(v)?v:"market"}
 function applyView(){const v=currentView();document.body.dataset.view=v;document.querySelectorAll("[data-view-link]").forEach(a=>a.classList.toggle("active",a.dataset.viewLink===v));if(v==="market"&&state.chartReady){requestAnimationFrame(()=>{chart.applyOptions({width:$("chart").clientWidth,height:$("chart").clientHeight});scheduleOverlay()})}if(v==="users")setTimeout(loadAdminUsers,0);if(v==="coins")setTimeout(renderCoins,0);return v}
@@ -3538,6 +3661,17 @@ start();
 @media(max-width:900px){.asc-session-hl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:530px){.asc-session-hl-grid{grid-template-columns:minmax(0,1fr)}}
 </style>
+<style>
+.asc-tf-health{display:flex;align-items:center;gap:8px 13px;flex-wrap:wrap;
+  border-bottom:1px solid #244257;background:#081c2b;
+  color:#b4cbd9;padding:7px 12px;font-size:10px;min-width:0}
+.asc-tf-health>b{font-size:10px;color:#e6f3fa;letter-spacing:.04em}
+.asc-tf-health.ok{border-left:3px solid #43d4aa}
+.asc-tf-health.warning{border-left:3px solid #ffb85d}
+.asc-tf-health span.ok{color:#72e6bb}
+.asc-tf-health span.bad{color:#ffb38f}
+.asc-tf-health small{font-size:9px;color:#91a7b9}
+</style>
 <!-- ASCEND_UI_V1_1_END -->
 <script>
 /* ASCEND 10m CHOCH V1: protected-pivot structural shift, research only.
@@ -3872,15 +4006,22 @@ start();
   function analyze(input){
     const asOf=Number(input?.asOf);
     if(!Number.isFinite(asOf)||!input)return {status:'NODATA',reason:'Нет закрытых минутных свечей'};
-    const one=prepared(input.one,60,asOf),fifteen=prepared(input.fifteen,900,asOf);
+    const one=prepared(input.one,60,asOf),
+      fiveBars=prepared(input.five,300,asOf),
+      fifteen=prepared(input.fifteen,900,asOf);
     if(one.length<30)return {status:'NODATA',reason:'Недостаточно непрерывных 1m свечей',asOf};
     const wallClock=Number(input.wallClock);
     const stale=Number.isFinite(wallClock)&&wallClock-asOf>180;
     // Trend is independent from liquidity availability and never reads an open bar.
     const frames={};
     for(const [name,seconds] of TFS){
+      // 10m/5m use the full already-fetched 5m history (~26h),
+      // not just 260 1m bars (~4h). Never mix incomplete windows.
       const bars=seconds===1800?grouped(fifteen,1800,900):
-        seconds===900?fifteen:grouped(one,seconds);
+        seconds===900?fifteen:
+        seconds===600?(fiveBars.length?grouped(fiveBars,600,300):grouped(one,600)):
+        seconds===300?(fiveBars.length?fiveBars:grouped(one,300)):
+        grouped(one,seconds);
       frames[name]=snapshot(bars,seconds,asOf);
     }
     const items=(input.levels?.all?.uppers||[]).concat(input.levels?.all?.lowers||[]);
@@ -3893,7 +4034,8 @@ start();
     // CHOCH is an independent confirmed protected-pivot break.
     // Legacy BREAK↑/↓ remains only a generic structural break.
     const choch=root.ASCEND_CHOCH_10M?
-      root.ASCEND_CHOCH_10M.scan(grouped(one,600),asOf):{
+      root.ASCEND_CHOCH_10M.scan(fiveBars.length?
+        grouped(fiveBars,600,300):grouped(one,600),asOf):{
         status:'NO_DATA',events:[],latest:null,protectedLevel:null,
         expected:'WAIT',reason:'Модуль CHOCH не загружен'};
     const ten=frames['10m'].events.at(-1)||null,
