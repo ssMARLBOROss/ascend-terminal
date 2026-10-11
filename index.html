@@ -858,11 +858,66 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 <script>
+/* ASCEND V2 setup decision: the only actionable research decision for UI/manual shadow.
+   Fail closed on missing/stale/mismatched evidence and on price drift from 1m micro-BOS.
+   NO orders or Telegram messages. Legacy calculations remain context and veto, never grant READY. */
+(function(root){
+  'use strict';
+  const finite=v=>typeof v==='number'&&Number.isFinite(v);
+  const STAGES=['context','sweep','choch','mss','retest','micro','risk'];
+  const MAX_PRICE_DRIFT_R=.25;
+  function resolve(input={}){
+    const {report,legacy,symbol,asOf,now,price}=input;
+    const blocked=(status,reason)=>({status,ready:false,reason,
+      symbol:symbol||null,side:report?.side||null,asOf,plan:null,
+      steps:Array.isArray(report?.steps)?report.steps:[]});
+    if(!symbol||!finite(asOf)||!finite(now)||!finite(price)||price<=0)
+      return blocked('NO DATA','Нет актуальной закрытой цены 1m или времени');
+    if(!report||report.symbol!==symbol||report.asOf!==asOf)
+      return blocked('WAIT','Нет V2 именно для этой монеты и закрытой минуты');
+    if(now<asOf-2||now-asOf>180)
+      return blocked('WAIT','Данные подтверждения устарели');
+    if(report.status==='INVALIDATED')return blocked('INVALIDATED',report.reason||'Структура нарушена');
+    if(report.ready!==true||report.status!=='CONFIRMED')
+      return blocked('WAIT',report.reason||'Ожидание V2');
+    if(!['LONG','SHORT'].includes(report.side))
+      return blocked('WAIT','Нет направления V2');
+    if(!Array.isArray(report.steps)||report.steps.length!==STAGES.length||
+      report.steps.some((s,i)=>s?.name!==STAGES[i]||s.status!=='CONFIRMED'))
+      return blocked('WAIT','Не все 7 подтверждений V2 завершены');
+    const times=report.steps.slice(1,6).map(x=>x.at);
+    if(times.some(x=>!finite(x))||times.some((x,i)=>i>0&&x<=times[i-1])||
+       times.at(-1)>asOf)
+      return blocked('WAIT','Порядок или время событий V2 некорректны');
+    if(!legacy?.confirmed||legacy.side!==report.side)
+      return blocked('WAIT CORE','V2 подтверждён, но базовые фильтры не согласованы');
+    const p=report.plan,entry=p?.entry,stop=p?.stop,target=p?.target;
+    if(!finite(entry)||!finite(stop)||!finite(target)||!finite(p?.rr))
+      return blocked('WAIT','Нет полного структурного плана V2');
+    const dir=report.side==='LONG'?1:-1;
+    const originalRisk=(entry-stop)*dir;
+    const risk=(price-stop)*dir, reward=(target-price)*dir;
+    if(originalRisk<=0||risk<=0||reward<=0)
+      return blocked('INVALIDATED','Цена исполнения вышла за пределы структурного SL/TP');
+    const driftR=Math.abs(price-entry)/originalRisk;
+    if(driftR>MAX_PRICE_DRIFT_R)
+      return blocked('WAIT PRICE','Цена ушла дальше 0.25R от 1m подтверждения');
+    const rr=reward/risk;
+    if(rr<2)return blocked('WAIT R:R','С учётом текущей цены R:R ниже 1:2');
+    return {status:'ENTRY READY',ready:true,reason:'7 этапов V2 + CORE + актуальная цена',
+      symbol,side:report.side,asOf,steps:report.steps,
+      plan:{entry:price,triggerEntry:entry,stop,target,rr,driftR,
+        microAt:times.at(-1),source:'CONFIRMATION_V2_FROZEN_LIQUIDITY'}};
+  }
+  root.ASCEND_SETUP_DECISION_V2=Object.freeze({resolve,MAX_PRICE_DRIFT_R,STAGES});
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<script>
 if(new URLSearchParams(location.search).get("guest")==="1"){
   document.documentElement.dataset.guest="1";
 }
 const state={
-  symbol:"BTC_USDT",timeframe:"5m",tf:{},ticker:null,volumeProfile:null,breadth:null,
+  symbol:"BTC_USDT",timeframe:"5m",tf:{},ticker:null,tickerAt:0,volumeProfile:null,breadth:null,
   universe:[],candidateBusy:false,candidates:[],
   chartReady:false,needsFit:true,follow:true,projection:null,vwap:null,htfAt:0,lastRadarKey:"",
   coinPage:0,coinPageSize:40,coinFilter:"",coinSort:"turnover",journal:[],refreshBusy:false,marketRequestSeq:0,newsRows:[],paperTrades:[],paperEquity:100
@@ -1014,11 +1069,13 @@ function entryModel(){
     force.structureOk&&force.sessionOk&&force.pressure>=65;
   const minute=qaRows(state.tf['1m']||[],'1m').at(-1);
   const latestClose=minute?minute.time+60:null;
-  const verified=latestConfirmationV2?.symbol===state.symbol&&
-    latestConfirmationV2?.asOf===latestClose&&
-    latestConfirmationV2?.side===side&&latestConfirmationV2?.ready===true&&
-    Date.now()/1000-latestClose<=180;
-  const confirmed=Boolean(legacyConfirmed&&verified);
+  const setup=window.ASCEND_SETUP_DECISION_V2?.resolve({
+    report:latestConfirmationV2,legacy:{confirmed:legacyConfirmed,side},
+    symbol:state.symbol,asOf:latestClose,now:Date.now()/1000,
+    price:minute?Number(minute.close):NaN
+  });
+  const verified=latestConfirmationV2?.ready===true&&setup?.ready===true;
+  const confirmed=Boolean(verified);
   let status="NEUTRAL";
   if(side==="LONG"||side==="SHORT"){
     if(session.conflict||session.opposes)status="WAIT · SESSION";
@@ -1029,7 +1086,7 @@ function entryModel(){
     else status="WATCH";
   }
   return{side,rsi,vw,structure:st,bos,session,...force,
-    legacyConfirmed,confirmed,status,currentPrice:latest?Number(latest.close):null};
+    legacyConfirmed,confirmed,status,setup,currentPrice:latest?Number(latest.close):null};
 }
 
 function protectedStructure(rows){
@@ -1065,6 +1122,16 @@ function projection(rows){
   const dir=dec.direction==="NEUTRAL"?(trend(state.tf["5m"]||[])==="LONG"?"LONG":"SHORT"):dec.direction;
   const htf=levels(state.tf["1h"]||rows)||levels(rows),st=protectedStructure(state.tf["5m"]||rows);
   const em=dec.entryModel||entryModel(),entry=(em.side==="LONG"||em.side==="SHORT")?Number(last.close):(Number(vw?.value)||Number(last.close)),spread=Math.max(entry*.001,Math.abs(Number(last.high)-Number(last.low)));
+  // Once ready, the V2 frozen-liquidity plan is the only displayed actionable plan.
+  // Single verified target fills the three legacy manual-paper buckets at one level.
+  if(em.setup?.ready&&em.setup.side===dir&&em.setup.plan){
+    const p=em.setup.plan,zoneHalf=Math.max(p.entry*.0002,spread*.22);
+    return {dir,entry:p.entry,sl:p.stop,tp1:p.target,tp2:p.target,tp3:p.target,
+      zoneLow:p.entry-zoneHalf,zoneHigh:p.entry+zoneHalf,
+      anchorTime:Number(last.time),spread,dec,vwap:vw,structure:st,entryModel:em,
+      confirmed:true,level_source:'V2_NEXT_FROZEN_LIQUIDITY',
+      v2:true,rr:p.rr,triggerEntry:p.triggerEntry};
+  }
   if(dir==="LONG"){
     const below=[st.lastLow,htf.sup1,htf.sup2,htf.sup3].map(Number).filter(x=>Number.isFinite(x)&&x<entry).sort((a,b)=>b-a);
     let sl=below[0]||entry-spread*1.4;
@@ -1658,6 +1725,30 @@ function structureEvidenceText(parent,tag,text,cls){
   const el=document.createElement(tag);if(cls)el.className=cls;
   el.textContent=String(text);parent.appendChild(el);return el;
 }
+function recordConfirmationV2(report,decision){
+  if(!report?.symbol||report.symbol!==state.symbol||!Number.isFinite(report.asOf))return;
+  let keys=[];
+  try{keys=JSON.parse(localStorage.getItem('ascend_v2_journal_keys')||'[]')}catch(_){}
+  if(!Array.isArray(keys))keys=[];
+  const seen=new Set([...keys,...state.journal.map(x=>x.v2Key).filter(Boolean)]);
+  const emit=(name,status,at,details)=>{
+    if(!Number.isFinite(at)||at>report.asOf||report.asOf-at>10800)return;
+    const key=[report.symbol,report.side,name,status,at].join('|');
+    if(seen.has(key))return;
+    seen.add(key);
+    pushJournal('V2 '+name+' · '+status,report.side||'—',details,at,key);
+  };
+  for(const s of report.steps||[]){
+    if(!['CONFIRMED','INVALIDATED'].includes(s.status))continue;
+    emit(s.name.toUpperCase(),s.status,s.at,
+      'level '+fmt(s.level)+' · price '+fmt(s.price));
+  }
+  if(decision?.ready)
+    emit('SETUP','ENTRY READY',decision.plan.microAt,
+      'Entry '+fmt(decision.plan.entry)+' · SL '+fmt(decision.plan.stop)+
+      ' · TP '+fmt(decision.plan.target)+' · R:R '+decision.plan.rr.toFixed(2));
+  try{localStorage.setItem('ascend_v2_journal_keys',JSON.stringify([...seen].slice(-600)))}catch(_){}
+}
 function renderConfirmationV2(){
   const panel=$('ascConfirmationV2Panel'),stepsBox=$('ascConfirmV2Steps'),
     statusEl=$('ascConfirmV2Status'),timeEl=$('ascConfirmV2Time'),
@@ -1692,7 +1783,9 @@ function renderConfirmationV2(){
     chochEvents:choch?.events||[],context:{t30,t15},feedStatuses:quality
   });
   latestConfirmationV2=report;
-  const legacy=entryModel(),finalReady=report.ready&&legacy?.confirmed===true;
+  const legacy=entryModel(),decision=legacy?.setup,
+    finalReady=decision?.ready===true;
+  recordConfirmationV2(report,decision);
   statusEl.textContent=finalReady?'ENTRY READY · '+report.side:
     report.ready?'V2 CONFIRMED · CORE WAIT · '+report.side:
       report.status+(report.side?' · '+report.side:'');
@@ -1701,10 +1794,11 @@ function renderConfirmationV2(){
   timeEl.textContent=Number.isFinite(report.asOf)?
     new Date(report.asOf*1000).toISOString().slice(5,16).replace('T',' ')+' UTC · закрытые свечи':
     'NO DATA · ожидание 1m';
-  reasonEl.textContent=(report.reason||'Ожидание данных')+
-    (report.ready&&!finalReady?' · BASE CORE ещё не подтвердил остальные фильтры':'')+
-    (report.plan?.rr!=null?' · SL '+fmt(report.plan.stop)+
-    ' · TP '+fmt(report.plan.target)+' · R:R '+report.plan.rr.toFixed(2):'');
+  reasonEl.textContent=(decision?.reason||report.reason||'Ожидание данных')+
+    (finalReady&&decision.plan?' · Entry '+fmt(decision.plan.entry)+
+      ' · SL '+fmt(decision.plan.stop)+' · TP '+fmt(decision.plan.target)+
+      ' · текущий R:R '+decision.plan.rr.toFixed(2):'')+
+    (!finalReady&&report.plan?.rr!=null?' · исходный R:R '+report.plan.rr.toFixed(2):'');
   if(!confirmationV2Expanded)return;
   stepsBox.replaceChildren();
   for(const stage of report.steps||[]){
@@ -1886,6 +1980,7 @@ function renderChart(){
   renderSessionHL();
   ascendLiquidityRender();
   renderConfirmationV2();
+  state.projection=projection(r); // sync chart/paper prices with latest V2 result
   renderStructureEvidence();
   renderBaseChecks();
   scheduleOverlay();
@@ -2192,14 +2287,36 @@ function renderShadowNotebook(){
 }
 async function openManualPaper(side){
   if(activePaper()){alert("Для "+state.symbol.replace("_","/")+" уже есть открытая теневая сделка.");return}
-  const entry=paperPriceFor(side);if(!Number.isFinite(entry)||entry<=0){alert("Нет актуальной цены для теневого входа.");return}
-  const equity=Math.max(0,Number(state.paperEquity)||100),margin=equity*.05,notional=margin*20,sgn=side==="LONG"?1:-1;
-  const p=state.projection&&state.projection.dir===side?state.projection:null,ctx=shadowContext(side),now=Date.now();
+  const entry=paperPriceFor(side);
+  if(!Number.isFinite(entry)||entry<=0||!state.tickerAt||Date.now()-state.tickerAt>90000){
+    alert("Теневой вход запрещён: нет свежей котировки bid/ask MEXC.");return;
+  }
+  // Manual SHADOW is a trade entry too: never bypass V2 with an old RSI projection.
+  const minute=qaRows(state.tf['1m']||[],'1m').at(-1),em=entryModel();
+  const setup=window.ASCEND_SETUP_DECISION_V2?.resolve({
+    report:latestConfirmationV2,
+    legacy:{confirmed:em.legacyConfirmed,side:em.side},symbol:state.symbol,
+    asOf:minute?minute.time+60:null,now:Date.now()/1000,price:entry
+  });
+  if(!setup?.ready||setup.side!==side){
+    alert("Теневой вход запрещён: "+(setup?.reason||'ожидаем Confirmation V2')+
+      ". Дождитесь ENTRY READY "+side+".");return;
+  }
+  const equity=Math.max(0,Number(state.paperEquity)||100),margin=equity*.05,
+    notional=margin*20,ctx=shadowContext(side)+
+    ' | V2 '+new Date(setup.asOf*1000).toISOString()+
+    ' | trigger '+fmt(setup.plan.triggerEntry)+
+    ' | execution '+fmt(entry)+
+    ' | RR '+setup.plan.rr.toFixed(2),now=Date.now();
   const trade={
     id:"M"+now,symbol:state.symbol,side,status:"OPEN",opened_at:now,entry,
     margin,leverage:20,notional,remaining:1,tp1_hit:false,tp2_hit:false,tp3_hit:false,
-    sl:p?Number(p.sl):entry*(1-sgn*.005),tp1:p?Number(p.tp1):entry*(1+sgn*.005),tp2:p?Number(p.tp2):entry*(1+sgn*.010),tp3:p?Number(p.tp3):entry*(1+sgn*.015),
-    level_source:p?"CURRENT_PROJECTION":"FALLBACK_0.5_1.0_1.5_PCT",context:ctx,
+    sl:setup.plan.stop,tp1:setup.plan.target,tp2:setup.plan.target,tp3:setup.plan.target,
+    level_source:'V2_NEXT_FROZEN_LIQUIDITY',setup_v2:{
+      asOf:setup.asOf,microAt:setup.plan.microAt,triggerEntry:setup.plan.triggerEntry,
+      executionEntry:entry,rr:setup.plan.rr,
+      steps:setup.steps.map(s=>({name:s.name,status:s.status,at:s.at,level:s.level,price:s.price}))
+    },context:ctx,
     realized:0,entry_fee:notional*PAPER_FEE,equity_before:equity,last_price:entry
   };
   try{
@@ -2269,7 +2386,7 @@ async function loadMarket(full){
     if(needHtf){core.push(api("/api/v2/klines?symbol="+encodeURIComponent(s)+"&timeframe=1h&limit=320"));core.push(api("/api/v2/klines?symbol="+encodeURIComponent(s)+"&timeframe=4h&limit=260"));core.push(api("/api/v2/klines?symbol="+encodeURIComponent(s)+"&timeframe=1d&limit=260"))}
     const res=await Promise.allSettled(core);
     if(requestSeq!==state.marketRequestSeq||s!==state.symbol)return;
-    if(res[0].status==="fulfilled")state.ticker=res[0].value;
+    if(res[0].status==="fulfilled"){state.ticker=res[0].value;state.tickerAt=Date.now()}
     if(res[1].status==="fulfilled")state.tf["1m"]=res[1].value.candles||[];
     if(res[2].status==="fulfilled")state.tf["5m"]=res[2].value.candles||[];
     if(res[3].status==="fulfilled")state.tf["15m"]=res[3].value.candles||[];
@@ -2305,7 +2422,7 @@ function renderCandidates(status){
   }).slice(0,12);
   const htmlRows=rows.length?rows.map(x=>{
     const v=x.volume||{},dp=x.displacement||{},htf=x.htf||{},delta=x.delta||{},hot=String(x.status)==="PRIORITY";
-    return '<div class="spike scanner-row '+(hot?"hot":"")+'" data-sym="'+x.symbol+'"><div><b>#'+(x.rank||"—")+' '+String(x.symbol||"").replace("_","/")+' · '+(x.direction||"—")+' · '+Number(x.score||0).toFixed(0)+'/100</b><small>'+String(x.status||"CANDIDATE")+' · VOL '+Number(v.ratio||0).toFixed(2)+'× · DISP '+Number(dp.range_atr||0).toFixed(2)+' ATR · HTF '+Number(htf.score||0).toFixed(0)+'/20 · Δ '+(delta.delta_signal||"N/A")+'</small></div><span class="scan-open">ОТКРЫТЬ →</span></div>';
+    return '<div class="spike scanner-row '+(hot?"hot":"")+'" data-sym="'+x.symbol+'"><div><b>#'+(x.rank||"—")+' '+String(x.symbol||"").replace("_","/")+' · '+(x.direction||"—")+' · '+Number(x.score||0).toFixed(0)+'/100</b><small>'+String(x.status||"CANDIDATE")+' · НЕ ENTRY READY: открыть для проверки V2 · VOL '+Number(v.ratio||0).toFixed(2)+'× · DISP '+Number(dp.range_atr||0).toFixed(2)+' ATR · HTF '+Number(htf.score||0).toFixed(0)+'/20 · Δ '+(delta.delta_signal||"N/A")+'</small></div><span class="scan-open">ОТКРЫТЬ →</span></div>';
   }):fallback.map((x,i)=>'<div class="spike scanner-row" data-sym="'+x.symbol+'"><div><b>#'+(i+1)+' '+x.symbol.replace("_","/")+'</b><small>MARKET · 24H '+(Number(x.change_24h)>=0?"+":"")+Number(x.change_24h||0).toFixed(2)+'% · turnover '+humanVolume(Number(x.amount_24h||0))+'</small></div><span class="scan-open">ОТКРЫТЬ →</span></div>');
   $("spikes").innerHTML=htmlRows.join("")||'<div class="spike"><div><b>Сканер ждёт данные</b><small>Рынок временно недоступен.</small></div></div>';
   $("scanMeta").textContent=(status.liquid_size||0)+" liquid / "+(status.universe_size||state.universe.length||0)+" USDT PERP · "+(rows.length?"RADAR TOP "+rows.length:"market fallback");
@@ -2365,13 +2482,19 @@ function renderCoins(){
   document.querySelectorAll("#coinSort [data-coin-sort]").forEach(b=>b.classList.toggle("active",b.dataset.coinSort===sort));
 }
 
-function pushJournal(status,dir,volx){
-  const now=new Date(),entry={time:now.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit",second:"2-digit"}),symbol:state.symbol.replace("_","/"),status,dir,volx};state.journal.unshift(entry);state.journal=state.journal.slice(0,30);localStorage.setItem("ascend_terminal_journal_v2",JSON.stringify(state.journal));renderJournal()
+function pushJournal(status,dir,volx,eventAt=null,v2Key=null){
+  const now=new Date(),time=Number.isFinite(eventAt)?
+    new Date(eventAt*1000).toISOString().slice(11,19)+' UTC':
+    now.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  const entry={time,symbol:state.symbol.replace("_","/"),status,dir,volx,v2Key};
+  state.journal.unshift(entry);state.journal=state.journal.slice(0,30);
+  try{localStorage.setItem("ascend_terminal_journal_v2",JSON.stringify(state.journal))}catch(_){}
+  renderJournal()
 }
 function renderJournal(){const rows=state.journal||[];$("journalTable").innerHTML=rows.length?rows.map(x=>'<div class="journal-row"><span>'+x.time+'</span><b>'+x.symbol+'</b><span class="'+directionClass(x.dir)+'">'+x.dir+' · '+x.status+'</span><span>'+x.volx+"</span></div>").join(""):'<div class="muted">Пока нет событий текущей сессии.</div>'}
 function loadJournal(){try{state.journal=JSON.parse(localStorage.getItem("ascend_terminal_journal_v2")||"[]")||[]}catch(_){state.journal=[]}renderJournal()}
 function clock(){renderShadowNotebook();if(state.paperTrades.some(t=>t.symbol===state.symbol))scheduleOverlay();const n=new Date(),u=n.getTime()+n.getTimezoneOffset()*60000,k=new Date(u+3*3600000),h=k.getHours(),m=k.getMinutes(),s=k.getSeconds();$("clock").textContent=[h,m,s].map(x=>String(x).padStart(2,"0")).join(":");if($("timePointer"))$("timePointer").style.left=((h+m/60+s/3600)/24*100)+"%";$("kyivDate").textContent=k.toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit"})+" · "+String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+" Киев"}
-function chooseSymbol(sym){$("majorPairMenu")?.classList.remove("open");document.querySelectorAll("[data-major]").forEach(b=>b.classList.remove("active"));if(!sym||sym===state.symbol&&state.tf["5m"]?.length)return;state.symbol=sym;$("symbol").value=sym;$("quickSearch").value=sym.replace("_","/");state.needsFit=true;state.htfAt=0;state.tf={};state.projection=null;
+function chooseSymbol(sym){$("majorPairMenu")?.classList.remove("open");document.querySelectorAll("[data-major]").forEach(b=>b.classList.remove("active"));if(!sym||sym===state.symbol&&state.tf["5m"]?.length)return;state.symbol=sym;state.ticker=null;state.tickerAt=0;$("symbol").value=sym;$("quickSearch").value=sym.replace("_","/");state.needsFit=true;state.htfAt=0;state.tf={};state.projection=null;
 chartBarsSignature='';ascendVwapSignature='';liquiditySignature='';
 latestLiquidityModel=null;latestLiquidityMeta={};
 latestStructureEvidence=null;structureEvidenceKey='';
@@ -3424,7 +3547,13 @@ start();
     const _loadNews=loadNews;loadNews=async function(){const out=await _loadNews();updateContext();return out};
     const _chooseSymbol=chooseSymbol;chooseSymbol=function(sym){const out=_chooseSymbol(sym);setTimeout(()=>{renderRadar();updateContext()},0);return out};
     const _openManualPaper=openManualPaper;openManualPaper=function(dir){
-      const side=dir==='LONG'?'LONG':'SHORT';
+      const side=dir==='LONG'?'LONG':'SHORT',em=entryModel();
+      // Do not show an encouraging OPEN dialog when V2 is incomplete.
+      if(!em.setup?.ready||em.setup.side!==side){
+        window.alert('Теневой вход запрещён: '+(em.setup?.reason||'ожидаем V2')+
+          '. Нужен ENTRY READY '+side+'.');
+        return;
+      }
       if(!window.confirm('Открыть ТЕНЕВУЮ '+side+' сделку по '+String(state.symbol||'').replace('_','/')+'?\\n\\nРеальный ордер на биржу НЕ отправляется.'))return;
       return _openManualPaper(dir);
     };
