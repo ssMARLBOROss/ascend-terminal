@@ -51,9 +51,9 @@ assert.equal(Q.status(incomplete,300,finalEnd+1200).state,'STALE');
 assert.equal(Q.status([],300).state,'NO DATA');
 
 const one=create(D+H,60,140);
-const full5=create(D+H,300,260);
-const full15=create(D+H,900,95);
 const stamp=D+H+140*60;
+const full5=create(stamp-260*300,300,260);
+const full15=create(stamp-96*900,900,96);
 const result=E.analyze({asOf:stamp,wallClock:stamp,one,five:full5,fifteen:full15,
   levels:{all:{uppers:[],lowers:[]}}});
 assert.equal(result.status,'READY');
