@@ -1,0 +1,28 @@
+name: ASCEND Confirmation Engine V2
+on:
+  push:
+    branches: [feature/confirmation-engine-v2-research-20261011]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check confirmation-engine-v2.js
+      - run: node tests/cloudflare-confirmation-v2.test.mjs
+      - run: node tests/cloudflare-choch-10m.test.mjs
+      - run: node tests/cloudflare-structure-evidence.test.mjs
+      - run: node tests/cloudflare-tf-integrity.test.mjs
+      - run: node tests/cloudflare-session-high-low.test.mjs
+      - run: node tests/cloudflare-vwap.test.mjs
+      - run: node tests/cloudflare-liquidity-map.test.mjs
+      - run: node tests/cloudflare-workspace-layout.test.mjs
+      - run: node tests/cloudflare-cross-market.test.mjs
+      - run: node tests/cloudflare-capital-flow.test.mjs
+      - run: node tests/cloudflare-macro-fred-replay.test.mjs
