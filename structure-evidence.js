@@ -22,8 +22,8 @@
     for(let i=1;i<bars.length;i++)if(bars[i].time!==bars[i-1].time+tf)begin=i;
     return bars.slice(begin);
   }
-  function grouped(one,seconds){
-    if(seconds===60)return one;
+  function grouped(one,seconds,baseStep=60){
+    if(seconds===baseStep)return one;
     const by=new Map(),out=[];
     for(const b of one){
       const time=Math.floor(b.time/seconds)*seconds;
@@ -31,12 +31,12 @@
       by.get(time).push(b);
     }
     for(const [t,g] of [...by].sort((a,b)=>a[0]-b[0])){
-      if(g.length!==seconds/MINUTE||g.some((b,i)=>b.time!==t+i*MINUTE))continue;
+      if(g.length!==seconds/baseStep||g.some((b,i)=>b.time!==t+i*baseStep))continue;
       out.push({time:t,open:g[0].open,high:Math.max(...g.map(x=>x.high)),
         low:Math.min(...g.map(x=>x.low)),close:g.at(-1).close,
         volume:g.reduce((s,x)=>s+x.volume,0)});
     }
-    return prepared(out,seconds,one.at(-1)?.time+60||0);
+    return prepared(out,seconds,one.at(-1)?.time+baseStep||0);
   }
   function pivots(bars,seconds,wing=2){
     const highs=[],lows=[];
@@ -151,11 +151,12 @@
     if(!Number.isFinite(asOf)||!input)return {status:'NODATA',reason:'Нет закрытых минутных свечей'};
     const one=prepared(input.one,60,asOf),fifteen=prepared(input.fifteen,900,asOf);
     if(one.length<30)return {status:'NODATA',reason:'Недостаточно непрерывных 1m свечей',asOf};
-    const stale=asOf-one.at(-1).time-60>120||asOf-one.at(-1).time-60<0;
+    const wallClock=Number(input.wallClock);
+    const stale=Number.isFinite(wallClock)&&wallClock-asOf>180;
     // Trend is independent from liquidity availability and never reads an open bar.
     const frames={};
     for(const [name,seconds] of TFS){
-      const bars=seconds===1800?grouped(fifteen,1800):
+      const bars=seconds===1800?grouped(fifteen,1800,900):
         seconds===900?fifteen:grouped(one,seconds);
       frames[name]=snapshot(bars,seconds,asOf);
     }
