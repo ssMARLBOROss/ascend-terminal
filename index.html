@@ -607,6 +607,12 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
                 (фиксированный часовой пояс Киев UTC+3; переход на зимнее время требует отдельного обновления расписания).
                 Не является сигналом входа.</small>
             </div>
+            <section id="ascResearchPanel" class="asc-confirm-v2-panel" aria-label="ASCEND Research Lab" style="margin-bottom:10px;padding:10px">
+              <div class="asc-confirm-v2-head"><strong>ASCEND · HISTORY / FVG / MARKET PARTICIPATION</strong><span>RESEARCH ONLY · не влияет на ENTRY READY</span></div>
+              <div id="ascResearchFvg" style="font-size:11px;margin:8px 0;color:#8ce1ff">FVG · NO DATA</div>
+              <div id="ascResearchParticipation" style="font-size:11px;margin:8px 0;color:#a8b6c8">MARKET PARTICIPATION · NO DATA</div>
+              <small style="font-size:9px;color:#8398ad">FVG: закрытые 3m свечи. Потоки: MEXC — сделки/OI; Bybit — стакан/ликвидации. Не смешивать биржи.</small>
+            </section>
             <section class="asc-confirm-v2-panel" id="ascConfirmationV2Panel" aria-label="Последовательные подтверждения сделки">
               <div class="asc-confirm-v2-head">
                 <strong>ASCEND · CONFIRMATION ENGINE V2</strong>
@@ -910,6 +916,70 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
         microAt:times.at(-1),source:'CONFIRMATION_V2_FROZEN_LIQUIDITY'}};
   }
   root.ASCEND_SETUP_DECISION_V2=Object.freeze({resolve,MAX_PRICE_DRIFT_R,STAGES});
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<script>
+/* ASCEND FVG Research V1: closed 3m candles only; NEVER an entry gate. */
+(function(root){
+  'use strict';
+  const N=Number.isFinite;
+  function atrAt(bars,i,length=14){
+    if(i<length)return null;
+    let sum=0;
+    for(let k=i-length+1;k<=i;k++){
+      const b=bars[k],prev=bars[k-1];
+      if(!b||!prev)return null;
+      sum+=Math.max(b.high-b.low,Math.abs(b.high-prev.close),Math.abs(b.low-prev.close));
+    }
+    return sum/length;
+  }
+  function scan(bars,asOf,{minATR=.25,maxATR=1,limit=80}={}){
+    if(!Array.isArray(bars)||!N(asOf))return [];
+    // Exclude the currently forming candle even if the caller included it.
+    const history=bars.filter(b=>b&&N(b.time)&&b.time+180<=asOf&&
+      [b.open,b.high,b.low,b.close].every(x=>N(x)&&x>0)&&
+      b.low<=Math.min(b.open,b.close)&&b.high>=Math.max(b.open,b.close))
+      .sort((a,b)=>a.time-b.time);
+    const result=[];
+    for(let i=16;i<history.length;i++){
+      const a=history[i-2],b=history[i-1],c=history[i],atr=atrAt(history,i);
+      if(!atr||a.time+180!==b.time||b.time+180!==c.time)continue;
+      const bull=c.low>a.high,bear=c.high<a.low;
+      if(!bull&&!bear)continue;
+      const lower=bull?a.high:c.high,upper=bull?c.low:a.low;
+      const sizeATR=(upper-lower)/atr;
+      const cls=sizeATR>=minATR&&sizeATR<.5?'SMALL':
+        sizeATR>=.5&&sizeATR<=maxATR?'LARGE':'OTHER';
+      const zone={side:bull?'LONG':'SHORT',lower,upper,sizeATR,cls,
+        formedAt:c.time+180,sourceTF:'3m',status:'OPEN',firstTouchAt:null,
+        fillFraction:0,lastTouchAt:null};
+      // Only future fully closed candles may mitigate the zone.
+      for(let j=i+1;j<history.length;j++){
+        const next=history[j];
+        if(next.time!==history[j-1].time+180)break; // incomplete session
+        if(next.high<lower||next.low>upper)continue;
+        const at=next.time+180;
+        if(zone.firstTouchAt===null)zone.firstTouchAt=at;
+        zone.lastTouchAt=at;
+        const part=bull?(upper-next.low)/(upper-lower):
+          (next.high-lower)/(upper-lower);
+        zone.fillFraction=Math.min(1,Math.max(zone.fillFraction,part));
+      }
+      zone.status=zone.fillFraction>=1?'FILLED':
+        zone.fillFraction>0?'PARTIAL':'OPEN';
+      result.push(zone);
+    }
+    return result.slice(-limit);
+  }
+  function observe(bars,asOf,side=null){
+    const all=scan(bars,asOf);const matching=side?all.filter(x=>x.side===side):all;
+    const active=matching.filter(x=>x.status!=='FILLED');
+    return {status:all.length?'RESEARCH':'NO DATA',asOf,
+      total:all.length,small:all.filter(x=>x.cls==='SMALL').length,
+      large:all.filter(x=>x.cls==='LARGE').length,
+      latest:matching.at(-1)||null,nearestActive:active.at(-1)||null};
+  }
+  root.ASCEND_FVG_RESEARCH_V1=Object.freeze({scan,observe,atrAt});
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 <script>
@@ -4864,5 +4934,71 @@ body.ascend-ui-v11 .topbar{gap:8px}
 </script>
 <script>window.ASCEND_LIQUIDITY_ONLY=true;</script>
 
+<script>
+/* Research panel: independent of the ASCEND ENTRY READY and order path. */
+(function(root){
+  'use strict';
+  const $=id=>document.getElementById(id);
+  let loadedAt=0,loadedSym='',lastData=null,busy=false;
+  const number=(x,d=4)=>typeof x==='number'&&Number.isFinite(x)?x.toFixed(d):'—';
+  function paint(){
+    if(typeof state==='undefined'||document.body.dataset.view!=='market')return;
+    const box=$('ascResearchFvg');
+    if(!box)return;
+    const q=typeof qaRows==='function'?qaRows(state.tf['1m']||[],'1m'):[];
+    const asOf=q.at(-1)?.time+60;
+    const engine=root.ASCEND_FVG_RESEARCH_V1;
+    const report=engine&&Number.isFinite(asOf)?
+      engine.observe(qaAggregate(q,60,180),asOf):null;
+    if(!report||report.status==='NO DATA'){
+      box.textContent='FVG · NO DATA · недостаточно закрытых 3m свечей';
+    }else{
+      const v=report.nearestActive,dir=v?.side||'—';
+      box.textContent='FVG · '+report.small+' SMALL / '+report.large+' LARGE'+
+        (v?' · '+dir+' '+v.cls+' · '+number(v.lower)+'–'+number(v.upper)+
+          ' · '+v.status+' · fill '+number(v.fillFraction*100,1)+'%':
+          ' · активных зон нет')+' · RESEARCH ONLY';
+    }
+    const status=$('ascResearchParticipation');
+    if(status){
+      const d=lastData,valid=d&&d.symbol===state.symbol.replace('_','')&&
+        Date.now()-loadedAt<90000;
+      if(!valid)status.textContent='MARKET PARTICIPATION · NO DATA / ожидание сервера';
+      else{
+        const venue=d.venues||{},cvd=d.cvd,oi=d.delta_oi,book=d.order_book,liq=d.liquidations;
+        status.textContent='CVD '+(cvd?.status||'NO DATA')+
+          ' · ΔOI '+(oi?.change_pct==null?'NO DATA':number(oi.change_pct,2)+'%')+
+          ' · BOOK '+(book?.source||'NO DATA')+'/'+(book?.status||'NO DATA')+
+          ' · LIQ '+(liq?.source||'NO DATA')+'/'+(liq?.status||'NO DATA')+
+          ' · '+(d.status||'NO DATA');
+      }
+    }
+  }
+  async function fetchOne(){
+    if(typeof state==='undefined'||document.body.dataset.view!=='market'||busy)return;
+    const symbol=String(state.symbol||'');
+    if(!/^[A-Z0-9]+_USDT$/.test(symbol))return;
+    busy=true;
+    try{
+      const res=await fetch('/api/v2/research/market-participation?symbol='+encodeURIComponent(symbol),
+        {headers:{Accept:'application/json'},cache:'no-store'});
+      if(!res.ok)throw Error(String(res.status));
+      const d=await res.json();
+      if(state.symbol!==symbol)return;
+      lastData=d;loadedSym=symbol;loadedAt=Date.now();
+    }catch(_){lastData=null;loadedAt=0}
+    finally{busy=false;paint()}
+  }
+  function start(){
+    setInterval(paint,8000);
+    setInterval(fetchOne,30000);
+    setTimeout(fetchOne,1300);
+    paint();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
+  root.ASCEND_RESEARCH_UI_V1=Object.freeze({paint,refresh:fetchOne});
+})(typeof window!=='undefined'?window:globalThis);
+</script>
 </body>
 </html>
