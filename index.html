@@ -527,7 +527,8 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
           </div></article>
           <article class="pressure-card" data-pressure-card="structure"><button class="pressure-head" type="button"><strong>5. STRUCTURE / LIQUIDITY</strong><span class="score neutral" id="pStructScore">—</span><span class="chev">▾</span></button><div class="pressure-body">
             <div class="pressure-row"><span>HTF 1H / 4H / 1D</span><b id="pStructHtf">—</b></div>
-            <div class="pressure-row"><span>BOS / CHOCH 1m</span><b id="pStructBos">—</b></div>
+            <div class="pressure-row"><span>1m Micro-BREAK (не CHOCH)</span><b id="pStructBos">—</b></div>
+            <div class="pressure-row"><span>10m CHOCH · защищённый HL/LH</span><b id="pStructChoch" class="nodata">WAIT</b></div>
             <div class="pressure-row"><span>VWAP</span><b id="pStructVwap">—</b></div>
             <div class="pressure-row"><span>Ближайший TP / SL</span><b id="pStructLevels">—</b></div>
             <div class="pressure-row"><span>Volatility / volume</span><b id="pStructVol">—</b></div>
@@ -614,6 +615,11 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
               <div class="asc-structure-head">
                 <strong>ASCEND · КАСАНИЕ / SWEEP / BREAK / RETEST</strong>
                 <span id="ascStructureTime">Время: UTC · только закрытые свечи</span>
+              </div>
+              <div class="asc-choch-decision" id="ascChochDecision" aria-label="ASCEND CHOCH по закрытым свечам 10m">
+                <b id="ascChochStatus">10m CHOCH · WAIT</b>
+                <span id="ascChochDetails">Ожидаем защищённый HL/LH и закрытие 10m.</span>
+                <small id="ascChochConfirmedAt">UTC · только закрытые 10m свечи</small>
               </div>
               <div class="asc-structure-frames" id="ascStructureFrames"></div>
               <div class="asc-structure-recent-head"><b>ПОСЛЕДНИЕ СОБЫТИЯ УРОВНЕЙ</b>
@@ -1140,6 +1146,13 @@ function renderMarketPressure(){
   setPressureText("pStructScore",pressureSignedLabel(structScore),signedClass(structScore));
   setPressureText("pStructHtf",t1+" / "+t4+" / "+td,signedClass(val(t1)+val(t4)+val(td)));
   setPressureText("pStructBos",bos,bos==="LONG"?"long":bos==="SHORT"?"short":"neutral");
+  const ch=latestStructureEvidence?.choch;
+  const ready=latestStructureEvidence?.status==='READY'&&ch?.status==='CONFIRMED';
+  const label=ready?('CHOCH '+ch.latest.dir+' · '+fmt(ch.latest.level)+' · '+
+      structureEvidenceTime(ch.latest.at)):(latestStructureEvidence?.status==='STALE'?
+      'STALE':ch?.status==='NO_DATA'?'NO DATA':'WAIT · 10m');
+  setPressureText("pStructChoch",label,ready?
+    (ch.latest.dir==='LONG'?'long':'short'):'nodata');
   setPressureText("pStructVwap",vw?(vw.side+" · "+(vw.hold?"HOLD":"NO HOLD")):"NO DATA",vw?.side==="LONG"?"long":vw?.side==="SHORT"?"short":"nodata");
   const p=state.projection;
   setPressureText("pStructLevels",p?("TP1 "+fmt(p.tp1)+" / SL "+fmt(p.sl)):"—",p?"":"nodata");
@@ -1254,6 +1267,29 @@ function ascendLiquidityDraw(){
       const by=Math.max(16,Math.min(h-35,y-(ev.dir==='LONG'?20:8)));
       ctx.fillStyle='rgba(3,18,29,.89)';ctx.fillRect(bx,by-12,tw,16);
       ctx.fillStyle=color;ctx.fillText(label,bx+5,by);
+    }
+    // Exact CHOCH timestamp is the 10m candle CLOSE, with no extrapolation
+    // onto other timestamps; draw only if selected series contains its bar.
+    const ch=latestStructureEvidence.choch;
+    if(ch?.latest&&ch.status==='CONFIRMED'){
+      const ev=ch.latest,tfSeconds={'1m':60,'5m':300,'10m':600,
+        '15m':900,'30m':1800,'1h':3600,'4h':14400,'1d':86400}[state.timeframe]||300;
+      const candleTime=Math.floor((ev.at-60)/tfSeconds)*tfSeconds;
+      const x=chart.timeScale().timeToCoordinate(candleTime);
+      const y=priceToY(ev.level);
+      if(Number.isFinite(x)&&Number.isFinite(y)&&x>=18&&x<w-90&&y>=30&&y<h-40){
+        const color=ev.dir==='LONG'?'#6cf0bd':'#ff9aab';
+        ctx.fillStyle=color;ctx.strokeStyle=color;ctx.lineWidth=2;
+        ctx.beginPath();ctx.arc(x,y,5,0,2*Math.PI);ctx.stroke();
+        const tag='10m CHOCH '+ev.dir+' · '+new Date(ev.at*1000).toISOString().slice(11,16)+' UTC';
+        ctx.font='900 11px system-ui,sans-serif';
+        const textWidth=ctx.measureText(tag).width+12;
+        const tx=Math.max(7,Math.min(w-textWidth-85,x+7));
+        const ty=Math.max(18,Math.min(h-25,y-18));
+        ctx.fillStyle='rgba(3,17,27,.94)';
+        ctx.fillRect(tx,ty-13,textWidth,19);
+        ctx.fillStyle=color;ctx.fillText(tag,tx+6,ty);
+      }
     }
     ctx.restore();
   }
@@ -1383,6 +1419,15 @@ function renderStructureEvidence(){
   });
   latestStructureEvidence=report;
   if(window.ASCEND_FRED_MACRO_UI)window.ASCEND_FRED_MACRO_UI.renderReplay();
+  // Pressure panel reads latest evidence; never changes Core's bosDirection().
+  if($('pStructChoch')){
+    const ch=report.choch,ready=report.status==='READY'&&ch?.status==='CONFIRMED';
+    setPressureText('pStructChoch',ready?
+      'CHOCH '+ch.latest.dir+' · '+fmt(ch.latest.level)+' · '+
+        structureEvidenceTime(ch.latest.at):
+      (report.status==='STALE'?'STALE':ch?.status==='NO_DATA'?'NO DATA':'WAIT · 10m'),
+      ready?(ch.latest.dir==='LONG'?'long':'short'):'nodata');
+  }
   const header=$('ascStructureTime'),frames=$('ascStructureFrames'),events=$('ascStructureEvents');
   header.textContent=structureEvidenceTime(report.asOf)+' · '
     +(report.status==='STALE'?'ДАННЫЕ УСТАРЕЛИ':'по закрытым свечам');
@@ -1390,17 +1435,47 @@ function renderStructureEvidence(){
   structureEvidenceText(ribbon,'b','STRUCTURE RESEARCH');
   if(!report.frames){
     mini.textContent='Нет подтверждённых 1m';
+    if($('ascChochStatus'))$('ascChochStatus').textContent='10m CHOCH · NO DATA';
+    if($('ascChochDetails'))$('ascChochDetails').textContent='История 1m недоступна';
+    if($('ascChochConfirmedAt'))$('ascChochConfirmedAt').textContent='Нет подтверждения';
     structureEvidenceText(ribbon,'span',report.reason||'История недоступна');
     structureEvidenceText(events,'span',report.reason||'Ожидаем свечи');
     return;
   }
   const context=report.context,latest=report.recent[0];
-  mini.textContent='30m/15m '+context+(report.status==='STALE'?' · STALE':'');
+  const choch=report.choch;
+  const chochSafe=report.status==='READY'&&choch?.status==='CONFIRMED';
+  const chochState=chochSafe?'CHOCH '+choch.latest.dir:
+    report.status==='STALE'?'STALE':choch?.status==='NO_DATA'?'NO DATA':'WAIT';
+  mini.textContent='30m/15m '+context+' · 10m '+chochState;
+  const chStatus=$('ascChochStatus'),chDetails=$('ascChochDetails'),
+    chTime=$('ascChochConfirmedAt');
+  if(chStatus&&chDetails&&chTime){
+    chStatus.textContent='10m '+chochState;
+    chStatus.className=chochSafe?(choch.latest.dir==='LONG'?'choch-long':'choch-short'):'';
+    if(chochSafe){
+      chDetails.textContent='Пробит защищённый '+(choch.latest.dir==='LONG'?'LH':'HL')+
+        ' '+fmt(choch.latest.level)+' · закрытие '+fmt(choch.latest.price)+
+        ' · глубина '+choch.latest.depthPct.toFixed(2)+'%';
+      chTime.textContent='Подтверждено: '+structureEvidenceTime(choch.latest.at)+
+        ' · PRICE ACTION ONLY · НЕ ENTRY_READY';
+    }else{
+      chDetails.textContent=choch?.reason||
+        (choch?.protectedLevel?'Ожидаемый '+choch.expected+
+        ' · защищённый уровень '+fmt(choch.protectedLevel):
+        'Ожидаем подтверждённый защищённый HL/LH');
+      chTime.textContent=choch?.latest?'Последний исторический CHOCH: '+
+        structureEvidenceTime(choch.latest.at)+' · '+choch.latest.dir:
+        'Нет подтверждённого 10m CHOCH · не вход';
+    }
+  }
   const historyPartial=report.perLevel.some(x=>x.status==='PARTIAL');
   const info=(latest?latest.key+' '+latest.type+' · '+structureEvidenceTime(latest.at):
     'Пока нет наблюдаемых событий в загруженном окне')+
     (historyPartial?' · история частичная':'');
   structureEvidenceText(ribbon,'span','КОНТЕКСТ '+context+' · '+info);
+  structureEvidenceText(ribbon,'span','10m '+chochState+
+    (chochSafe?' · '+structureEvidenceTime(choch.latest.at):' · подтверждения нет'));
   structureEvidenceText(ribbon,'span',report.aligned?
     'MTF совпали · RESEARCH, НЕ ENTRY':'MTF ожидает полной последовательности');
   for(const tf of ['30m','15m','10m','5m','3m','1m']){
@@ -3270,7 +3345,109 @@ start();
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',buildShell,{once:true});else buildShell();
 })();
 </script>
+
+<style>
+.asc-choch-decision{display:flex;flex-wrap:wrap;align-items:center;gap:9px 16px;
+ border:1px solid #36566a;border-left:4px solid #d8af65;border-radius:5px;
+ padding:10px 12px;margin:8px 0 10px;background:#0e2937}
+.asc-choch-decision>b{color:#f1d28f;font-size:13px;letter-spacing:.03em}
+.asc-choch-decision>b.choch-long{color:#72e8bb}
+.asc-choch-decision>b.choch-short{color:#ffa8b1}
+.asc-choch-decision>span{color:#e0eff7;font-size:11px;font-weight:700;overflow-wrap:anywhere}
+.asc-choch-decision>small{color:#9bb6c7;font-size:10px;font-weight:650}
+@media(max-width:820px){.asc-choch-decision{flex-direction:column;align-items:flex-start;gap:5px}}
+</style>
 <!-- ASCEND_UI_V1_1_END -->
+<script>
+/* ASCEND 10m CHOCH V1: protected-pivot structural shift, research only.
+ * A CHOCH requires an ESTABLISHED prior HH/HL or LH/LL structure,
+ * then a 10-minute CLOSE beyond the last protected low/high.
+ * Pivots become eligible only after TWO 10m bars to their right CLOSE.
+ * Never calls trading Core, sends orders, or claims ENTRY_READY.
+ */
+(function(root){
+  'use strict';
+  const STEP=600, WING=2, MAX_EVENTS=6, ACTIVE_SECONDS=1800;
+  const numeric=x=>Number.isFinite(x);
+  function scan(bars,asOf){
+    const empty={status:'NO_DATA',direction:null,events:[],latest:null,
+      expected:'WAIT',protectedLevel:null,priorTrend:null,
+      reason:'Недостаточно непрерывных закрытых 10m свечей'};
+    if(!Array.isArray(bars)||!numeric(asOf))return empty;
+    const complete=bars.filter(b=>numeric(b?.time)&&b.time+STEP<=asOf)
+      .sort((a,b)=>a.time-b.time);
+    if(complete.length<12||complete.some((b,i)=>
+      !numeric(b.close)||!numeric(b.high)||!numeric(b.low)||
+      b.low<=0||b.high<b.low||b.close<b.low||b.close>b.high||
+      (i>0&&b.time-complete[i-1].time!==STEP)))return empty;
+    const highs=[],lows=[];
+    for(let i=WING;i+WING<complete.length;i++){
+      const c=complete[i],neighbors=complete.slice(i-WING,i)
+        .concat(complete.slice(i+1,i+WING+1));
+      const knownAt=complete[i+WING].time+STEP;
+      if(neighbors.every(b=>b.high<c.high))
+        highs.push({level:c.high,pivotAt:c.time,knownAt});
+      if(neighbors.every(b=>b.low>c.low))
+        lows.push({level:c.low,pivotAt:c.time,knownAt});
+    }
+    const events=[];
+    let brokenTrend=null,currentTrend=null,protectedLevel=null;
+    let protectedAt=null,protectedKnownAt=null;
+    for(let i=1;i<complete.length;i++){
+      const bar=complete[i],prev=complete[i-1],start=bar.time;
+      // Strictly prior knowledge: confirming 10m right bars are closed
+      // by the START of the candle being evaluated.
+      const confirmedHi=highs.filter(x=>x.knownAt<=start);
+      const confirmedLo=lows.filter(x=>x.knownAt<=start);
+      const a=confirmedHi.at(-1),ap=confirmedHi.at(-2);
+      const b=confirmedLo.at(-1),bp=confirmedLo.at(-2);
+      currentTrend=a&&ap&&b&&bp?
+        (a.level>ap.level&&b.level>bp.level?'LONG':
+        a.level<ap.level&&b.level<bp.level?'SHORT':'MIXED'):'WAIT';
+      // A broken trend cannot emit another CHOCH until an opposite
+      // structure is established; no signal repeats on recrossing.
+      if(brokenTrend&&currentTrend!=='MIXED'&&currentTrend!=='WAIT'&&
+        currentTrend!==brokenTrend)brokenTrend=null;
+      if(currentTrend==='LONG'){
+        protectedLevel=b.level;protectedAt=b.pivotAt;
+        protectedKnownAt=b.knownAt;
+      }else if(currentTrend==='SHORT'){
+        protectedLevel=a.level;protectedAt=a.pivotAt;
+        protectedKnownAt=a.knownAt;
+      }else{
+        protectedLevel=null;protectedAt=null;protectedKnownAt=null;
+      }
+      if(brokenTrend||!numeric(protectedLevel))continue;
+      const bear=currentTrend==='LONG'&&prev.close>=protectedLevel&&
+        bar.close<protectedLevel;
+      const bull=currentTrend==='SHORT'&&prev.close<=protectedLevel&&
+        bar.close>protectedLevel;
+      if(!bear&&!bull)continue;
+      const ev={type:'CHOCH',dir:bear?'SHORT':'LONG',
+        priorTrend:currentTrend,at:bar.time+STEP,candleTime:bar.time,
+        level:protectedLevel,price:bar.close,protectedAt,protectedKnownAt,
+        depthPct:Math.abs(bar.close/protectedLevel-1)*100,
+        source:'10m closed candle + confirmed protected pivot'};
+      events.push(ev);brokenTrend=currentTrend;
+    }
+    const latest=events.at(-1)||null;
+    const active=latest&&asOf>=latest.at&&asOf-latest.at<=ACTIVE_SECONDS;
+    return {
+      status:active?'CONFIRMED':currentTrend==='WAIT'?'NO_DATA':'WAIT',
+      direction:active?latest.dir:null,latest,events:events.slice(-MAX_EVENTS),
+      expected:brokenTrend?'WAIT · новый тренд':
+        currentTrend==='LONG'?'CHOCH SHORT':
+        currentTrend==='SHORT'?'CHOCH LONG':'WAIT',
+      protectedLevel,protectedAt,protectedKnownAt,
+      priorTrend:currentTrend,reason:currentTrend==='WAIT'?
+        'Недостаточно подтверждённых HH/HL или LH/LL':null,
+      asOf,latestBarAt:complete.at(-1).time+STEP
+    };
+  }
+  root.ASCEND_CHOCH_10M=Object.freeze({scan});
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
 <script>
 /* ASCEND Structure Evidence V1 — read-only, close-confirmed, no Core signal routing. */
 (function(root){
@@ -3455,7 +3632,12 @@ start();
     const recent=perLevel.flatMap(x=>x.events).sort((a,b)=>b.at-a.at).slice(0,14);
     const context=frames['30m'].trend===frames['15m'].trend&&
       ['LONG','SHORT'].includes(frames['30m'].trend)?frames['30m'].trend:'MIXED';
-    // Isolated BREAK↑/↓ is shown as structure evidence, not assumed CHOCH/BOS.
+    // CHOCH is an independent confirmed protected-pivot break.
+    // Legacy BREAK↑/↓ remains only a generic structural break.
+    const choch=root.ASCEND_CHOCH_10M?
+      root.ASCEND_CHOCH_10M.scan(grouped(one,600),asOf):{
+        status:'NO_DATA',events:[],latest:null,protectedLevel:null,
+        expected:'WAIT',reason:'Модуль CHOCH не загружен'};
     const ten=frames['10m'].events.at(-1)||null,
       five=frames['5m'].events.at(-1)||null,
       micro=frames['1m'].events.at(-1)||null;
@@ -3466,7 +3648,7 @@ start();
       ten.at<=five.at&&five.at<=micro.at&&
       levelRetest.at<=micro.at);
     return {status:stale?'STALE':'READY',asOf,frames,perLevel,
-      context,recent,ten,five,micro,levelRetest,aligned,
+      context,recent,choch,ten,five,micro,levelRetest,aligned,
       historyStart:one[0].time,
       reason:items.length?'':'Нет замороженных уровней или недостаточно истории 15m'};
   }
