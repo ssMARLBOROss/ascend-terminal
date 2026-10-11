@@ -4,7 +4,7 @@
 const ID={
  SP500:'pMacroSP500',NASDAQCOM:'pMacroNASDAQ',DGS10:'pMacroUST10',
  DGS2:'pMacroUST2',DTWEXBGS:'pMacroBroadUSD',
- DCOILWTICO:'pMacroWTI',DXY:'pMacroDXY',XAUUSD:'pMacroGold'
+ DCOILWTICO:'pMacroWTI',DXY:'pMacroDXY',XAUUSD:'pMacroGold',GOLD_GC:'pMacroGoldFutures'
 };
 const toText=(id,text,cls)=>{
  const el=document.getElementById(id);
@@ -24,7 +24,9 @@ function printSeries(series){
  const delta=Number(series.change),unit=series.change_unit==='bp'?'bp':'%';
  const number=val.toLocaleString('ru-RU',{maximumFractionDigits:4});
  const change=(delta>0?'+':'')+delta.toFixed(unit==='bp'?1:2)+unit;
- return {text:number+' · '+change+' · '+series.observation_date+' · FRED daily',
+ const source=String(series.source||'').includes('Yahoo')?
+   String(series.provider_ticker||'?')+' · Yahoo research':'FRED daily';
+ return {text:number+' · '+change+' · '+series.observation_date+' · '+source,
    tone:delta>0?'long':delta<0?'short':'neutral'};
 }
 function render(){
@@ -37,13 +39,13 @@ function render(){
  }
  const ready=market?Object.values(market).filter(x=>x.status==='READY').length:0;
  toText('pMacroFREDStatus',ready?
-   'FRED DAILY · '+ready+'/8 рядов · '+new Date(cached.retrieved_utc).toISOString().slice(11,16)+' UTC':
-   'FRED NO DATA · проверь Railway API',ready?'neutral':'nodata');
+   'MACRO DAILY · '+ready+'/'+String(cached.total||9)+' рядов · '+new Date(cached.retrieved_utc).toISOString().slice(11,16)+' UTC':
+   'MACRO NO DATA · проверь Railway API',ready?'neutral':'nodata');
  const warning=document.getElementById('pMacroFREDNote');
  if(warning)warning.textContent=
-   'Только опубликованные дневные наблюдения FRED; не intraday и не сигнал. '+
-   'Broad USD (DTWEXBGS) ≠ DXY. GLD/Gold spot пока не подключён. '+
-   'Изменение UST показано в bp. В выходные даты могут быть пятничными.';
+   'Источники: FRED daily (официальные ряды) и Yahoo Finance chart (неофициальный исследовательский). '+
+   'Данные не intraday и не торговый сигнал. GC=F и CL=F — фьючерсы, НЕ spot. '+
+   'XAU/USD spot не подключён. UST в bp. Дата наблюдения не равна времени публикации.';
  renderReplay();
 }
 function renderReplay(){
