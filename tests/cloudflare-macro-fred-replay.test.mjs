@@ -21,7 +21,7 @@ const candles5=(factor)=>Array.from({length:26},(_,i)=>({
 const ETH=candles5(.12),SOL=candles5(-.08);
 const results=R.response(AT,one,ETH,SOL,AT+60*60);
 assert.equal(results.at,AT);
-assert.equal(results.btcPrice,100);
+assert.equal(results.btcPrice,99.99, 'close at event minute (not next minute)');
 assert.equal(results.horizons.length,4);
 const btc15=results.horizons.find(x=>x.minute===15);
 assert.equal(btc15.btc,0.15);
