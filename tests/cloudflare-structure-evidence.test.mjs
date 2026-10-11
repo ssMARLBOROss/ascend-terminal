@@ -31,6 +31,14 @@ assert.ok(!early.events.some(x=>x.type==='BREAK'||x.type==='RETEST'),
 const live=E.levelHistory(one,{...YL,freezeAt:base+3600},base+600);
 assert.equal(live.status,'LIVE');
 assert.equal(live.events.length,0);
+const strong=Array.from({length:40},(_,i)=>bar(base+i*60));
+for(let i=10;i<21;i++)strong[i]={...strong[i],open:99.5,high:99.6,low:98,close:98.5};
+const strongR=E.levelHistory(strong,YL,base+40*60);
+const accept5=strongR.events.find(e=>e.type==='ACCEPT_5M');
+assert.ok(accept5,'2 fully CLOSED 5m bars beyond the level confirm 5m acceptance');
+assert.equal(accept5.at,base+20*60);
+assert.equal(E.levelHistory(strong,YL,base+19*60).events.some(e=>e.type==='ACCEPT_5M'),
+  false,'no future 5m confirmation before second bar has closed');
 const prior=Array.from({length:40},(_,i)=>({
   time:D+i*900,open:100,high:101,low:99,close:100,volume:50
 }));
