@@ -91,6 +91,18 @@ const invalid=one.map((x,i)=>i===30?{...x,low:117,close:118,open:132}:x);
 const invalidReport=X.analyze({...base,one:invalid});
 notReady(invalidReport,'sweep extreme loss invalidates');
 assert.equal(invalidReport.status,'INVALIDATED');
+const afterStops=[
+ {...bar(asOf,132,136,128,132),low:r.plan.stop-1},
+ bar(asOf+60,132,136,131,132)
+];
+notReady(X.analyze({...base,asOf:asOf+120,now:asOf+125,one:[...one,...afterStops]}),
+ 'post-trigger structural stop invalidates entry');
+const postTarget=[
+ {...bar(asOf,132,180,131,132),high:r.plan.target+1},
+ bar(asOf+60,132,136,131,132)
+];
+notReady(X.analyze({...base,asOf:asOf+120,now:asOf+125,one:[...one,...postTarget]}),
+ 'post-trigger target already reached blocks late entry');
 const additional={...one.at(-1),time:asOf,close:99999,high:99999,low:131};
 const future=X.analyze({...base,one:[...one,additional]});
 assert.equal(future.status,'CONFIRMED','open 1m future bar cannot leak');
