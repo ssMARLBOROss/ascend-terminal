@@ -14,7 +14,9 @@ function bar(time,open=132,high=136,low=131,close=132,volume=100){
 }
 const one=Array.from({length:72},(_,i)=>bar(D+i*60));
 one[10]={...one[10],low:119,close:132}; // closed 1m SWEEP+RECLAIM
-one[45]={...one[45],low:125}; // prior 3m pivot low, known by t+54m
+one[20]={...one[20],low:128}; // earlier confirmed 3m low
+one[45]={...one[45],low:125}; // a lower low, not yet eligible as HL
+
 one[60]={...one[60],low:129.8}; // retest 3m pivot HL, known by t+69m
 one[66]={...one[66],high:139}; // 1m pivot high, known by t+69m
 one[70]={...one[70],close:140,high:141,volume:190};
