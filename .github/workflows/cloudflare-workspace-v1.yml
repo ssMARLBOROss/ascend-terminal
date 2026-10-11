@@ -1,0 +1,20 @@
+name: Cloudflare Workspace Layout V1 checks
+on:
+  push:
+    branches: [feature/cloudflare-resizable-workspace-v1-20261011]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check workspace-layout.js
+      - run: node tests/cloudflare-workspace-layout.test.mjs
+      - run: node tests/cloudflare-liquidity-map.test.mjs
+      - run: node tests/cloudflare-vwap.test.mjs
