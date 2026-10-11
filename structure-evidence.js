@@ -181,7 +181,12 @@
     const recent=perLevel.flatMap(x=>x.events).sort((a,b)=>b.at-a.at).slice(0,14);
     const context=frames['30m'].trend===frames['15m'].trend&&
       ['LONG','SHORT'].includes(frames['30m'].trend)?frames['30m'].trend:'MIXED';
-    // Isolated BREAK↑/↓ is shown as structure evidence, not assumed CHOCH/BOS.
+    // CHOCH is an independent confirmed protected-pivot break.
+    // Legacy BREAK↑/↓ remains only a generic structural break.
+    const choch=root.ASCEND_CHOCH_10M?
+      root.ASCEND_CHOCH_10M.scan(grouped(one,600),asOf):{
+        status:'NO_DATA',events:[],latest:null,protectedLevel:null,
+        expected:'WAIT',reason:'Модуль CHOCH не загружен'};
     const ten=frames['10m'].events.at(-1)||null,
       five=frames['5m'].events.at(-1)||null,
       micro=frames['1m'].events.at(-1)||null;
@@ -192,7 +197,7 @@
       ten.at<=five.at&&five.at<=micro.at&&
       levelRetest.at<=micro.at);
     return {status:stale?'STALE':'READY',asOf,frames,perLevel,
-      context,recent,ten,five,micro,levelRetest,aligned,
+      context,recent,choch,ten,five,micro,levelRetest,aligned,
       historyStart:one[0].time,
       reason:items.length?'':'Нет замороженных уровней или недостаточно истории 15m'};
   }
