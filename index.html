@@ -167,7 +167,182 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
 @media(max-width:1320px){.entry-market-bottom{grid-template-columns:1fr 1fr}.entry-market-bottom>div:first-child{grid-column:1/-1}}
 @media(max-width:1080px){.entry-market-bottom{grid-template-columns:1fr}.entry-market-bottom>div:first-child{grid-column:auto}.entry-analysis-side{order:4}.entry-rsi-panel{height:165px}}
 </style>
-  <script src="/liquidity-map.js"></script>
+  <script>
+/* ASCEND Liquidity Map V1 — price-display only; no order routing. */
+(function (root) {
+  'use strict';
+  const DAY=86400;
+  const UPPER=['YH','ONH','RTH_H','IBH'],LOWER=['YL','ONL','RTH_L','IBL'];
+  const valid=v=>Number.isFinite(Number(v))&&Number(v)>0;
+  const zone=(level,atr,factor=.3)=>{
+    if(!valid(level)||!valid(atr))return null;
+    const half=Number(atr)*factor/2;
+    return {low:Number(level)-half,high:Number(level)+half};
+  };
+  const pct=(price,level)=>valid(price)&&valid(level)?(Number(price)/Number(level)-1)*100:null;
+  const rowsIn=(rows,from,to,interval)=>{
+    const relevant=(rows||[]).filter(x=>Number(x.time)>=from&&Number(x.time)<to)
+      .sort((a,b)=>Number(a.time)-Number(b.time));
+    if(relevant.length!==(to-from)/interval||
+      relevant.some((x,i)=>Number(x.time)!==from+i*interval))return null;
+    return relevant;
+  };
+  const extreme=(rows,side)=>side==='upper'?
+    Math.max(...rows.map(x=>Number(x.high))):Math.min(...rows.map(x=>Number(x.low)));
+  function newYorkCash(dayUtc){
+    const noon=new Date((dayUtc+12*3600)*1000);
+    const hour=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',
+      hour:'2-digit',hourCycle:'h23'}).formatToParts(noon)
+      .find(x=>x.type==='hour')?.value;
+    if(hour===undefined)return null;
+    const offset=12-Number(hour);
+    const open=dayUtc+(offset+9.5)*3600;
+    return {open,ibEnd:open+3600,close:dayUtc+(offset+16)*3600};
+  }
+  function levelsFromHistory(rows15,rows5,asOf,previousDay){
+    const last=Number(asOf),day=Math.floor(last/DAY)*DAY;
+    const older=(rows15||[]).filter(x=>Number(x.time)+900<=last);
+    const data={},meta={};
+    function add(key,start,end,side){
+      const until=Math.min(end,Math.floor(last/900)*900);
+      if(until<=start)return;
+      const range=rowsIn(older,start,until,900);
+      if(!range)return;
+      data[key]=extreme(range,side);
+      meta[key]={freezeAt:end};
+    }
+    const prior=rowsIn(older,day-DAY,day,900);
+    if(prior){
+      data.YH=extreme(prior,'upper');data.YL=extreme(prior,'lower');
+      meta.YH={freezeAt:day};meta.YL={freezeAt:day};
+    }
+    add('ONH',day,day+6*3600,'upper');
+    add('ONL',day,day+6*3600,'lower');
+    const ny=newYorkCash(day);
+    if(ny){
+      add('RTH_H',ny.open,ny.close,'upper');
+      add('RTH_L',ny.open,ny.close,'lower');
+      add('IBH',ny.open,ny.ibEnd,'upper');
+      add('IBL',ny.open,ny.ibEnd,'lower');
+    }
+    // A complete 5m Wilder ATR(14), not a partial currently forming bar.
+    const five=(rows5||[]).filter(x=>Number(x.time)+300<=last).sort((a,b)=>a.time-b.time);
+    const tail=five.slice(-90);
+    let atr=null;
+    if(tail.length>=15&&tail.every((x,i)=>i===0||Number(x.time)===Number(tail[i-1].time)+300)){
+      const trs=tail.map((x,i)=>{
+        const prev=i?Number(tail[i-1].close):Number(x.open);
+        return Math.max(Number(x.high)-Number(x.low),
+          Math.abs(Number(x.high)-prev),Math.abs(Number(x.low)-prev));
+      });
+      atr=trs.slice(0,14).reduce((a,b)=>a+b,0)/14;
+      for(let i=14;i<trs.length;i++)atr=(atr*13+trs[i])/14;
+      if(!valid(atr))atr=null;
+    }
+    return {levels:data,meta,atr,day,ny,asOf:last};
+  }
+  function classify(level,candles,direction,freezeAt,asOf){
+    const result={state:Number(asOf)<Number(freezeAt)?'LIVE':'FROZEN'};
+    if(result.state==='LIVE'||!valid(level))return result;
+    const closed=(candles||[]).filter(x=>Number(x.time)+60>freezeAt&&
+      Number(x.time)+60<=asOf).sort((a,b)=>Number(a.time)-Number(b.time));
+    let consecutive=0,sweepObserved=false;
+    for(const c of closed){
+      const high=Number(c.high),low=Number(c.low),close=Number(c.close);
+      if(![high,low,close].every(Number.isFinite))continue;
+      const beyond=direction==='upper'?high>level:low<level;
+      const inside=direction==='upper'?close<level:close>level;
+      const time=Number(c.time)+60;
+      if(beyond&&!sweepObserved){
+        sweepObserved=true;result.sweepAt=time;result.state='SWEEP';
+        result.sweepExtreme=direction==='upper'?high:low;consecutive=0;
+      }
+      if(sweepObserved){
+        if(direction==='upper'?high>result.sweepExtreme:low<result.sweepExtreme){
+          result.sweepExtreme=direction==='upper'?high:low;
+          result.deepestAt=time;
+        }
+        if(inside){
+          consecutive=0;
+          if(result.state!=='RECLAIM'){
+            result.state='RECLAIM';result.reclaimAt=time;
+          }
+        }else{
+          consecutive++;
+          if(consecutive>=2&&result.state!=='ACCEPTANCE'){
+            result.state='ACCEPTANCE';result.acceptanceAt=time;
+          }
+        }
+      }
+    }
+    if(sweepObserved){
+      result.sweepDepthPct=Math.abs(result.sweepExtreme-level)/level*100;
+      result.deepestAt??=result.sweepAt;
+    }
+    return result;
+  }
+  function build(input){
+    const {price,atr,levels={},meta={},candles=[],atrFactor=.3,asOf=0}=input||{};
+    const asLevel=(key,direction)=>{
+      const level=Number(levels[key]),freezeAt=Number(meta[key]?.freezeAt||0);
+      if(!valid(level)||!freezeAt)return null;
+      return {key,level,distancePct:pct(price,level),zone:zone(level,atr,atrFactor),
+        side:direction,...classify(level,candles,direction,freezeAt,asOf)};
+    };
+    const uppers=UPPER.map(k=>asLevel(k,'upper')).filter(Boolean);
+    const lowers=LOWER.map(k=>asLevel(k,'lower')).filter(Boolean);
+    const upper=uppers.filter(x=>x.level>=price).sort((a,b)=>a.level-b.level)[0]||
+      [...uppers].sort((a,b)=>Math.abs(a.level-price)-Math.abs(b.level-price))[0];
+    const lower=lowers.filter(x=>x.level<=price).sort((a,b)=>b.level-a.level)[0]||
+      [...lowers].sort((a,b)=>Math.abs(a.level-price)-Math.abs(b.level-price))[0];
+    return {upper,lower,all:{uppers,lowers},asOf};
+  }
+  function draw(ctx,bounds,priceToY,map){
+    if(!ctx||!map||typeof priceToY!=='function')return;
+    const {left=0,right=ctx.canvas.width}=bounds||{};
+    const unique=[...map.all.uppers,...map.all.lowers];
+    ctx.save();ctx.font='700 11px system-ui,sans-serif';
+    for(const item of unique){
+      const y=priceToY(item.level);if(!Number.isFinite(y))continue;
+      const color=item.side==='upper'?'rgba(244,108,126,.58)':'rgba(59,211,154,.56)';
+      ctx.strokeStyle=color;ctx.lineWidth=1;ctx.setLineDash(item.state==='LIVE'?[2,5]:[5,5]);
+      ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    for(const [item,color] of [[map.upper,'rgba(247,77,104,.17)'],
+                                [map.lower,'rgba(29,207,137,.16)']]){
+      if(!item)continue;
+      const p1=item.zone&&priceToY(item.zone.high),p2=item.zone&&priceToY(item.zone.low);
+      const y=priceToY(item.level);
+      if(!Number.isFinite(y))continue;
+      if(Number.isFinite(p1)&&Number.isFinite(p2)){
+        ctx.fillStyle=color;
+        ctx.fillRect(left,Math.min(p1,p2),right-left,Math.max(4,Math.abs(p2-p1)));
+      }
+      ctx.strokeStyle=item.side==='upper'?'#ff788c':'#64e8b2';ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();
+      const label=(item.side==='upper'?'BSL ':'SSL ')+item.key+' · '+item.state+
+        ' · '+(item.distancePct>=0?'+':'')+item.distancePct.toFixed(2)+'%';
+      ctx.font='800 12px system-ui,sans-serif';
+      const tw=ctx.measureText(label).width+12;
+      const x=Math.max(left+6,right-tw-9),atY=Math.max(18,y-10);
+      ctx.fillStyle='rgba(4,17,27,.92)';ctx.fillRect(x,atY-13,tw,19);
+      ctx.fillStyle=item.side==='upper'?'#ffa0ac':'#9bf2c9';
+      ctx.fillText(label,x+6,atY,Math.max(20,right-x-13));
+      if(Number.isFinite(item.sweepDepthPct)){
+        const d='SWEEP '+item.sweepDepthPct.toFixed(2)+'% · '+
+          new Date(item.sweepAt*1000).toISOString().slice(11,16)+' UTC';
+        ctx.font='700 11px system-ui,sans-serif';ctx.fillText(d,x+6,atY+16);
+      }
+    }
+    ctx.restore();
+  }
+  root.AscendLiquidityMap=Object.freeze({
+    zone,pct,newYorkCash,levelsFromHistory,classify,build,draw
+  });
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
   <style>
     /* Hide old chart drawings while preserving other terminal panels and trade engine. */
     #chartShell .session-chart-overlay,#chartShell .trade-history-overlay,
@@ -657,6 +832,7 @@ function initChart(){
   vwapLine=chart.addLineSeries({color:"#18e889",lineWidth:2,priceLineVisible:false,lastValueVisible:true,title:"VWAP"});
   vol=chart.addHistogramSeries({priceScaleId:"vol",priceLineVisible:false,lastValueVisible:false});
   chart.priceScale("vol").applyOptions({scaleMargins:{top:.82,bottom:0},borderVisible:false});
+  [sma20,sma50,sma200,vwapLine,vol].forEach(series=>series.applyOptions({visible:false}));
   chart.timeScale().subscribeVisibleLogicalRangeChange(()=>scheduleOverlay());
   new ResizeObserver(()=>{chart.applyOptions({width:el.clientWidth,height:el.clientHeight});scheduleOverlay()}).observe(el);
   const manualViewport=()=>{if(state.follow){state.follow=false;$("followBtn").classList.remove("active");$("followBtn").textContent="Следить за ценой"}scheduleOverlay()};
@@ -898,40 +1074,65 @@ function renderMajorPairMenu(asset){
 }
 
 
-/* Liquidity-only chart mode: display changes only, no trade engine changes. */
-let liquidityZoneOverlay=null;
-function ascendLiquidityRender(){
-  if(!state.chartReady || !window.AscendLiquidityMap)return;
-  const history=closed(state.tf["1h"]||state.tf["30m"]||[]);
-  const rows=closed(currentRows()), last=rows.at(-1);
-  if(!last)return;
-  const price=Number(last.close), day=Math.floor(Number(last.time)/86400);
-  const prior=history.filter(c=>Math.floor(Number(c.time)/86400)===day-1);
-  const today=history.filter(c=>Math.floor(Number(c.time)/86400)===day);
-  const daily=prior.length>=12?prior:null;
-  const h=history.length>=30?history:rows;
-  const tr=h.slice(1).map((c,i)=>Math.max(Number(c.high)-Number(c.low),Math.abs(Number(c.high)-Number(h[i].close)),Math.abs(Number(c.low)-Number(h[i].close))));
-  const atr=tr.slice(-14).reduce((a,b)=>a+b,0)/Math.min(14,tr.length);
-  const levels={};
-  if(daily){levels.YH=Math.max(...daily.map(x=>Number(x.high)));levels.YL=Math.min(...daily.map(x=>Number(x.low)));}
-  // Overnight UTC 00:00-08:00, only completed candles. Other session levels remain absent if data is insufficient.
-  const overnight=today.filter(c=>{const hour=new Date(Number(c.time)*1000).getUTCHours();return hour<8});
-  if(overnight.length){levels.ONH=Math.max(...overnight.map(x=>Number(x.high)));levels.ONL=Math.min(...overnight.map(x=>Number(x.low)));}
-  const rth=today.filter(c=>{const hour=new Date(Number(c.time)*1000).getUTCHours();return hour>=13&&hour<22});
-  if(rth.length){levels.RTH_H=Math.max(...rth.map(x=>Number(x.high)));levels.RTH_L=Math.min(...rth.map(x=>Number(x.low)));}
-  const ib=today.filter(c=>{const hour=new Date(Number(c.time)*1000).getUTCHours();return hour===13});
-  if(ib.length){levels.IBH=Math.max(...ib.map(x=>Number(x.high)));levels.IBL=Math.min(...ib.map(x=>Number(x.low)));}
-  const model=window.AscendLiquidityMap.build({price,atr,levels,candles:rows.map(x=>({...x,closed:true}))});
-  clearLines();
-  for(const [key,value] of Object.entries(levels)){
-    const upper=/H$|_H$/.test(key);
-    setLine(value,upper?"#ff6b78":"#30d6ac",key);
+/* Liquidity-only chart mode; study data and trading decisions are preserved. */
+let liquidityZoneOverlay=null,latestLiquidityModel=null,liquiditySignature='';
+function ascendLiquidityDraw(){
+  const model=latestLiquidityModel,layer=liquidityZoneOverlay;
+  if(!layer||!state.chartReady)return;
+  const w=layer.clientWidth,h=layer.clientHeight;
+  if(!w||!h)return;
+  const dpr=Math.min(2,Math.max(1,window.devicePixelRatio||1));
+  if(layer.width!==Math.round(w*dpr)||layer.height!==Math.round(h*dpr)){
+    layer.width=Math.round(w*dpr);layer.height=Math.round(h*dpr);
   }
-  if(!liquidityZoneOverlay){liquidityZoneOverlay=document.createElement("canvas");liquidityZoneOverlay.id="liquidityZoneOverlay";liquidityZoneOverlay.style.cssText="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4";$("chartShell").appendChild(liquidityZoneOverlay);}
-  const el=liquidityZoneOverlay,w=el.clientWidth,hpx=el.clientHeight,dpr=window.devicePixelRatio||1;
-  el.width=Math.round(w*dpr);el.height=Math.round(hpx*dpr);
-  const ctx=el.getContext("2d");ctx.scale(dpr,dpr);
-  window.AscendLiquidityMap.draw(ctx,{left:6,right:Math.max(6,w-70)},p=>candles.priceToCoordinate(p),model);
+  const ctx=layer.getContext("2d");
+  if(!ctx)return;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  if(!model)return;
+  const priceToY=p=>candles.priceToCoordinate(Number(p));
+  window.AscendLiquidityMap.draw(ctx,{left:6,right:Math.max(6,w-70)},
+    priceToY,model);
+}
+function ascendLiquidityRender(){
+  if(!state.chartReady||!window.AscendLiquidityMap)return;
+  // Use all available closed 15m candles for full UTC-day levels.
+  // Do not backfill nonexistent historical points from shorter TFs.
+  const rows15=closed(state.tf["15m"]||[]);
+  const rows5=closed(state.tf["5m"]||[]);
+  const rows1=closed(state.tf["1m"]||[]);
+  const last=rows1.at(-1);
+  if(!last)return;
+  const asOf=Number(last.time)+60;
+  const fresh=Date.now()/1000-asOf<300;
+  const built=fresh?window.AscendLiquidityMap.levelsFromHistory(
+    rows15,rows5,asOf):null;
+  const price=Number(last.close);
+  const levels=built?.levels||{};
+  const meta=built?.meta||{};
+  const fullCandles=rows1.filter(c=>Number(c.time)+60<=asOf);
+  latestLiquidityModel=built&&Number.isFinite(built.atr)?
+    window.AscendLiquidityMap.build({
+      price,atr:built.atr,levels,meta,candles:fullCandles,asOf
+    }):null;
+  const signature=JSON.stringify([state.symbol,
+    ...Object.entries(levels).sort((a,b)=>a[0].localeCompare(b[0])).flat()]);
+  if(signature!==liquiditySignature){
+    liquiditySignature=signature;
+    clearLines();
+    for(const [key,value] of Object.entries(levels)){
+      const upper=/H$|_H$/.test(key);
+      setLine(value,upper?"#e86f80":"#43c99b",key);
+    }
+  }
+  if(!liquidityZoneOverlay){
+    liquidityZoneOverlay=document.createElement("canvas");
+    liquidityZoneOverlay.id="liquidityZoneOverlay";
+    liquidityZoneOverlay.style.cssText=
+      "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4";
+    $("chartShell").appendChild(liquidityZoneOverlay);
+  }
+  ascendLiquidityDraw();
 }
 
 function renderChart(){
@@ -939,23 +1140,19 @@ function renderChart(){
   const r=closed(currentRows());if(!r.length||!state.chartReady)return;
   const last=r.at(-1),prev=r.at(-2)||last,ss20=sma(r,20),ss50=sma(r,50),ss200=sma(r,200),vw=vwapSnapshot(currentRows());
   candles.setData(r.map(x=>({time:Number(x.time),open:Number(x.open),high:Number(x.high),low:Number(x.low),close:Number(x.close)})));
-  sma20.setData(r.map((x,i)=>ss20[i]?{time:Number(x.time),value:ss20[i]}:null).filter(Boolean));
-  sma50.setData(r.map((x,i)=>ss50[i]?{time:Number(x.time),value:ss50[i]}:null).filter(Boolean));
-  sma200.setData(r.map((x,i)=>ss200[i]?{time:Number(x.time),value:ss200[i]}:null).filter(Boolean));
-  vwapLine.setData(vw?.series||[]);state.vwap=vw;
-  vol.setData(r.map(x=>({time:Number(x.time),value:Number(x.volume)||0,color:Number(x.close)>=Number(x.open)?"rgba(18,214,177,.35)":"rgba(255,54,85,.35)"})));
-  state.projection=projection(r);clearLines();
-  if(state.projection){const p=state.projection;setLine(p.entry,p.confirmed?"#18e889":"#ffc64d",p.confirmed?"ENTRY READY":"WATCH PRICE");setLine(p.sl,"#ff3655","SL");setLine(p.tp1,"#18e889","TP1");setLine(p.tp2,"#18e889","TP2");setLine(p.tp3,"#18e889","TP3")}
+  // Full SMA/VWAP/volume and trade-plan calculations remain available to Core
+  // and the non-chart panels; hidden chart series are never repopulated per tick.
+  state.vwap=vw;
+  state.projection=projection(r);
   const chg=(Number(last.close)-Number(prev.close))/Math.max(Number(prev.close),1e-12)*100;
   $("openP").textContent=fmt(last.open);$("highP").textContent=fmt(last.high);$("lowP").textContent=fmt(last.low);$("closeP").textContent=fmt(last.close);$("chgP").textContent=(chg>=0?"+":"")+chg.toFixed(2)+"%";
   $("sma20").textContent=fmt(ss20.at(-1));$("sma50").textContent=fmt(ss50.at(-1));$("sma200").textContent=fmt(ss200.at(-1));$("vwapNow").textContent=fmt(vw?.value);
   $("chartTitle").textContent=state.symbol.replace("_"," / ")+" · "+state.timeframe+" · MEXC";
   if(state.needsFit){chart.timeScale().fitContent();chart.timeScale().applyOptions({rightOffset:22});state.needsFit=false}else if(state.follow){chart.timeScale().scrollToRealTime()}
-  // Keep analytical computations but display only candles and liquidity.
-  [sma20,sma50,sma200,vwapLine,vol].forEach(series=>{try{series.setData([])}catch(_){}});
+  // Do not send hidden SMA/VWAP/volume to Lightweight Charts.
   ascendLiquidityRender();
 }
-function scheduleOverlay(){if(overlayRaf)return;overlayRaf=requestAnimationFrame(()=>{overlayRaf=0;syncOverlay()})}
+function scheduleOverlay(){if(overlayRaf)return;overlayRaf=requestAnimationFrame(()=>{overlayRaf=0;syncOverlay();ascendLiquidityDraw()})}
 function priceY(p){const y=candles.priceToCoordinate(Number(p));return Number.isFinite(y)?y:null}
 function timeX(t){const x=chart.timeScale().timeToCoordinate(Number(t));return Number.isFinite(x)?x:null}
 function setBox(id,left,top,width,height){const e=$(id);if([left,top,width,height].some(v=>!Number.isFinite(v))){e.classList.add("overlay-hidden");return}e.classList.remove("overlay-hidden");e.style.left=Math.max(0,left)+"px";e.style.top=Math.max(0,top)+"px";e.style.width=Math.max(2,width)+"px";e.style.height=Math.max(2,height)+"px"}
@@ -2060,6 +2257,12 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
     v11.levelLines.forEach(line=>{try{candles.removePriceLine(line)}catch(_){}});v11.levelLines=[];
   }
   function renderLevelLines(levels,force=false){
+    // Central chart stays clean: V1.1 reference levels remain available in
+    // summary panels, but are not duplicated over the Liquidity Map overlay.
+    if(window.ASCEND_LIQUIDITY_ONLY!==false){
+      if(v11.levelLines.length)clearLevelLines();
+      return;
+    }
     const signature=JSON.stringify([state.symbol,v11.levelsEnabled,levels&&levels.open,levels&&levels.onh,levels&&levels.onl,levels&&levels.yh,levels&&levels.yl]);
     if(!force&&signature===v11.levelSignature)return;
     v11.levelSignature=signature;clearLevelLines();
@@ -2180,6 +2383,7 @@ setInterval(()=>loadMarket(false),15000);setInterval(()=>{const v=currentView();
 })();
 </script>
 <!-- ASCEND_UI_V1_1_END -->
+<script>window.ASCEND_LIQUIDITY_ONLY=true;</script>
 
 </body>
 </html>
