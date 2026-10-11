@@ -1,0 +1,45 @@
+name: ASCEND Capital Flow Production Live Smoke
+on:
+  push:
+    branches: [research/capital-flow-live-smoke-20261011]
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Query production Capital/Flow with BTC and ETH safely
+        run: |
+          python - <<'PY'
+          import json
+          from urllib.request import Request,urlopen
+          base='https://ascend-terminal-api-production.up.railway.app/api/v2/capital-flow?symbol='
+          for symbol in ['BTC_USDT','ETH_USDT']:
+            req=Request(base+symbol,headers={'Accept':'application/json',
+                'User-Agent':'ASCEND-Research-GitHub-CI/1.0'})
+            try:
+              with urlopen(req,timeout=35) as response:
+                data=json.load(response)
+                status=response.status
+              print('PAIR',symbol,'HTTP',status,'SNAPSHOT',data.get('status'),
+                    'SPOT',data.get('spot',{}).get('status'),
+                    'FUTURES',data.get('futures',{}).get('status'),
+                    'TRADES',data.get('recent_trades',{}).get('status'))
+              print('  SPOT TURNOVER USDT',data.get('spot',{}).get('quote_turnover_24h_usdt'),
+                    'FUTURES TURNOVER',data.get('futures',{}).get('turnover_24h_usdt'),
+                    'RATIO',data.get('futures_to_spot_turnover_ratio'))
+              print('  OI contracts',data.get('futures',{}).get('open_interest_contracts'),
+                    'FUNDING percent',data.get('futures',{}).get('funding_pct'))
+              print('  sample trade count',data.get('recent_trades',{}).get('trade_count'),
+                    'buy contracts',data.get('recent_trades',{}).get('buy_contracts'),
+                    'sell contracts',data.get('recent_trades',{}).get('sell_contracts'),
+                    'delta',data.get('recent_trades',{}).get('sample_delta_contracts'))
+              print('  missing detail',[(k,data.get(k,{}).get('reason'))
+                     for k in ['spot','futures','recent_trades']])
+              assert status==200 and data.get('symbol')==symbol
+              assert data.get('liquidations',{}).get('status')=='NO_DATA'
+              assert data.get('recent_trades',{}).get('cvd_status')=='NOT_CONNECTED' or data.get('recent_trades',{}).get('status')=='NO_DATA'
+            except Exception as exc:
+              print('PAIR',symbol,'PROBE FAILED',type(exc).__name__,str(exc)[:160])
+              raise
+          PY
