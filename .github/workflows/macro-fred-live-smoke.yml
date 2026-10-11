@@ -20,13 +20,13 @@ jobs:
           markets=data.get("markets",{})
           print("HTTP",response.status,"SUMMARY",data.get("status"),
             "AVAILABLE",data.get("available"),"TOTAL",data.get("total"))
-          for sym in ["SP500","NASDAQCOM","DGS10","DGS2","DTWEXBGS","DCOILWTICO","DXY","XAUUSD"]:
+          for sym in ["SP500","NASDAQCOM","DGS10","DGS2","DTWEXBGS","DCOILWTICO","DXY","XAUUSD","GOLD_GC"]:
             row=markets.get(sym,{})
             print(sym,row.get("status"),row.get("observation_date"),
               "source",row.get("source"),"reason",row.get("reason","-"))
           assert response.status==200
           assert all(sym in markets for sym in ("SP500","NASDAQCOM","DGS10","DGS2","DTWEXBGS","DCOILWTICO","DXY","XAUUSD"))
-          assert markets["DXY"]["status"]=="NO_DATA"
+          assert "DXY" in markets and markets["DXY"].get("source")
           assert markets["XAUUSD"]["status"]=="NO_DATA"
           PY
       - name: Test upstream FRED and DBnomics mirror from GitHub runner
