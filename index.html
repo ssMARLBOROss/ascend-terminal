@@ -582,6 +582,28 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
                 СТРУКТУРА · ON
               </button>
               <span id="ascStructureMini" class="asc-structure-mini" aria-live="off">Ожидаем свечи</span>
+              <button id="ascSessionHLToggle" class="asc-session-hl-toggle" type="button"
+                aria-pressed="true" aria-controls="ascSessionHLPanel"
+                title="Показать или скрыть максимумы и минимумы торговых сессий">
+                СЕССИИ H/L · ON
+              </button>
+              <button id="ascSessionHLPrevious" class="asc-session-hl-previous" type="button"
+                aria-pressed="false" title="Добавить уровни предыдущих сессий на график">
+                ПРЕД. СЕССИИ · OFF
+              </button>
+            </div>
+            <div id="ascSessionHLPanel" class="asc-session-hl-panel" aria-label="Максимумы и минимумы торговых сессий">
+              <div class="asc-session-hl-header"><b>SESSION HIGH / LOW</b>
+                <small id="ascSessionHLStatus">Текущая и последняя завершённая сессия · закрытые свечи</small>
+              </div>
+              <div id="ascSessionHLRows" class="asc-session-hl-grid">
+                <span>Загружаем уровни четырёх торговых сессий…</span>
+              </div>
+              <small class="asc-session-hl-disclaimer">LIVE — формируется по закрытым 5m/15m свечам;
+                FROZEN — максимум и минимум уже завершённого диапазона. Предыдущие сессии —
+                отдельный более бледный слой. Расписание взято из текущей Session Map терминала
+                (фиксированный часовой пояс Киев UTC+3; переход на зимнее время требует отдельного обновления расписания).
+                Не является сигналом входа.</small>
             </div>
             <div id="ascStructureRibbon" class="asc-structure-ribbon"
               aria-label="Статусы структуры и снятия ликвидности">
@@ -1232,6 +1254,120 @@ let liquidityZoneOverlay=null,latestLiquidityModel=null,latestLiquidityMeta={},
   liquiditySignature='',latestStructureEvidence=null,structureEvidenceKey='';
 let structureEvidenceOn=true;
 try{structureEvidenceOn=localStorage.getItem('ascend_structure_research_v1')!=='off'}catch(_){}
+let sessionHLOn=true,sessionHLPrevious=false,latestSessionHL=null,
+  sessionHLRenderKey='';
+try{
+  sessionHLOn=localStorage.getItem('asc_session_hl_v1')!=='off';
+  sessionHLPrevious=localStorage.getItem('asc_session_hl_prev_v1')==='on';
+}catch(_){} 
+/* Session H/L uses the EXISTING four SESSION_DEFS/ sessionWindow().
+   Its labels are observational and have no order-routing side effects. */
+function buildSessionHLWindows(asOf){
+  const windows=[];
+  for(const key of ['sydney','asia','london','ny']){
+    const last=sessionWindow(key,asOf),def=SESSION_DEFS[key];
+    if(!def||!last)continue;
+    let start=Number(last.start),end=Number(last.end);
+    if(start>asOf){start-=86400;end-=86400;}
+    windows.push({key,cycle:'latest',start,end});
+    windows.push({key,cycle:'previous',start:start-86400,end:end-86400});
+  }
+  return windows;
+}
+function formatSessionHLTime(at){
+  return Number.isFinite(at)?new Date(at*1000).toISOString().slice(5,16).replace('T',' ')+' UTC':'—';
+}
+function renderSessionHL(){
+  const btn=$('ascSessionHLToggle'),prevBtn=$('ascSessionHLPrevious'),
+    panel=$('ascSessionHLPanel'),container=$('ascSessionHLRows'),
+    status=$('ascSessionHLStatus');
+  if(!btn||!prevBtn||!panel||!container||!window.ASCEND_SESSION_HL)return;
+  btn.textContent=sessionHLOn?'СЕССИИ H/L · ON':'СЕССИИ H/L · OFF';
+  btn.setAttribute('aria-pressed',String(sessionHLOn));
+  prevBtn.textContent=sessionHLPrevious?'ПРЕД. СЕССИИ · ON':'ПРЕД. СЕССИИ · OFF';
+  prevBtn.setAttribute('aria-pressed',String(sessionHLPrevious));
+  panel.hidden=!sessionHLOn;
+  if(!sessionHLOn){latestSessionHL=null;return;}
+  const minutes=closed(state.tf['1m']||[]);
+  const last=minutes.at(-1),asOf=last?Number(last.time)+60:NaN;
+  if(!Number.isFinite(asOf)||Date.now()/1000-asOf>300||
+    !Number.isFinite(Number(last.close))){
+    latestSessionHL=null;status.textContent='NO DATA / STALE · нет свежих закрытых 1m';
+    container.replaceChildren();return;
+  }
+  const bars5=closed(state.tf['5m']||[]),bars15=closed(state.tf['15m']||[]);
+  const key=JSON.stringify([state.symbol,asOf,bars5[0]?.time,bars5.at(-1)?.time,
+    bars15[0]?.time,bars15.at(-1)?.time,sessionHLOn,sessionHLPrevious]);
+  if(key===sessionHLRenderKey)return;
+  sessionHLRenderKey=key;
+  latestSessionHL=window.ASCEND_SESSION_HL.build({
+    windows:buildSessionHLWindows(asOf),bars5,bars15,asOf,price:Number(last.close)
+  });
+  const usable=latestSessionHL.rows.filter(r=>r.cycle==='latest'&&r.status!=='NO DATA').length;
+  status.textContent=usable+'/4 сессии · 5m/15m · '+formatSessionHLTime(asOf);
+  container.replaceChildren();
+  for(const row of latestSessionHL.rows){
+    if(row.cycle==='previous'&&!sessionHLPrevious)continue;
+    const item=document.createElement('div');
+    item.className='asc-session-hl-item '+(row.cycle==='previous'?'previous':'');
+    item.style.borderLeftColor=row.color;
+    function child(tag,label,cls){
+      const e=document.createElement(tag);e.textContent=label;
+      if(cls)e.className=cls;item.appendChild(e);return e;
+    }
+    child('b',row.name+(row.cycle==='previous'?' · ПРОШЛАЯ':''));
+    child('small',row.status+(row.status==='NO DATA'?'':' · '+row.timeframe),
+      row.status==='LIVE'?'live':'');
+    if(row.status==='NO DATA'){
+      child('span','H: — / L: — · недостаточно истории','missing');
+    }else{
+      child('span','H '+fmt(row.high)+' · '+formatSessionHLTime(row.highAt),'high');
+      child('span','L '+fmt(row.low)+' · '+formatSessionHLTime(row.lowAt),'low');
+      child('small','До H '+(row.fromPriceToHighPct>=0?'+':'')+
+        row.fromPriceToHighPct.toFixed(2)+'% · до L '+
+        (row.fromPriceToLowPct>=0?'+':'')+row.fromPriceToLowPct.toFixed(2)+'%');
+    }
+    container.appendChild(item);
+  }
+}
+function drawSessionHL(ctx,toY,w,h){
+  if(!sessionHLOn||!latestSessionHL||!ctx)return;
+  const entries=latestSessionHL.rows.filter(x=>x.status!=='NO DATA'&&
+    (x.cycle==='latest'||sessionHLPrevious));
+  const right=Math.max(10,w-73);
+  const placed=[];
+  ctx.save();
+  for(const s of entries){
+    for(const kind of ['high','low']){
+      const y=toY(s[kind]);
+      if(!Number.isFinite(y)||y<8||y>h-12)continue;
+      const isPrev=s.cycle==='previous';
+      ctx.globalAlpha=isPrev?.34:.84;
+      ctx.strokeStyle=s.color;ctx.lineWidth=isPrev?1:kind==='high'?2.2:1.6;
+      ctx.setLineDash(isPrev?[3,6]:kind==='low'?[7,4]:[]);
+      ctx.beginPath();ctx.moveTo(7,y);ctx.lineTo(right,y);ctx.stroke();
+      ctx.globalAlpha=1;ctx.setLineDash([]);
+      // Keep labels from covering each other when several session levels coincide.
+      let labelY=y;
+      for(let tries=0;tries<8&&placed.some(v=>Math.abs(v-labelY)<15);tries++)
+        labelY+=labelY<h/2?15:-15;
+      labelY=Math.max(15,Math.min(h-16,labelY));
+      placed.push(labelY);
+      const label=(isPrev?'P ':'')+
+        ({sydney:'SYD',asia:'ASIA',london:'LON',ny:'NY'}[s.key]||s.key)+
+        (kind==='high'?' H ':' L ')+fmt(s[kind]);
+      ctx.font='800 10px system-ui,sans-serif';
+      const tw=ctx.measureText(label).width+11;
+      const left=Math.max(8,right-tw-5);
+      ctx.fillStyle=isPrev?'rgba(9,24,35,.74)':'rgba(4,20,31,.91)';
+      ctx.fillRect(left,labelY-12,tw,15);
+      ctx.globalAlpha=isPrev?.62:1;ctx.fillStyle=s.color;
+      ctx.fillText(label,left+5,labelY-1);ctx.globalAlpha=1;
+    }
+  }
+  ctx.restore();
+}
+
 function ascendLiquidityDraw(){
   const model=latestLiquidityModel,layer=liquidityZoneOverlay;
   if(!layer||!state.chartReady)return;
@@ -1250,6 +1386,7 @@ function ascendLiquidityDraw(){
   const priceToY=p=>candles.priceToCoordinate(Number(p));
   if(model&&window.AscendLiquidityMap)window.AscendLiquidityMap.draw(
     ctx,{left:6,right:Math.max(6,w-70)},priceToY,model);
+  drawSessionHL(ctx,priceToY,w,h);
   if(structureEvidenceOn&&latestStructureEvidence?.status==='READY'){
     const tfSeconds={'1m':60,'5m':300,'10m':600,'15m':900,'30m':1800,
       '1h':3600,'4h':14400,'1d':86400}[state.timeframe]||300;
@@ -1532,6 +1669,7 @@ function renderChart(){
   if(state.needsFit){chart.timeScale().fitContent();chart.timeScale().applyOptions({rightOffset:22});state.needsFit=false}else if(state.follow){chart.timeScale().scrollToRealTime()}
   // Draw VWAP only on request. Project it onto existing candle timestamps.
   renderAscendVwap();
+  renderSessionHL();
   ascendLiquidityRender();
   renderStructureEvidence();
 }
@@ -2025,6 +2163,16 @@ $("sellBtn").addEventListener("click",()=>openManualPaper("SHORT"));
 $("paperCloseBtn").addEventListener("click",closeManualPaper);
 $("shadowTradeList").addEventListener("click",e=>{const b=e.target.closest("[data-shadow-close]");if(b)closeShadowById(b.dataset.shadowClose)});
 $("tfBar").addEventListener("click",e=>{const b=e.target.closest("[data-tf]");if(b)setTimeframe(b.dataset.tf)});
+$("ascSessionHLToggle").addEventListener("click",()=>{
+  sessionHLOn=!sessionHLOn;sessionHLRenderKey='';
+  try{localStorage.setItem('asc_session_hl_v1',sessionHLOn?'on':'off')}catch(_){}
+  renderSessionHL();ascendLiquidityDraw();
+});
+$("ascSessionHLPrevious").addEventListener("click",()=>{
+  sessionHLPrevious=!sessionHLPrevious;sessionHLRenderKey='';
+  try{localStorage.setItem('asc_session_hl_prev_v1',sessionHLPrevious?'on':'off')}catch(_){}
+  renderSessionHL();ascendLiquidityDraw();
+});
 $("ascendStructureToggle").addEventListener("click",()=>{
   structureEvidenceOn=!structureEvidenceOn;structureEvidenceKey='';
   try{localStorage.setItem('ascend_structure_research_v1',
@@ -3358,6 +3506,38 @@ start();
 .asc-choch-decision>small{color:#9bb6c7;font-size:10px;font-weight:650}
 @media(max-width:820px){.asc-choch-decision{flex-direction:column;align-items:flex-start;gap:5px}}
 </style>
+
+<style>
+.asc-session-hl-toggle,.asc-session-hl-previous{
+  min-height:31px;padding:0 9px;border:1px solid #3e7185;border-radius:6px;
+  background:#102e40;color:#aadaec;font-weight:850;font-size:10px;
+  cursor:pointer;white-space:nowrap;
+}
+.asc-session-hl-previous{background:#101f2b;border-color:#4c596a;color:#8da9b7}
+.asc-session-hl-toggle[aria-pressed="false"],.asc-session-hl-previous[aria-pressed="false"]{
+  opacity:.70;background:#0d1a26}
+.asc-session-hl-panel{background:#0a2130;border-bottom:1px solid #265267;
+  padding:9px 11px 10px}
+.asc-session-hl-panel[hidden]{display:none!important}
+.asc-session-hl-header{display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:8px;color:#c6e8f9;margin-bottom:7px;font-size:11px}
+.asc-session-hl-header b{letter-spacing:.06em}
+.asc-session-hl-header small,.asc-session-hl-disclaimer{color:#90afbd;font-size:10px}
+.asc-session-hl-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.asc-session-hl-item{background:#092b3a;border:1px solid #275168;border-left:3px solid;
+  border-radius:4px;padding:7px;display:flex;flex-direction:column;gap:4px;
+  font-variant-numeric:tabular-nums;min-width:0}
+.asc-session-hl-item.previous{opacity:.65;background:#101e2b}
+.asc-session-hl-item b{font-size:11px;color:#e4f5fb}
+.asc-session-hl-item small{color:#93b5c4;font-size:10px}
+.asc-session-hl-item small.live{color:#79efd3}
+.asc-session-hl-item span{color:#bdcfda;font-size:10px;overflow-wrap:anywhere}
+.asc-session-hl-item span.high{color:#f2e5b3}
+.asc-session-hl-item span.low{color:#93ddf2}
+.asc-session-hl-disclaimer{display:block;margin-top:8px;line-height:1.5}
+@media(max-width:900px){.asc-session-hl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:530px){.asc-session-hl-grid{grid-template-columns:minmax(0,1fr)}}
+</style>
 <!-- ASCEND_UI_V1_1_END -->
 <script>
 /* ASCEND 10m CHOCH V1: protected-pivot structural shift, research only.
@@ -3446,6 +3626,83 @@ start();
     };
   }
   root.ASCEND_CHOCH_10M=Object.freeze({scan});
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+<script>
+/* ASCEND Session High / Low V1
+ * Uses only existing closed MEXC 5m/15m OHLCV; never fabricates missing candles.
+ * Session windows must be passed in from the existing terminal SESSION_DEFS.
+ * All values are observations, not trade or liquidity sweep confirmations.
+ */
+(function(root){
+  'use strict';
+  const STEP5=300,STEP15=900,DAY=86400;
+  const NAMES={sydney:'СИДНЕЙ',asia:'АЗИЯ',london:'ЛОНДОН',ny:'НЬЮ-ЙОРК'};
+  const COLORS={
+    sydney:'#9c94ef',asia:'#56a9ee',london:'#f2ca72',ny:'#58ddac'
+  };
+  function clean(rows,step,asOf){
+    if(!Array.isArray(rows))return [];
+    const out=[],seen=new Set();
+    for(const r of rows){
+      const t=Number(r?.time),h=Number(r?.high),l=Number(r?.low),
+        c=Number(r?.close);
+      if(![t,h,l,c].every(Number.isFinite)||t<0||t%step!==0||
+        l<=0||h<l||c<l||c>h||t+step>asOf||seen.has(t))continue;
+      seen.add(t);out.push({time:t,high:h,low:l});
+    }
+    return out.sort((a,b)=>a.time-b.time);
+  }
+  function computeWindow(win,bars5,bars15,asOf){
+    const start=Number(win?.start),end=Number(win?.end);
+    if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||
+      end-start>DAY||start>asOf)return null;
+    const cutoff=Math.min(end,asOf);
+    const closed=end<=asOf;
+    for(const [step,bars] of [[STEP5,bars5],[STEP15,bars15]]){
+      if(start%step!==0||end%step!==0)continue;
+      const usedEnd=Math.floor(cutoff/step)*step;
+      const count=(usedEnd-start)/step;
+      if(count<1||!Number.isInteger(count))continue;
+      // Strict start coverage and full continuity until last COMPLETED candle.
+      const group=bars.filter(x=>x.time>=start&&x.time<usedEnd);
+      if(group.length!==count||group.some((x,i)=>x.time!==start+i*step))
+        continue;
+      let high=-Infinity,low=Infinity,highAt=null,lowAt=null;
+      for(const b of group){
+        if(b.high>high){high=b.high;highAt=b.time+step;}
+        if(b.low<low){low=b.low;lowAt=b.time+step;}
+      }
+      if(!Number.isFinite(high)||!Number.isFinite(low))continue;
+      return {high,low,highAt,lowAt,start,end,
+        observedUntil:usedEnd,status:closed?'FROZEN':'LIVE',
+        timeframe:step===STEP5?'5m':'15m',complete:closed,
+        coveragePct:Math.round(Math.min(1,(usedEnd-start)/(end-start))*10000)/100};
+    }
+    return null;
+  }
+  function build({windows,bars5,bars15,asOf,price}){
+    if(!Array.isArray(windows)||!Number.isFinite(asOf))
+      return {asOf,rows:[],reason:'NO DATA'};
+    const five=clean(bars5,STEP5,asOf),fifteen=clean(bars15,STEP15,asOf);
+    const rows=windows.slice(0,8).map(win=>{
+      const key=win.key,cycle=win.cycle;
+      const observation=computeWindow(win,five,fifteen,asOf);
+      const pct=(v)=>Number.isFinite(price)&&price>0&&Number.isFinite(v)?
+        (price/v-1)*100:null;
+      return {key,cycle,name:NAMES[key]||key,
+        color:COLORS[key]||'#a3bdd0',start:win.start,end:win.end,
+        ...(observation||{}),
+        status:observation?.status||'NO DATA',
+        fromPriceToHighPct:pct(observation?.high),
+        fromPriceToLowPct:pct(observation?.low),
+        reason:observation?null:'Нет непрерывной закрытой истории от начала сессии'};
+    });
+    return {asOf,rows,
+      usable:rows.filter(x=>x.status==='LIVE'||x.status==='FROZEN').length};
+  }
+  root.ASCEND_SESSION_HL=Object.freeze({clean,computeWindow,build,NAMES,COLORS});
 })(typeof window!=='undefined'?window:globalThis);
 
 </script>
