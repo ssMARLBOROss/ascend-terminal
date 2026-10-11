@@ -4,3 +4,4 @@ httpx
 python-telegram-bot
 asyncpg
 boto3
+websockets>=13.0,<16

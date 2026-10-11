@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 import history_store
 import macro_fred
 import capital_flow_mexc
+import market_participation_v1
 
 MEXC_BASE_URL = "https://api.mexc.com"
 MEXC_KLINE_URL = MEXC_BASE_URL + "/api/v1/contract/kline/{symbol}"
@@ -718,6 +719,61 @@ def install(app: Any) -> None:
             ticker = None
         return JSONResponse(await capital_flow_mexc.snapshot(safe, ticker),
                             headers={"Cache-Control": "private, no-store"})
+
+    @app.get("/api/v2/research/market-participation")
+    async def research_market_participation(symbol: str = Query(default="BTC_USDT")):
+        safe = _safe_symbol(symbol)
+        pool = history_store._pool
+        if pool is None:
+            return JSONResponse(
+                {"symbol":safe,"status":"NO DATA","reason":"PostgreSQL unavailable",
+                 "research_only":True,"entry_gate":False},
+                headers={"Cache-Control":"private, no-store"})
+        # New tables may not exist on older deployments with collector disabled.
+        await market_participation_v1.ensure_schema(pool)
+        data = await market_participation_v1.snapshot(pool, safe)
+        return JSONResponse(
+            {**data,"research_only":True,"entry_gate":False,
+             "source_note":"MEXC flow/OI; Bybit book/liquidations are separate venues"},
+            headers={"Cache-Control":"private, no-store"})
+
+    @app.get("/api/v2/research/history-lab")
+    async def research_history_lab(symbol: str = Query(default="BTC_USDT")):
+        safe = _safe_symbol(symbol)
+        pool = history_store._pool
+        if pool is None:
+            return JSONResponse(
+              {"status":"NO DATA","symbol":safe,"reason":"PostgreSQL unavailable",
+               "signals":0,"model_trades":None,"executed_trades":None,
+               "statistics":"NOT_VALIDATED"},
+              headers={"Cache-Control":"private, no-store"})
+        await market_participation_v1.ensure_schema(pool)
+        async with pool.acquire() as con:
+            stats = await con.fetchrow("""
+                SELECT count(*) AS events,
+                       count(DISTINCT setup_id) AS setups,
+                       min(event_ts_ms) AS first_at,
+                       max(event_ts_ms) AS last_at
+                FROM ascend_setup_events_v1
+                WHERE venue='MEXC' AND symbol=$1
+            """, safe)
+            recent = await con.fetch("""
+                SELECT stage,status,event_ts_ms,source
+                FROM ascend_setup_events_v1 WHERE venue='MEXC' AND symbol=$1
+                ORDER BY event_ts_ms DESC LIMIT 30
+            """, safe)
+        return JSONResponse({
+          "status":"RESEARCH" if stats["events"] else "NO DATA",
+          "symbol":safe,"source":"SERVER_VERIFIED_SETUP_EVENTS_ONLY",
+          "events":stats["events"],"unique_setups":stats["setups"],
+          "first_at":stats["first_at"],"last_at":stats["last_at"],
+          "recent":[dict(x) for x in recent],
+          "model_trades":None,"executed_trades":None,
+          "statistics":"NOT_VALIDATED",
+          "reason":"No server-side V2 event producer connected" if not stats["events"] else
+            "Historical observations, not verified fills",
+          "entry_gate":False,
+        },headers={"Cache-Control":"private, no-store"})
 
     @app.get("/api/v2/klines")
     async def klines(

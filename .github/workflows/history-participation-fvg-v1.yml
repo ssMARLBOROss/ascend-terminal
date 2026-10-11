@@ -1,0 +1,27 @@
+name: ASCEND History Participation FVG V1
+on:
+  push:
+    branches: [feature/history-participation-fvg-v1-20261012]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: node --check fvg-research-v1.js
+      - run: node --check research-panel-v1.js
+      - run: node tests/cloudflare-fvg-research-v1.test.mjs
+      - run: python -m py_compile market_participation_v1.py market_participation_collector_v1.py bybit_collector.py terminal_api_v2.py
+      - run: PYTHONPATH=. python tests/test_market_participation_v1.py
+      - run: node tests/cloudflare-confirmation-v2.test.mjs
+      - run: node tests/cloudflare-v2-unified-setup.test.mjs
+      - run: node tests/cloudflare-liquidity-map.test.mjs
