@@ -496,16 +496,17 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
             <div class="pressure-row"><span>Согласованность лидеров</span><b id="pMacroAgreement" class="nodata">—</b></div>
             <div class="pressure-row"><span>Закрытые свечи</span><b id="pMacroTime" class="nodata">—</b></div>
             <div class="pressure-note" id="pMacroExplanation">CRYPTO CONTEXT · BTC 45% / ETH 35% / SOL 20%. Источники загружаются только при открытой карточке.</div>
-            <div class="macro-trad-head"><strong>ВНЕШНИЕ МАКРОРЫНКИ · FRED DAILY</strong>
+            <div class="macro-trad-head"><strong>ВНЕШНИЕ МАКРОРЫНКИ · FRED + YAHOO RESEARCH</strong>
               <small id="pMacroFREDStatus">FRED NO DATA · ожидание</small></div>
             <div class="pressure-row"><span>S&amp;P 500</span><b id="pMacroSP500" class="nodata">ожидаем FRED</b></div>
             <div class="pressure-row"><span>Nasdaq Composite</span><b id="pMacroNASDAQ" class="nodata">ожидаем FRED</b></div>
             <div class="pressure-row"><span>UST 10Y (изменение в bp)</span><b id="pMacroUST10" class="nodata">ожидаем FRED</b></div>
             <div class="pressure-row"><span>UST 2Y (изменение в bp)</span><b id="pMacroUST2" class="nodata">ожидаем FRED</b></div>
             <div class="pressure-row"><span>Broad USD Index · прокси, НЕ DXY</span><b id="pMacroBroadUSD" class="nodata">ожидаем FRED</b></div>
-            <div class="pressure-row"><span>Нефть WTI · spot</span><b id="pMacroWTI" class="nodata">ожидаем FRED</b></div>
-            <div class="pressure-row"><span>DXY · индекс ICE</span><b id="pMacroDXY" class="nodata">NO DATA</b></div>
-            <div class="pressure-row"><span>Золото XAU/USD</span><b id="pMacroGold" class="nodata">NO DATA</b></div>
+            <div class="pressure-row"><span>Нефть WTI · CL=F фьючерс / FRED spot</span><b id="pMacroWTI" class="nodata">ожидаем FRED</b></div>
+            <div class="pressure-row"><span>DXY · DX-Y.NYB (Yahoo)</span><b id="pMacroDXY" class="nodata">NO DATA</b></div>
+            <div class="pressure-row"><span>Золото XAU/USD · spot</span><b id="pMacroGold" class="nodata">NO DATA</b></div>
+            <div class="pressure-row"><span>Золото · COMEX GC=F фьючерс</span><b id="pMacroGoldFutures" class="nodata">NO DATA</b></div>
             <div class="pressure-note" id="pMacroFREDNote">Дневные наблюдения FRED, не intraday. Не привязываем дату наблюдения к точному времени публикации.</div>
             <div class="macro-trad-head"><strong>BTC · SWEEP YL → ДВИЖЕНИЕ BTC/ETH/SOL</strong>
               <small>5 / 15 / 30 / 60 минут после события · research</small></div>
@@ -2315,7 +2316,7 @@ root.ASCEND_BTC_SWEEP_REPLAY=Object.freeze({response,replay});
 const ID={
  SP500:'pMacroSP500',NASDAQCOM:'pMacroNASDAQ',DGS10:'pMacroUST10',
  DGS2:'pMacroUST2',DTWEXBGS:'pMacroBroadUSD',
- DCOILWTICO:'pMacroWTI',DXY:'pMacroDXY',XAUUSD:'pMacroGold'
+ DCOILWTICO:'pMacroWTI',DXY:'pMacroDXY',XAUUSD:'pMacroGold',GOLD_GC:'pMacroGoldFutures'
 };
 const toText=(id,text,cls)=>{
  const el=document.getElementById(id);
@@ -2335,7 +2336,9 @@ function printSeries(series){
  const delta=Number(series.change),unit=series.change_unit==='bp'?'bp':'%';
  const number=val.toLocaleString('ru-RU',{maximumFractionDigits:4});
  const change=(delta>0?'+':'')+delta.toFixed(unit==='bp'?1:2)+unit;
- return {text:number+' · '+change+' · '+series.observation_date+' · FRED daily',
+ const source=String(series.source||'').includes('Yahoo')?
+   String(series.provider_ticker||'?')+' · Yahoo research':'FRED daily';
+ return {text:number+' · '+change+' · '+series.observation_date+' · '+source,
    tone:delta>0?'long':delta<0?'short':'neutral'};
 }
 function render(){
@@ -2348,13 +2351,13 @@ function render(){
  }
  const ready=market?Object.values(market).filter(x=>x.status==='READY').length:0;
  toText('pMacroFREDStatus',ready?
-   'FRED DAILY · '+ready+'/8 рядов · '+new Date(cached.retrieved_utc).toISOString().slice(11,16)+' UTC':
-   'FRED NO DATA · проверь Railway API',ready?'neutral':'nodata');
+   'MACRO DAILY · '+ready+'/'+String(cached.total||9)+' рядов · '+new Date(cached.retrieved_utc).toISOString().slice(11,16)+' UTC':
+   'MACRO NO DATA · проверь Railway API',ready?'neutral':'nodata');
  const warning=document.getElementById('pMacroFREDNote');
  if(warning)warning.textContent=
-   'Только опубликованные дневные наблюдения FRED; не intraday и не сигнал. '+
-   'Broad USD (DTWEXBGS) ≠ DXY. GLD/Gold spot пока не подключён. '+
-   'Изменение UST показано в bp. В выходные даты могут быть пятничными.';
+   'Источники: FRED daily (официальные ряды) и Yahoo Finance chart (неофициальный исследовательский). '+
+   'Данные не intraday и не торговый сигнал. GC=F и CL=F — фьючерсы, НЕ spot. '+
+   'XAU/USD spot не подключён. UST в bp. Дата наблюдения не равна времени публикации.';
  renderReplay();
 }
 function renderReplay(){

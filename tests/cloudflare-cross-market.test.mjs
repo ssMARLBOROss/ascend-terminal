@@ -60,13 +60,17 @@ for(const [name,src] of [['cross-market-crypto.js',engine],['cross-market-ui.js'
 for(const id of ['pMacroBTC','pMacroETH','pMacroSOL','pMacroBreadth',
    'pMacroAgreement','pMacroTime','pMacroScore','pMacroExplanation'])
  assert.ok(html.includes('id="'+id+'"'),id+' must exist');
-for(const sourceName of ['Nasdaq Composite','UST 10Y','Нефть WTI · spot',
-  'Broad USD Index · прокси, НЕ DXY','DXY · индекс ICE','Золото XAU/USD'])
+for(const sourceName of ['Nasdaq Composite','UST 10Y',
+  'Нефть WTI · CL=F фьючерс / FRED spot',
+  'Broad USD Index · прокси, НЕ DXY','DXY · DX-Y.NYB (Yahoo)',
+  'Золото XAU/USD · spot','Золото · COMEX GC=F фьючерс'])
  assert.ok(html.includes(sourceName),sourceName+' macro row required');
 assert.ok(html.includes('id="pMacroDXY" class="nodata">NO DATA</b>'),
   'unverified DXY must remain NO DATA');
 assert.ok(html.includes('id="pMacroGold" class="nodata">NO DATA</b>'),
-  'unverified gold must remain NO DATA');
+  'unverified gold spot must remain NO DATA');
+assert.ok(html.includes('id="pMacroGoldFutures"'),
+  'Gold COMEX futures must be a separate quoted instrument');
 assert.ok(ui.includes('!document.hidden')&&ui.includes("!card.classList.contains('collapsed')"));
 assert.ok(ui.includes('setInterval(()=>{if(eligible())refresh();},120000)'));
 assert.ok(!ui.includes('WebSocket('));
