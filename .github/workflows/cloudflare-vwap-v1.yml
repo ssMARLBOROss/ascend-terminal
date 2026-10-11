@@ -1,0 +1,19 @@
+name: Cloudflare VWAP Daily V1 checks
+on:
+  push:
+    branches: [feature/cloudflare-daily-vwap-v1-20261011]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check vwap-display.js
+      - run: node tests/cloudflare-vwap.test.mjs
+      - run: node tests/cloudflare-liquidity-map.test.mjs
