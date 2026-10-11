@@ -192,8 +192,11 @@ async def snapshot(pool,symbol: str) -> dict:
         """,sym,now-15*60_000)
     by={}
     for row in rows:
-        k=(row["venue"],row["kind"])
-        by.setdefault(k,[]).append(row)
+        item=dict(row)
+        if isinstance(item["payload"],str):
+            item["payload"]=json.loads(item["payload"])
+        k=(item["venue"],item["kind"])
+        by.setdefault(k,[]).append(item)
     for (venue,kind),group in by.items():
         latest=max(x["received_ts_ms"] for x in group)
         age=now-latest
