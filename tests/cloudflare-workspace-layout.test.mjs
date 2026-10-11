@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const source=await readFile('workspace-layout.js','utf8');
 new vm.Script(source,{filename:'workspace-layout.js'});
 const html=await readFile('index.html','utf8');
-const workspaceStart=html.indexOf('/* ASCEND Workspace Layout V1');
+const workspaceStart=html.indexOf('/* ASCEND Workspace Layout V1 — view-only controls, preserve live charts and Core. */');
 const workspaceEnd=html.indexOf('\n</script>',workspaceStart);
 assert.ok(workspaceStart>=0&&workspaceEnd>workspaceStart,
   'Cloudflare HTML must contain the actual workspace initialization script');
