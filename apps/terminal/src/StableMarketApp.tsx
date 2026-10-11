@@ -110,7 +110,6 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
             {displayPrice!==undefined?' · '+Math.abs((displayPrice/dailyVwap.value-1)*100).toFixed(2)+'%':''}
           </span>
         </>:<small>{vwapStatus==='error'?'Нет полного VWAP · повтор загрузки':'Расчёт от 00:00…'}</small>}
-      </div>
       </div>}
       <div className="asc-lite-feed">
         <i className={status==='LIVE'?'is-live':'is-wait'}/>
