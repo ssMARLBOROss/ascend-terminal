@@ -41,7 +41,23 @@ class FredMacroTest(unittest.TestCase):
         self.assertIn("proxy ONLY", macro_fred.SERIES["DTWEXBGS"]["name"])
         self.assertNotIn("XAUUSD", macro_fred.SERIES)
         self.assertIn("XAUUSD", macro_fred.UNAVAILABLE)
-        self.assertIn("DXY", macro_fred.UNAVAILABLE)
+        self.assertIn("DXY", macro_fred.YAHOO_TICKERS)
+        self.assertIn("GOLD_GC", macro_fred.YAHOO_TICKERS)
+        self.assertIn("XAUUSD", macro_fred.UNAVAILABLE)
+
+    def test_yahoo_completed_dates_only(self):
+        from datetime import datetime, timezone
+        times = [int(datetime(2026, 10, d, 0, tzinfo=timezone.utc).timestamp()) for d in (8, 9, 11)]
+        payload = {"chart": {"result": [{"timestamp": times,
+            "indicators": {"quote": [{"close": [100.0, 101.0, 999.0]}]}}]}}
+        rows = macro_fred._yahoo_rows(payload, self.now)
+        self.assertEqual(rows, [("2026-10-08", 100.0), ("2026-10-09", 101.0)])
+        item = macro_fred._summary_yahoo("GOLD_GC", rows, self.now)
+        self.assertEqual(item["status"], "READY")
+        self.assertEqual(item["source"], "Yahoo Finance chart · public unofficial research")
+        self.assertEqual(item["provider_ticker"], "GC=F")
+        self.assertIn("NOT spot", item["name"])
+        self.assertEqual(macro_fred._summary_yahoo("DXY", rows, self.now)["change_unit"], "pct")
 
 
 if __name__ == "__main__":
