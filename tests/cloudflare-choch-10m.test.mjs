@@ -18,7 +18,7 @@ function bullishTrend(){
     if([2,8,14].includes(i))b.high={2:110,8:117,14:124}[i];
     if([5,11,17].includes(i))b.low={5:95,11:98,17:101}[i];
     if(i===20){b.close=99;b.open=110;b.low=98;}
-    if(i===21){b.close=108;b.open=106;}
+    if(i===21){b.close=108;b.open=106;b.low=106;}
     if(i===22){b.close=99;b.open=107;b.low=98;}
     return b;
   });
