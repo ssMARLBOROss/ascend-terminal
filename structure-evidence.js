@@ -141,6 +141,20 @@
       }
       previousOutside=outside;wasNear=inZone;
     }
+    // Stronger read-only acceptance tag, separate from provisional 1m 2-close state.
+    // Requires TWO full, contiguous 5m candles closing beyond a frozen level.
+    const five=grouped(one,300);
+    let fiveStreak=0;
+    for(const c of five){
+      const closeAt=c.time+300;
+      if(closeAt<=freezeAt||closeAt>asOf)continue;
+      const outside=side==='upper'?c.close>level:c.close<level;
+      fiveStreak=outside?fiveStreak+1:0;
+      if(fiveStreak===2&&events.some(e=>e.type==='BREAK'&&e.at<=closeAt))
+        events.push({type:'ACCEPT_5M',at:closeAt,key:item.key,price:level,
+          dir:side==='upper'?'LONG':'SHORT'});
+    }
+    events.sort((a,b)=>a.at-b.at);
     return {key:item.key,side,level,freezeAt,
       status:asOf<freezeAt?'LIVE':incomplete?'PARTIAL':'FROZEN',
       events,latest:events.at(-1)||null,
