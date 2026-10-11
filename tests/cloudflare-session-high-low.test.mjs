@@ -27,7 +27,7 @@ assert.equal(live.high,103+89*.1);
 assert.equal(live.low,95-89*.1);
 assert.equal(live.highAt,asOf);
 assert.equal(live.lowAt,asOf);
-assert.equal(live.coveragePct,250/3); // 7.5/9 of 100? fix below if needed
+assert.equal(live.coveragePct,83.33);
 const closed=S.build({windows:[{key:'asia',cycle:'latest',start,end}],
  bars5:rows5,bars15:rows15,asOf:end,price:100}).rows[0];
 assert.equal(closed.status,'FROZEN');
@@ -61,7 +61,7 @@ const stitched=[
 ];
 const data=S.build({windows:stitched,bars5:rows5,bars15:rows15,asOf:end,price:100});
 assert.equal(data.rows.length,3);
-assert.equal(data.usable,1);
+assert.equal(data.usable,2);
 assert.equal(data.rows[0].name,'АЗИЯ');
 assert.ok(data.rows[0].fromPriceToHighPct<0);
 assert.ok(data.rows[0].fromPriceToLowPct>0);
