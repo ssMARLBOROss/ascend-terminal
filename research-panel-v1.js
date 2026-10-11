@@ -22,6 +22,22 @@
           ' · '+v.status+' · fill '+number(v.fillFraction*100,1)+'%':
           ' · активных зон нет')+' · RESEARCH ONLY';
     }
+    const h=$('ascResearchHistory');
+    if(h){
+      const done=(state.paperTrades||[]).filter(x=>x.status==='CLOSED'&&
+        x.level_source==='V2_NEXT_FROZEN_LIQUIDITY');
+      const pnl=done.reduce((a,x)=>a+(Number(x.realized)||0)-(Number(x.entry_fee)||0),0);
+      const wins=done.filter(x=>(Number(x.realized)||0)-(Number(x.entry_fee)||0)>0).length;
+      h.textContent='HISTORY LAB · local V2 SHADOW '+done.length+' закрытых сделок'+
+        (done.length?' · WR '+number(100*wins/done.length,1)+'% · P&L '+number(pnl,3)+' USDT':' · WR Н/Д')+
+        ' · server SETUP пока NO DATA · исполнения не проверены';
+    }
+    const sweep=typeof latestConfirmationV2!=='undefined'?
+      latestConfirmationV2?.steps?.find(x=>x.name==='sweep'&&x.status==='CONFIRMED'):null;
+    if(report&&Number.isFinite(sweep?.at)){
+      const after=engine.scan(qaAggregate(q,60,180),asOf).filter(z=>z.formedAt>sweep.at);
+      box.textContent+=' · ПОСЛЕ SWEEP '+after.length+' / active '+after.filter(z=>z.status!=='FILLED').length;
+    }
     const status=$('ascResearchParticipation');
     if(status){
       const d=lastData,valid=d&&d.symbol===state.symbol.replace('_','')&&
