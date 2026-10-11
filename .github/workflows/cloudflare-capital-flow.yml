@@ -1,0 +1,29 @@
+name: Cloudflare Capital Flow V1 validations
+on:
+  push:
+    branches: [feature/capital-flow-mexc-observations-v1-20261011]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install httpx
+      - run: python -m py_compile capital_flow_mexc.py terminal_api_v2.py
+      - run: python -m unittest discover -s tests -p test_capital_flow_mexc.py
+      - run: node --check capital-flow-ui.js
+      - run: node tests/cloudflare-capital-flow.test.mjs
+      - run: node tests/cloudflare-cross-market.test.mjs
+      - run: node tests/cloudflare-vwap.test.mjs
+      - run: node tests/cloudflare-liquidity-map.test.mjs
+      - run: node tests/cloudflare-structure-evidence.test.mjs
+      - run: node tests/cloudflare-workspace-layout.test.mjs
