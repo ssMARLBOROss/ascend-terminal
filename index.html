@@ -343,12 +343,87 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
 })(typeof window!=='undefined'?window:globalThis);
 
 </script>
+  <script>
+/* ASCEND VWAP Display V1: UTC daily VWAP, OHLCV approximation from CLOSED 5m MEXC candles only.
+   Read-only presentation; does not modify legacy trading Core or order routing. */
+(function(root){
+  'use strict';
+  const STEP=300,DAY=86400;
+  const timeframes={'1m':60,'5m':300,'10m':600,'15m':900,'30m':1800,'1h':3600,'4h':14400};
+  const valid=n=>Number.isFinite(Number(n));
+  function daily(rows,asOf){
+    if(!Array.isArray(rows)||!Number.isFinite(asOf)||asOf<=0)return null;
+    const start=Math.floor(asOf/DAY)*DAY;
+    const history=rows.filter(b=>valid(b.time)&&Number(b.time)>=start&&
+      Number(b.time)+STEP<=asOf).sort((a,b)=>Number(a.time)-Number(b.time));
+    if(!history.length||Number(history[0].time)!==start)return null;
+    let cumulativePV=0,cumulativeVol=0;
+    const points=[];
+    for(let i=0;i<history.length;i++){
+      const b=history[i],time=Number(b.time);
+      // Never interpolate an absent bar or fill it using future 5m data.
+      if(time!==start+i*STEP)return null;
+      const high=Number(b.high),low=Number(b.low),close=Number(b.close),volume=Number(b.volume);
+      if(![high,low,close,volume].every(Number.isFinite)||
+         low<=0||high<low||close<low||close>high||volume<0)return null;
+      const typical=(high+low+close)/3;
+      cumulativePV+=typical*volume;
+      cumulativeVol+=volume;
+      if(cumulativeVol>0){
+        points.push({closeAt:time+STEP,value:cumulativePV/cumulativeVol});
+      }
+    }
+    if(!points.length)return null;
+    return {dayStart:start,closeAt:points.at(-1).closeAt,
+      value:points.at(-1).value,volume:cumulativeVol,points,source:'5m OHLCV (HLC3)'};
+  }
+  function project(dailySnapshot,chartBars,timeframe){
+    const seconds=timeframes[timeframe];
+    if(!dailySnapshot||!seconds||!Array.isArray(chartBars))return [];
+    const bars=chartBars.filter(b=>valid(b.time)).sort((a,b)=>Number(a.time)-Number(b.time));
+    const result=[],points=dailySnapshot.points;
+    let current,idx=0;
+    for(const b of bars){
+      const time=Number(b.time),end=time+seconds;
+      if(time<dailySnapshot.dayStart)continue;
+      while(idx<points.length&&points[idx].closeAt<=end){
+        current=points[idx].value;idx++;
+      }
+      // The value used by each historic bar existed at or before its close.
+      if(current!==undefined&&Number.isFinite(current))
+        result.push({time,value:current});
+    }
+    return result;
+  }
+  function relationship(price,dailySnapshot){
+    const value=dailySnapshot?.value;
+    if(!Number.isFinite(Number(price))||!Number.isFinite(value)||value<=0)return null;
+    const distance=(Number(price)/value-1)*100;
+    return {value,distancePct:distance,
+      position:distance>0?'ABOVE':distance<0?'BELOW':'AT'};
+  }
+  root.ASCEND_DAILY_VWAP=Object.freeze({daily,project,relationship});
+})(typeof window!=='undefined'?window:globalThis);
+
+  </script>
   <style>
     /* Hide old chart drawings while preserving other terminal panels and trade engine. */
     #chartShell .session-chart-overlay,#chartShell .trade-history-overlay,
     #chartShell .projection-overlay,#chartShell .session-projection-overlay,
     #chartShell [id*="Overlay"]:not(#liquidityZoneOverlay),
     #chartShell [class*="overlay"]:not(#liquidityZoneOverlay){display:none!important}
+    /* A single optional gold VWAP on the clean BSL/SSL price chart. */
+    #ascendVwapToggle{margin-left:auto;border:1px solid #a18743;border-radius:6px;
+      background:#282315;color:#f4d580;font:900 11px Inter,system-ui,sans-serif;padding:0 11px;
+      min-height:32px;cursor:pointer;white-space:nowrap}
+    #ascendVwapToggle[aria-pressed="false"]{background:#101b27;border-color:#345066;color:#97a9b5}
+    #ascendVwapBadge{font-size:11px;font-weight:850;color:#f2d78d;
+      align-self:center;font-variant-numeric:tabular-nums}
+    #ascendVwapBadge.off{color:#8397a6}
+    #ascendVwapBadge.up{color:#eddb93}
+    #ascendVwapBadge.down{color:#d3b56e}
+    @media(max-width:830px){#ascendVwapToggle{margin-left:0}
+      #ascendVwapBadge{width:100%;font-size:10px}}
   </style>
 </head>
 <body>
@@ -464,6 +539,8 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
             <div class="chart-actions" id="tfBar">
               <button class="tf-btn" data-tf="1m">1м</button><button class="tf-btn active" data-tf="5m">5м</button><button class="tf-btn" data-tf="10m">10м</button><button class="tf-btn" data-tf="15m">15м</button><button class="tf-btn" data-tf="30m">30м</button><button class="tf-btn" data-tf="1h">1ч</button><button class="tf-btn" data-tf="4h">4ч</button><button class="tf-btn" data-tf="1d">1д</button>
               <button class="chart-btn" id="centerBtn">По центру</button><button class="chart-btn follow active" id="followBtn">Следить за ценой</button>
+              <button id="ascendVwapToggle" type="button" aria-pressed="true" title="Показать или скрыть дневной VWAP (00:00 UTC, закрытые 5m свечи)">VWAP · ON</button>
+              <span id="ascendVwapBadge" aria-live="off">VWAP UTC · ожидаем 5m OHLCV</span>
             </div>
             <div class="buy-sell"><div class="tradebox" id="sellBtn" role="button" tabindex="0" title="Открыть теневую SHORT сделку — реальный ордер не отправляется"><span>ПРОДАТЬ · ТЕНЬ</span><b id="sellP">—</b></div><div class="tradebox buy" id="buyBtn" role="button" tabindex="0" title="Открыть теневую LONG сделку — реальный ордер не отправляется"><span>КУПИТЬ · ТЕНЬ</span><b id="buyP">—</b></div><div class="trade-news" id="tradeNews"><span class="impact info">NEWS</span><a href="#" id="tradeNewsLink">Новостной поток загружается…</a></div></div>
             <div class="paper-strip" id="paperStrip"><span id="paperTradeText">Теневых сделок по этой монете нет</span><span class="pnl" id="paperPnl"></span><button class="paper-close" id="paperCloseBtn" type="button">Закрыть вручную</button></div>
@@ -626,6 +703,8 @@ const state={
   coinPage:0,coinPageSize:40,coinFilter:"",coinSort:"turnover",journal:[],refreshBusy:false,marketRequestSeq:0,newsRows:[],paperTrades:[],paperEquity:100
 };
 let chart,candles,vol,sma20,sma50,sma200,vwapLine,lines=[],overlayRaf=0;
+let ascendVwapVisible=true,ascendVwapSignature='';
+try{ascendVwapVisible=localStorage.getItem('ascend_vwap_chart_v1')!=='off'}catch(_){}
 const $=id=>document.getElementById(id);
 function fmt(v){v=Number(v);if(!Number.isFinite(v))return "—";const a=Math.abs(v);if(a>=1000000)return (v/1000000).toFixed(2)+"M";if(a>=1000)return v.toLocaleString("en-US",{maximumFractionDigits:1});if(a>=1)return v.toFixed(4);if(a>=.01)return v.toFixed(6);return v.toFixed(8)}
 function avg(a){const x=a.filter(Number.isFinite);return x.length?x.reduce((s,v)=>s+v,0)/x.length:0}
@@ -1135,6 +1214,56 @@ function ascendLiquidityRender(){
   ascendLiquidityDraw();
 }
 
+function renderAscendVwap(){
+  const toggle=$('ascendVwapToggle'),badge=$('ascendVwapBadge');
+  if(toggle){
+    toggle.setAttribute('aria-pressed',String(ascendVwapVisible));
+    toggle.textContent=ascendVwapVisible?'VWAP · ON':'VWAP · OFF';
+  }
+  if(!vwapLine||!window.ASCEND_DAILY_VWAP)return;
+  if(!ascendVwapVisible){
+    if(ascendVwapSignature!=='off'){
+      vwapLine.setData([]);
+      vwapLine.applyOptions({visible:false});
+      ascendVwapSignature='off';
+    }
+    if(badge){badge.textContent='VWAP UTC · скрыт';badge.className='off'}
+    return;
+  }
+  const rows1=closed(state.tf['1m']||[]);
+  const latest=rows1.at(-1);
+  const asOf=latest?Number(latest.time)+60:NaN;
+  const isFresh=Number.isFinite(asOf)&&Date.now()/1000-asOf<300&&
+    asOf<=Date.now()/1000+30;
+  const snapshot=isFresh?window.ASCEND_DAILY_VWAP.daily(
+    closed(state.tf['5m']||[]),asOf):null;
+  const chartRows=closed(currentRows());
+  const projected=window.ASCEND_DAILY_VWAP.project(snapshot,chartRows,state.timeframe);
+  const relation=window.ASCEND_DAILY_VWAP.relationship(latest?.close,snapshot);
+  const last=chartRows.at(-1);
+  const key=JSON.stringify([state.symbol,state.timeframe,ascendVwapVisible,
+    snapshot?.closeAt,snapshot?.value,chartRows[0]?.time,last?.time,projected.length]);
+  if(key!==ascendVwapSignature){
+    vwapLine.setData(projected);
+    vwapLine.applyOptions({visible:projected.length>0,
+      color:'#f4d35e',lineWidth:2,priceLineVisible:false,
+      lastValueVisible:projected.length>0,title:'VWAP · 00 UTC'});
+    ascendVwapSignature=key;
+  }
+  if(!badge)return;
+  if(!relation){
+    badge.textContent='VWAP UTC · '+(state.timeframe==='1d'?
+      'на 1D только значение на младших TF':'ожидание полных закрытых 5m');
+    badge.className='off';return;
+  }
+  const difference=relation.distancePct;
+  const side=difference>0?'ВЫШЕ':difference<0?'НИЖЕ':'НА VWAP';
+  const sign=difference>0?'+':'';
+  badge.textContent='VWAP 00 UTC '+fmt(relation.value)+' · '+side+
+    ' '+sign+difference.toFixed(2)+'%';
+  badge.className=difference>0?'up':difference<0?'down':'';
+}
+
 function renderChart(){
   renderSessionUI();
   const r=closed(currentRows());if(!r.length||!state.chartReady)return;
@@ -1149,7 +1278,8 @@ function renderChart(){
   $("sma20").textContent=fmt(ss20.at(-1));$("sma50").textContent=fmt(ss50.at(-1));$("sma200").textContent=fmt(ss200.at(-1));$("vwapNow").textContent=fmt(vw?.value);
   $("chartTitle").textContent=state.symbol.replace("_"," / ")+" · "+state.timeframe+" · MEXC";
   if(state.needsFit){chart.timeScale().fitContent();chart.timeScale().applyOptions({rightOffset:22});state.needsFit=false}else if(state.follow){chart.timeScale().scrollToRealTime()}
-  // Do not send hidden SMA/VWAP/volume to Lightweight Charts.
+  // Draw VWAP only on request. Project it onto existing candle timestamps.
+  renderAscendVwap();
   ascendLiquidityRender();
 }
 function scheduleOverlay(){if(overlayRaf)return;overlayRaf=requestAnimationFrame(()=>{overlayRaf=0;syncOverlay();ascendLiquidityDraw()})}
@@ -1642,6 +1772,12 @@ $("sellBtn").addEventListener("click",()=>openManualPaper("SHORT"));
 $("paperCloseBtn").addEventListener("click",closeManualPaper);
 $("shadowTradeList").addEventListener("click",e=>{const b=e.target.closest("[data-shadow-close]");if(b)closeShadowById(b.dataset.shadowClose)});
 $("tfBar").addEventListener("click",e=>{const b=e.target.closest("[data-tf]");if(b)setTimeframe(b.dataset.tf)});
+$("ascendVwapToggle").addEventListener("click",()=>{
+  ascendVwapVisible=!ascendVwapVisible;
+  try{localStorage.setItem('ascend_vwap_chart_v1',ascendVwapVisible?'on':'off')}catch(_){}
+  ascendVwapSignature='';
+  renderAscendVwap();
+});
 $("miniRow").addEventListener("click",e=>{const b=e.target.closest("[data-mini-tf]");if(b)setTimeframe(b.dataset.miniTf)});
 $("centerBtn").addEventListener("click",()=>{state.needsFit=true;renderChart()});
 $("followBtn").addEventListener("click",()=>{state.follow=!state.follow;$("followBtn").classList.toggle("active",state.follow);$("followBtn").textContent=state.follow?"Следить за ценой · ON":"Следить за ценой";if(state.follow)chart.timeScale().scrollToRealTime()});
