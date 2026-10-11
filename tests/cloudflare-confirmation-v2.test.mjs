@@ -64,6 +64,24 @@ assert.ok(r.plan.rr>=2);
 assert.equal(r.plan.entry,140);
 assert.equal(r.plan.target,170);
 assert.ok(r.plan.stop<140);
+const mirror=(bars)=>bars.map(b=>({
+ time:b.time,open:300-b.open,high:300-b.low,
+ low:300-b.high,close:300-b.close,volume:b.volume
+}));
+const short=X.analyze({
+ ...base,one:mirror(one),five:mirror(five),fifteen:mirror(fifteen),
+ context:{t15:'SHORT',t30:'MIXED'},
+ levels:{all:{
+   uppers:[{key:'YH',side:'upper',level:180}],
+   lowers:[{key:'YL',side:'lower',level:130}]
+ }},
+ chochEvents:[{type:'CHOCH',dir:'SHORT',at:D+25*M,level:175,price:172}]
+});
+assert.equal(short.status,'CONFIRMED','SHORT mirror must also validate');
+assert.equal(short.side,'SHORT');
+assert.ok(short.plan.stop>short.plan.entry);
+assert.ok(short.plan.target<short.plan.entry);
+assert.ok(short.plan.rr>=2);
 const notReady=(x,message)=>{assert.equal(x.ready,false,message);assert.notEqual(x.status,'CONFIRMED',message)};
 notReady(X.analyze({...base,feedStatuses:['STALE','LIVE','LIVE']}),'stale 1m blocks');
 notReady(X.analyze({...base,feedStatuses:['LIVE','STALE','LIVE']}),'stale 5m blocks');
