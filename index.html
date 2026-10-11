@@ -1692,13 +1692,17 @@ function renderConfirmationV2(){
     chochEvents:choch?.events||[],context:{t30,t15},feedStatuses:quality
   });
   latestConfirmationV2=report;
-  statusEl.textContent=(report.ready?'CONFIRMED · ':'')+report.status+
-    (report.side?' · '+report.side:'');
-  statusEl.className=report.ready?'ready':report.status==='INVALIDATED'?'invalid':'wait';
+  const legacy=entryModel(),finalReady=report.ready&&legacy?.confirmed===true;
+  statusEl.textContent=finalReady?'ENTRY READY · '+report.side:
+    report.ready?'V2 CONFIRMED · CORE WAIT · '+report.side:
+      report.status+(report.side?' · '+report.side:'');
+  statusEl.className=finalReady?'ready':
+    report.status==='INVALIDATED'?'invalid':'wait';
   timeEl.textContent=Number.isFinite(report.asOf)?
     new Date(report.asOf*1000).toISOString().slice(5,16).replace('T',' ')+' UTC · закрытые свечи':
     'NO DATA · ожидание 1m';
   reasonEl.textContent=(report.reason||'Ожидание данных')+
+    (report.ready&&!finalReady?' · BASE CORE ещё не подтвердил остальные фильтры':'')+
     (report.plan?.rr!=null?' · SL '+fmt(report.plan.stop)+
     ' · TP '+fmt(report.plan.target)+' · R:R '+report.plan.rr.toFixed(2):'');
   if(!confirmationV2Expanded)return;
@@ -4227,6 +4231,21 @@ start();
         ' · R:R '+plan.rr.toFixed(2)},plan.rr>=2?'CONFIRMED':'WAIT');
     if(!contextOk||plan.rr<2)return {...choice,plan,
       reason:!contextOk?'Контекст 30m/15m не согласован':'R:R < 1:2'};
+    // A historical confirmation is NOT a current entry: stop/target hits
+    // after the 1m trigger invalidate further readiness.
+    const after=one.filter(b=>b.time+60>micro.at&&b.time+60<=asOf);
+    const stopHit=after.find(b=>side==='LONG'?b.low<=plan.stop:b.high>=plan.stop);
+    const targetHit=after.find(b=>side==='LONG'?b.high>=plan.target:b.low<=plan.target);
+    if(stopHit||targetHit){
+      const exit=stopHit&&targetHit?
+        (stopHit.time<=targetHit.time?stopHit:targetHit):stopHit||targetHit;
+      update('risk',{at:exit.time+60,level:stopHit===exit?plan.stop:plan.target,
+        price:exit.close,note:stopHit===exit?
+          'После входа достигнут structural SL':'Следующая цель уже достигнута'},
+        'INVALIDATED');
+      return {...choice,plan,status:'INVALIDATED',
+        reason:stopHit===exit?'Structural SL нарушен':'Цель достигнута · новый вход запрещён'};
+    }
     return {...choice,plan,status:'CONFIRMED',ready:true,
       reason:'Семь условий V2 подтверждены · только исследовательский сигнал'};
   }
@@ -4234,6 +4253,7 @@ start();
     analyze,rows,combine,swings,sweeps,mssAfter,retestAfter,microAfter,atrAt,risk
   });
 })(typeof window!=='undefined'?window:globalThis);
+
 </script>
 <script>
 /* ASCEND Structure Evidence V1 — read-only, close-confirmed, no Core signal routing. */
