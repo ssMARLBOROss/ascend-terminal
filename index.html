@@ -917,7 +917,7 @@ if(new URLSearchParams(location.search).get("guest")==="1"){
   document.documentElement.dataset.guest="1";
 }
 const state={
-  symbol:"BTC_USDT",timeframe:"5m",tf:{},ticker:null,volumeProfile:null,breadth:null,
+  symbol:"BTC_USDT",timeframe:"5m",tf:{},ticker:null,tickerAt:0,volumeProfile:null,breadth:null,
   universe:[],candidateBusy:false,candidates:[],
   chartReady:false,needsFit:true,follow:true,projection:null,vwap:null,htfAt:0,lastRadarKey:"",
   coinPage:0,coinPageSize:40,coinFilter:"",coinSort:"turnover",journal:[],refreshBusy:false,marketRequestSeq:0,newsRows:[],paperTrades:[],paperEquity:100
@@ -2287,7 +2287,10 @@ function renderShadowNotebook(){
 }
 async function openManualPaper(side){
   if(activePaper()){alert("Для "+state.symbol.replace("_","/")+" уже есть открытая теневая сделка.");return}
-  const entry=paperPriceFor(side);if(!Number.isFinite(entry)||entry<=0){alert("Нет актуальной цены для теневого входа.");return}
+  const entry=paperPriceFor(side);
+  if(!Number.isFinite(entry)||entry<=0||!state.tickerAt||Date.now()-state.tickerAt>90000){
+    alert("Теневой вход запрещён: нет свежей котировки bid/ask MEXC.");return;
+  }
   // Manual SHADOW is a trade entry too: never bypass V2 with an old RSI projection.
   const minute=qaRows(state.tf['1m']||[],'1m').at(-1),em=entryModel();
   const setup=window.ASCEND_SETUP_DECISION_V2?.resolve({
@@ -2383,7 +2386,7 @@ async function loadMarket(full){
     if(needHtf){core.push(api("/api/v2/klines?symbol="+encodeURIComponent(s)+"&timeframe=1h&limit=320"));core.push(api("/api/v2/klines?symbol="+encodeURIComponent(s)+"&timeframe=4h&limit=260"));core.push(api("/api/v2/klines?symbol="+encodeURIComponent(s)+"&timeframe=1d&limit=260"))}
     const res=await Promise.allSettled(core);
     if(requestSeq!==state.marketRequestSeq||s!==state.symbol)return;
-    if(res[0].status==="fulfilled")state.ticker=res[0].value;
+    if(res[0].status==="fulfilled"){state.ticker=res[0].value;state.tickerAt=Date.now()}
     if(res[1].status==="fulfilled")state.tf["1m"]=res[1].value.candles||[];
     if(res[2].status==="fulfilled")state.tf["5m"]=res[2].value.candles||[];
     if(res[3].status==="fulfilled")state.tf["15m"]=res[3].value.candles||[];
@@ -2491,7 +2494,7 @@ function pushJournal(status,dir,volx,eventAt=null,v2Key=null){
 function renderJournal(){const rows=state.journal||[];$("journalTable").innerHTML=rows.length?rows.map(x=>'<div class="journal-row"><span>'+x.time+'</span><b>'+x.symbol+'</b><span class="'+directionClass(x.dir)+'">'+x.dir+' · '+x.status+'</span><span>'+x.volx+"</span></div>").join(""):'<div class="muted">Пока нет событий текущей сессии.</div>'}
 function loadJournal(){try{state.journal=JSON.parse(localStorage.getItem("ascend_terminal_journal_v2")||"[]")||[]}catch(_){state.journal=[]}renderJournal()}
 function clock(){renderShadowNotebook();if(state.paperTrades.some(t=>t.symbol===state.symbol))scheduleOverlay();const n=new Date(),u=n.getTime()+n.getTimezoneOffset()*60000,k=new Date(u+3*3600000),h=k.getHours(),m=k.getMinutes(),s=k.getSeconds();$("clock").textContent=[h,m,s].map(x=>String(x).padStart(2,"0")).join(":");if($("timePointer"))$("timePointer").style.left=((h+m/60+s/3600)/24*100)+"%";$("kyivDate").textContent=k.toLocaleDateString("ru-RU",{day:"2-digit",month:"2-digit"})+" · "+String(h).padStart(2,"0")+":"+String(m).padStart(2,"0")+" Киев"}
-function chooseSymbol(sym){$("majorPairMenu")?.classList.remove("open");document.querySelectorAll("[data-major]").forEach(b=>b.classList.remove("active"));if(!sym||sym===state.symbol&&state.tf["5m"]?.length)return;state.symbol=sym;$("symbol").value=sym;$("quickSearch").value=sym.replace("_","/");state.needsFit=true;state.htfAt=0;state.tf={};state.projection=null;
+function chooseSymbol(sym){$("majorPairMenu")?.classList.remove("open");document.querySelectorAll("[data-major]").forEach(b=>b.classList.remove("active"));if(!sym||sym===state.symbol&&state.tf["5m"]?.length)return;state.symbol=sym;state.ticker=null;state.tickerAt=0;$("symbol").value=sym;$("quickSearch").value=sym.replace("_","/");state.needsFit=true;state.htfAt=0;state.tf={};state.projection=null;
 chartBarsSignature='';ascendVwapSignature='';liquiditySignature='';
 latestLiquidityModel=null;latestLiquidityMeta={};
 latestStructureEvidence=null;structureEvidenceKey='';
