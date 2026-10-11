@@ -5,6 +5,12 @@ import vm from 'node:vm';
 const source=await readFile('workspace-layout.js','utf8');
 new vm.Script(source,{filename:'workspace-layout.js'});
 const html=await readFile('index.html','utf8');
+const workspaceStart=html.indexOf('/* ASCEND Workspace Layout V1');
+const workspaceEnd=html.indexOf('\n</script>',workspaceStart);
+assert.ok(workspaceStart>=0&&workspaceEnd>workspaceStart,
+  'Cloudflare HTML must contain the actual workspace initialization script');
+assert.equal(html.slice(workspaceStart,workspaceEnd).trim(),source.trim(),
+  'Cloudflare uses embedded JS: external module and HTML copy must match');
 const inline=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
 for(const [i,m] of inline.entries()){
   if(m[1].trim())new vm.Script(m[1],{filename:'index.inline.'+i+'.js'});
