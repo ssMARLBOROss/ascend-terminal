@@ -47,6 +47,7 @@ function render(){
  renderReplay();
 }
 function renderReplay(){
+ if(!visible())return;
  const host=document.getElementById('pMacroSweepReplay');if(!host)return;
  host.replaceChildren();
  const paragraph=(text)=>{const div=document.createElement('div');div.className='macro-replay-row';
@@ -62,7 +63,8 @@ function renderReplay(){
  const history=root.ASCEND_CROSS_MARKET_UI?.getHistory?.()||{};
  const one=state.tf['1m']||[];
  const asOf=Number(report.asOf);
- const replay=root.ASCEND_BTC_SWEEP_REPLAY.replay(report.recent,one,
+ const events=report.perLevel?.flatMap(x=>x.events)||report.recent;
+ const replay=root.ASCEND_BTC_SWEEP_REPLAY.replay(events,one,
    history['ETH_USDT']||[],history['SOL_USDT']||[],asOf);
  if(!replay.length){paragraph('За доступные ~4 часа истории 1m BTC нет подтверждённых YL SWEEP.');return;}
  for(const e of replay){
@@ -119,6 +121,6 @@ function start(){
  setInterval(()=>{if(visible())refresh();},5*60*1000);
  setTimeout(()=>refresh(),3000);
 }
-root.ASCEND_FRED_MACRO_UI=Object.freeze({refresh,render});
+root.ASCEND_FRED_MACRO_UI=Object.freeze({refresh,render,renderReplay});
 start();
 })(typeof window!=='undefined'?window:globalThis);
