@@ -29,3 +29,20 @@ jobs:
           assert markets["DXY"]["status"]=="NO_DATA"
           assert markets["XAUUSD"]["status"]=="NO_DATA"
           PY
+      - name: Test upstream FRED and DBnomics mirror from GitHub runner
+        run: |
+          python - <<'PY'
+          from urllib.request import Request,urlopen
+          for title,url in [
+            ("FRED", "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500&cosd=2026-10-01"),
+            ("DBNOMICS", "https://api.db.nomics.world/v22/series/FRED/SP500?observations=1"),
+            ("YAHOO", "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=5d&interval=1d"),
+          ]:
+            try:
+              with urlopen(Request(url,headers={"User-Agent":"Mozilla/5.0",
+                 "Accept":"application/json,text/csv"}),timeout=12) as res:
+                snippet=res.read(350)
+                print(title,"HTTP",res.status,"length",len(snippet),
+                  "mime",res.headers.get("Content-Type"),"preview",repr(snippet[:90]))
+            except Exception as e: print(title,"FAILED",type(e).__name__,str(e)[:130])
+          PY
