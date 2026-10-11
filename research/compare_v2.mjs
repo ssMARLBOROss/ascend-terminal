@@ -184,9 +184,32 @@ function metrics(trades){
       (Date.parse(t.exited_at)-Date.parse(t.entered_at))/60000,0)/trades.length,
     time_exits:trades.filter(t=>t.exit_reason==='TIME_EXIT').length,unresolved:0};
 }
+function featureCoverage(p,start,end){
+  let small=0,large=0,other=0,bull=0,bear=0;
+  for(let i=2;i<p.three.length;i++){
+    const a=p.three[i-2],c=p.three[i],at=c.time+180;
+    if(at<start||at>=end)continue;
+    const atr=atr3(p.three,at);if(!atr)continue;
+    const up=c.low-a.high,down=a.low-c.high;
+    const dir=up>0?1:down>0?-1:0;
+    if(!dir)continue;
+    const ratio=(dir===1?up:down)/atr;
+    if(dir===1)bull++;else bear++;
+    if(ratio>=.25&&ratio<.5)small++;
+    else if(ratio>=.5&&ratio<=1)large++;
+    else other++;
+  }
+  const mins=p.one.filter(x=>x.time>=start&&x.time<end);
+  return {closed_1m:mins.length,complete_taker_buy_1m:mins.filter(x=>
+      Number.isFinite(x.takerBuy)&&x.takerBuy>=0&&x.takerBuy<=x.volume).length,
+    oi_5m_points:p.oi.filter(x=>x.time>=start&&x.time<end).length,
+    three_min_fvg:{small_025_050:small,large_050_100:large,other,bull,bear}};
+}
 function scan(p){
   let chochCache=[],lastTenClose=0;
-  const signals=[],stages={},asOfStart=Math.max(IN,p.one[0].time+24*3600);
+  const signals=[],stages={},asOfStart=Math.max(IN,p.one[0].time+24*3600),
+    perSplit={IN_SAMPLE:{sweep_windows:0,choch_windows:0,evaluations:0,confirmed_stages:{},ready:0},
+      OOS:{sweep_windows:0,choch_windows:0,evaluations:0,confirmed_stages:{},ready:0}};
   let reports=0,sweeps=0,preconditions=0,seenMicro=new Set(),lastDay=0;
   for(let asOf=asOfStart;asOf<END;asOf+=60){
     const levels=frozenDay(p,asOf);
@@ -205,9 +228,10 @@ function scan(p){
     // Do not call high-cost engine unless a frozen daily level was swept
     // during the last 3h and a causal 10m CHOCH followed it.
     const ses=V2.sweeps(one,levels,{},asOf).filter(x=>asOf-x.at<=10800);
-    if(ses.length)sweeps++;
+    const segment=perSplit[asOf<OOS?'IN_SAMPLE':'OOS'];
+    if(ses.length){sweeps++;segment.sweep_windows++;}
     if(!ses.some(x=>chochCache.some(c=>c.dir===x.dir&&c.at>x.at&&asOf>=c.at&&c.at-x.at<=10800)))continue;
-    preconditions++;
+    preconditions++;segment.choch_windows++;
     const t30=ST.snapshot(takeClosed(p.thirty,1800,asOf,120),1800,asOf).trend;
     const t15=ST.snapshot(fifteen,900,asOf).trend;
     const report=V2.analyze({symbol:p.symbol.replace('USDT','_USDT'),asOf,now:asOf,
@@ -215,9 +239,14 @@ function scan(p){
         YL:{freezeAt:Math.floor(asOf/86400)*86400}},
       chochEvents:chochCache.filter(x=>x.at<=asOf),context:{t15,t30},
       feedStatuses:['LIVE','LIVE','LIVE']});
-    reports++;
+    reports++;segment.evaluations++;
     const confirmed=report.steps.filter(x=>x.status==='CONFIRMED');
-    for(const s of confirmed)stages[s.name]=(stages[s.name]||0)+1;
+    for(const ev of report.steps||[])if(Number.isFinite(ev.at)&&ev.at>asOf)
+      throw Error('LOOKAHEAD '+p.symbol+' '+ev.name+' '+asOf);
+    for(const s of confirmed){
+      stages[s.name]=(stages[s.name]||0)+1;
+      segment.confirmed_stages[s.name]=(segment.confirmed_stages[s.name]||0)+1;
+    }
     if(!report.ready||report.status!=='CONFIRMED'||!report.plan)continue;
     const microAt=report.steps.find(x=>x.name==='micro')?.at;
     const key=report.side+':'+microAt+':'+Math.floor(asOf/86400);
@@ -227,13 +256,15 @@ function scan(p){
     const flow={cvd15:cvd,oi15pct:deltaOI===null?null:deltaOI*100,
       qualifies:cvd!==null&&deltaOI!==null&&dir*cvd>0&&deltaOI>0};
     const fvg=fvgAfterChoch(p,report,asOf);
+    segment.ready++;
     signals.push({symbol:p.symbol,side:report.side,asOf,microAt,
       plan:report.plan,steps:report.steps.map(x=>({name:x.name,at:x.at,
         status:x.status})),fvg,flow});
   }
   return {signals,diagnostics:{minutes_scanned:(END-asOfStart)/60,
     sweep_windows:sweeps,choch_after_sweep_windows:preconditions,
-    engine_evaluations:reports,stage_confirmations:stages,unique_ready:signals.length}};
+    engine_evaluations:reports,stage_confirmations:stages,by_split:perSplit,
+    unique_ready:signals.length}};
 }
 const symbols=['BTCUSDT','ETHUSDT','SOLUSDT'];
 const all=[];
@@ -243,7 +274,7 @@ for(const symbol of symbols){
     five:p.five.length,fifteen:p.fifteen.length},diagnostics:v.diagnostics};
   const scenarios={};
   for(const [label,start,end] of [['IN_SAMPLE',IN,OOS],['OOS',OOS,END]]){
-    scenarios[label]={};
+    scenarios[label]={feature_coverage:featureCoverage(p,start,end)};
     for(const mode of ['BASE_V2','V2_FVG','V2_CVD_OI','V2_BOOK_LIQ']){
       if(mode==='V2_BOOK_LIQ'){
         scenarios[label][mode]={availability:'NO_DATA',
