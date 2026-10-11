@@ -961,3 +961,61 @@ html,body,#root{margin:0;min-height:100%;background:#040a10}
 .asc-radar-page{padding:10px}.asc-radar-hero{padding:14px}.asc-radar-hero h1{font-size:19px}
 .asc-radar-clock{align-items:flex-start}.asc-radar-summary{gap:7px}
 .asc-radar-summary b{font-size:22px}.asc-radar-filter-grid label{flex-basis:130px}}
+
+/* Liquidity Map V1 · independent visual layer and research ledger. */
+.asc-lite-map-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:5;pointer-events:none}
+.asc-session-panel.in-chart{z-index:7}
+.asc-liq-map-panel{background:#091c27;padding:13px 16px;border-top:1px solid #2a475a}
+.asc-liq-map-panel>header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:11px}
+.asc-liq-map-panel>header>div{display:flex;flex-direction:column;gap:5px}
+.asc-liq-map-panel>header strong{font-weight:900;font-size:14px;color:#e5f3f8;letter-spacing:.055em}
+.asc-liq-map-panel>header small{color:#9ab9c9;font-size:11px}
+.asc-liq-map-ready{padding:6px 9px;border-radius:5px;background:#26323b;color:#b3c5ce;font-size:11px}
+.asc-liq-map-ready.ready{background:#143b33;color:#87e9c3}
+.asc-liq-map-unavailable{color:#e1b580;font-size:12px;padding:8px}
+.asc-liq-map-overview{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.asc-liq-map-overview>span{display:flex;flex-direction:column;gap:4px;border:1px solid #244c63;padding:10px;border-radius:5px;background:#0c2a36}
+.asc-liq-map-overview>span.bsl{border-left:3px solid #fa7e8b}
+.asc-liq-map-overview>span.ssl{border-left:3px solid #4acfa2}
+.asc-liq-map-overview strong{font-size:11px;letter-spacing:.03em;color:#a8c3d0}
+.asc-liq-map-overview b{font-variant-numeric:tabular-nums;color:#f3f8fa;font-size:14px}
+.asc-liq-map-overview small{font-variant-numeric:tabular-nums;color:#aac3ce}
+.asc-liq-map-list{display:grid;gap:5px}
+.asc-liq-map-row{display:grid;align-items:center;grid-template-columns:64px minmax(76px,1fr) minmax(105px,1.15fr) 72px minmax(170px,1.8fr) minmax(155px,1.5fr) minmax(155px,1.5fr);
+  gap:8px;border-bottom:1px solid #1f3d4d;padding:8px 6px;font-size:11px;color:#aec8d5}
+.asc-liq-map-row>b{font-size:12px;color:#e8f2f5}
+.asc-liq-map-row.BSL>b{color:#ff9aa6}
+.asc-liq-map-row.SSL>b{color:#82e9c0}
+.asc-liq-map-row>span{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.asc-liq-map-row>span.state{color:#9aeac7}
+.asc-liq-map-row>span.live{color:#e9c382}
+.asc-liq-map-row em{font-style:normal;color:#ffbd9a}
+.asc-liq-map-last-events{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.asc-liq-map-last-events>b{font-size:11px;color:#bfdbeb}
+.asc-liq-map-last-events>span{font-size:11px;color:#9cbdcb;padding:5px 7px;background:#0e2a37;border:1px solid #254655;border-radius:4px}
+.asc-liq-map-panel>footer{margin-top:12px;border-top:1px solid #284556;padding-top:9px;
+  line-height:1.5;font-size:11px;color:#96b0bc}
+@media(max-width:1220px){
+ .asc-liq-map-row{grid-template-columns:60px 1fr 1fr 70px;gap:6px 12px}
+ .asc-liq-map-row>span:nth-last-child(-n+3){grid-column:span 2}
+}
+@media(max-width:680px){
+ .asc-liq-map-overview{grid-template-columns:1fr}
+ .asc-liq-map-row{grid-template-columns:58px 1fr 1.2fr}
+ .asc-liq-map-row>span:nth-of-type(3){grid-column:1/-1}
+ .asc-liq-map-row>span:nth-last-child(-n+3){grid-column:1/-1}
+}
+
+/* Approved minimal price-chart presentation. Legacy study toggles are preserved. */
+.asc-liq-mode-button{border:1px solid #426175;color:#acc5d2;background:#102937;
+  padding:8px 10px;border-radius:6px;font-size:11px;font-weight:900;white-space:nowrap}
+.asc-liq-mode-button.active{border-color:#4cb48c;background:rgba(27,103,72,.28);color:#a0f2c9}
+.asc-liq-map-mode-explain{font-size:11px;font-weight:700;line-height:1.5;
+  color:#add5c6;background:rgba(25,101,71,.18);border-bottom:1px solid #255549;
+  padding:9px 12px}
+.asc-liq-map-on-chart-key{position:absolute;left:13px;top:9px;z-index:6;pointer-events:none;
+  border:1px solid rgba(77,155,135,.34);background:rgba(6,24,31,.81);
+  color:#a9f1cf;font-size:10px;letter-spacing:.055em;font-weight:900;
+  border-radius:4px;padding:5px 8px}
+.asc-indicator-chip:disabled{cursor:default;opacity:.75}
+@media(max-width:720px){.asc-liq-mode-button{font-size:10px;padding:7px 8px}}

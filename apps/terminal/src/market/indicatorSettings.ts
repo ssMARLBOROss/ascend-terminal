@@ -5,9 +5,10 @@ import type {ChartViewMode} from '../components/chartViewport';
 
 export type IndicatorKey=
   'volume'|'vwap'|'sessions'|'sessionClock'|'dayLevels'|'sessionLevels'|
-  'book'|'stops'|'tpo'|'fvg'|'oi'|'longShort'|'cvd'|'participation'|'week'|'stats'|'coins';
+  'book'|'stops'|'liquidityMap'|'tpo'|'fvg'|'oi'|'longShort'|'cvd'|'participation'|'week'|'stats'|'coins';
 
 export type IndicatorSettings=Record<IndicatorKey,boolean>&{
+  liquidityOnly:boolean; // Visual-only mode: candles + BSL/SSL, underlying studies preserved.
   fvgThreshold:number;
   fvgViewMode:FvgViewMode;
   fvgTimeframes:Record<FvgTf,boolean>;
@@ -23,8 +24,9 @@ export type IndicatorSettings=Record<IndicatorKey,boolean>&{
 export const STORAGE_KEY='ascend.terminal.indicators.v1';
 
 export const DEFAULT_INDICATORS:IndicatorSettings={
+  liquidityOnly:true,
   volume:true,vwap:true,sessions:true,sessionClock:false,
-  dayLevels:true,sessionLevels:false,book:false,stops:false,
+  dayLevels:true,sessionLevels:false,book:false,stops:false,liquidityMap:true,
   tpo:true,fvg:true,oi:true,longShort:true,cvd:true,participation:true,
   week:false,stats:true,coins:true,
   fvgThreshold:.02,fvgViewMode:'near',
@@ -47,6 +49,7 @@ export const INDICATOR_CATALOG:IndicatorDefinition[]=[
   {key:'tpo',name:'TPO · POC / VAH / VAL',detail:'Профиль ценового баланса',group:'График',color:'#c59beb'},
   {key:'book',name:'Order Book · BID / ASK',detail:'Текущие кластеры стакана',group:'График',color:'#64d9ba'},
   {key:'stops',name:'STOP? · зоны ликвидности',detail:'Оценочные зоны стопов',group:'График',color:'#d9a772'},
+  {key:'liquidityMap',name:'Liquidity Map · BSL / SSL',detail:'Уровни YH/YL, ONH/ONL, RTH и IB · sweep/reclaim',group:'График',color:'#e6aa86'},
   {key:'dayLevels',name:'YH / YL',detail:'Максимум и минимум вчера',group:'График',color:'#8bd5a2'},
   {key:'sessionLevels',name:'Session H / L',detail:'Уровни предыдущих сессий',group:'График',color:'#d08795'},
   {key:'sessions',name:'Session Map',detail:'Зоны и границы сессий',group:'График',color:'#95abe0'},
@@ -66,6 +69,8 @@ export function loadIndicatorSettings():IndicatorSettings{
     if(!raw)return {...DEFAULT_INDICATORS};
     const parsed=JSON.parse(raw) as Record<string,unknown>;
     const clean={...DEFAULT_INDICATORS};
+    // Opt out explicitly; old browser settings default to the approved clean map.
+    if(typeof parsed.liquidityOnly==='boolean')clean.liquidityOnly=parsed.liquidityOnly;
     for(const item of INDICATOR_CATALOG){
       if(typeof parsed[item.key]==='boolean')clean[item.key]=parsed[item.key] as boolean;
     }

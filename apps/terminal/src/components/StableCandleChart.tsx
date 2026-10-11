@@ -11,6 +11,8 @@ import type {OrderbookSnapshot} from '../market/useOrderbookClusters';
 import type {TpoProfile} from '../market/useLiveMarketMetrics';
 import {drawLiquidityOverlay,estimateStopZones} from './drawLiquidityOverlay';
 import {drawFvgOverlay,type FvgAppearance} from './fvgOverlay';
+import {drawLiquidityMap} from './drawLiquidityMap';
+import type {LiquidityMap} from '../market/liquidityMapEngine';
 import type {FvgRecord} from '../market/fvgContextEngine';
 import SessionClock from './SessionClock';
 import {drawSessionBands} from './drawSessionBands';
@@ -20,7 +22,7 @@ type Snapshot={first?:number;last?:number;length:number};
 type BaseAutoscale=()=>({priceRange:{minValue:number;maxValue:number}}|null);
 
 /** Bounded session canvas only; no indicator computations or extra market subscriptions. */
-export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,fvgAppearance,focusRequest,viewMode,showVolume,showVwap,showSessions,showSessionClock,showDayLevels,showSessionLevels}:{
+export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,fvgAppearance,focusRequest,viewMode,showVolume,showVwap,showSessions,showSessionClock,showDayLevels,showSessionLevels,liquidityMap}:{
   candles:Candle[];timeframe:string;previousDay?:PreviousDayLevels;
   previousSessions?:PreviousSessionLevels;dailyVwap?:DailyVwap;
   orderbook?:OrderbookSnapshot;showBook:boolean;showStops:boolean;
@@ -29,11 +31,15 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
   focusRequest:number;viewMode:ChartViewMode;
   showVolume:boolean;showVwap:boolean;showSessions:boolean;showSessionClock:boolean;
   showDayLevels:boolean;showSessionLevels:boolean;
+  liquidityMap?:LiquidityMap;
 }){
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
   const liquidityOverlayRef=useRef<HTMLCanvasElement|null>(null);
   const fvgOverlayRef=useRef<HTMLCanvasElement|null>(null);
+  const liquidityMapRef=useRef<HTMLCanvasElement|null>(null);
+  const liquidityMapValueRef=useRef(liquidityMap);
+  liquidityMapValueRef.current=liquidityMap;
   const stopZones=useMemo(()=>estimateStopZones(previousDay,previousSessions),[previousDay,previousSessions]);
   const liquidityViewRef=useRef({orderbook,showBook,showStops,stopZones,tpo,showTpo});
   liquidityViewRef.current={orderbook,showBook,showStops,stopZones,tpo,showTpo};
@@ -123,6 +129,10 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
           drawFvgOverlay(chart,priceRef.current,host,fvgOverlayRef.current,
             candlesRef.current,timeframe,view.fvgZones,view.showFvg,view.fvgAppearance);
         }
+        if(priceRef.current&&liquidityMapRef.current){
+          drawLiquidityMap(chart,priceRef.current,host,liquidityMapRef.current,
+            liquidityMapValueRef.current);
+        }
       });
     };
     redrawRef.current=scheduleOverlay;
@@ -153,7 +163,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
 
   // Book snapshots and frozen historical reference zones redraw only the overlay.
   // No candle updates, zoom reset, or new chart subscriptions.
-  useEffect(()=>{redrawRef.current()},[orderbook,showBook,showStops,stopZones,tpo,showTpo,fvgZones,showFvg,fvgAppearance]);
+  useEffect(()=>{redrawRef.current()},[orderbook,showBook,showStops,stopZones,tpo,showTpo,fvgZones,showFvg,fvgAppearance,liquidityMap]);
 
   // User-controlled recenter. Does not reset pan/zoom on subsequent live ticks.
   useEffect(()=>{
@@ -334,6 +344,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
     <canvas className="asc-lite-session-canvas" ref={overlayRef} aria-hidden="true"/>
     <canvas className="asc-lite-liquidity-canvas" ref={liquidityOverlayRef} aria-hidden="true"/>
     <canvas className="asc-lite-fvg-canvas" ref={fvgOverlayRef} aria-hidden="true"/>
+    <canvas className="asc-lite-map-canvas" ref={liquidityMapRef} aria-hidden="true"/>
     {showSessionClock&&<SessionClock embedded/>}
     {showSessions&&timeframe==='1D'&&<span className="asc-session-daily-note">Сессионные зоны по часам показаны на таймфреймах до 4H</span>}
   </div>;

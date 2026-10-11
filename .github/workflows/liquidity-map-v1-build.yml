@@ -1,0 +1,28 @@
+name: Liquidity Map V1 Research Build
+on:
+  push:
+    branches:
+      - feature/liquidity-map-chart-v1-20261011
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run build
+      - name: Fetch archived MEXC one-minute candles for six historical sweeps
+        run: |
+          git fetch --depth=1 origin research/mexc-yl-six-signals-20261010
+          mkdir -p /tmp/ascend-mexc-liquidity
+          for symbol in ONDO ALGO QNT DOT FARTCOIN ZRO; do
+            git show FETCH_HEAD:research/results/mexc-yl-20261010/${symbol}_USDT.json > "/tmp/ascend-mexc-liquidity/${symbol}_USDT.json"
+          done
+      - name: Replay Liquidity Map on real MEXC Futures history
+        run: |
+          cd apps/terminal
+          LIQUIDITY_REAL_FIXTURE_DIR=/tmp/ascend-mexc-liquidity node tests/liquidity-map-real-replay.mjs

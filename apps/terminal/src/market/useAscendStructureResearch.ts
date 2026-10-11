@@ -13,7 +13,7 @@ type State={key:string;status:'loading'|'ready'|'error';bars:Candle[];at:number;
  */
 export function useAscendStructureResearch(
   symbol:string,previousDay?:PreviousDayLevels
-):{status:'loading'|'ready'|'error';report?:StructureReport;reason?:string}{
+):{status:'loading'|'ready'|'error';report?:StructureReport;reason?:string;bars?:Candle[];asOf?:number}{
   const[utcDay,setUtcDay]=useState(()=>Math.floor(Date.now()/DAY)*DAY);
   const[state,setState]=useState<State>({key:'',status:'loading',bars:[],at:0});
   useEffect(()=>{
@@ -83,6 +83,8 @@ export function useAscendStructureResearch(
   const report=useMemo(()=>state.key===key&&state.status==='ready'
     ?computeStructureReport(symbol,state.bars,state.at,previousDay):undefined,
     [symbol,state,key,previousDay]);
-  return state.key===key?{status:state.status,report,reason:state.reason}:
+  return state.key===key?{status:state.status,report,reason:state.reason,
+      bars:state.status==='ready'?state.bars:undefined,
+      asOf:state.status==='ready'?state.at:undefined}:
     {status:'loading'};
 }
