@@ -1245,10 +1245,11 @@ function ascendLiquidityDraw(){
   if(!ctx)return;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,w,h);
-  if(!model)return;
+  // CHOCH is independent from frozen liquidity data; retain its marker
+  // even when incomplete session history makes the map unavailable.
   const priceToY=p=>candles.priceToCoordinate(Number(p));
-  window.AscendLiquidityMap.draw(ctx,{left:6,right:Math.max(6,w-70)},
-    priceToY,model);
+  if(model&&window.AscendLiquidityMap)window.AscendLiquidityMap.draw(
+    ctx,{left:6,right:Math.max(6,w-70)},priceToY,model);
   if(structureEvidenceOn&&latestStructureEvidence?.status==='READY'){
     const tfSeconds={'1m':60,'5m':300,'10m':600,'15m':900,'30m':1800,
       '1h':3600,'4h':14400,'1d':86400}[state.timeframe]||300;
