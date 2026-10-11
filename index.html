@@ -1531,7 +1531,10 @@ function ascendLiquidityRender(){
   if(!last)return;
   const asOf=Number(last.time)+60;
   const fresh=asOf<=Date.now()/1000+10&&Date.now()/1000-asOf<180;
-  const built=fresh?window.AscendLiquidityMap.levelsFromHistory(
+  const anchorValid=['5m','15m'].every(tf=>
+    window.ASCEND_TF_QA?.status(state.tf[tf]||[],
+      window.ASCEND_TF_QA.SECONDS[tf],Date.now()/1000).state==='LIVE');
+  const built=fresh&&anchorValid?window.AscendLiquidityMap.levelsFromHistory(
     rows15,rows5,asOf):null;
   const price=Number(last.close);
   const levels=built?.levels||{};
@@ -1583,7 +1586,9 @@ function renderAscendVwap(){
   const asOf=latest?Number(latest.time)+60:NaN;
   const isFresh=Number.isFinite(asOf)&&Date.now()/1000-asOf<300&&
     asOf<=Date.now()/1000+30;
-  const snapshot=isFresh?window.ASCEND_DAILY_VWAP.daily(
+  const fiveCurrent=window.ASCEND_TF_QA?.status(
+    state.tf['5m']||[],300,Date.now()/1000).state==='LIVE';
+  const snapshot=isFresh&&fiveCurrent?window.ASCEND_DAILY_VWAP.daily(
     qaRows(state.tf['5m']||[],'5m'),asOf):null;
   const chartRows=qaRows(currentRows(),state.timeframe);
   const projected=window.ASCEND_DAILY_VWAP.project(snapshot,chartRows,state.timeframe);
@@ -1645,6 +1650,13 @@ function renderStructureEvidence(){
   const report=window.ASCEND_STRUCTURE_EVIDENCE.analyze({
     one,five,fifteen,asOf,wallClock:Date.now()/1000,levels,levelMeta:meta
   });
+  const secondaryFresh=['5m','15m'].every(tf=>
+    window.ASCEND_TF_QA?.status(state.tf[tf]||[],
+      window.ASCEND_TF_QA.SECONDS[tf],Date.now()/1000).state==='LIVE');
+  if(report.status==='READY'&&!secondaryFresh){
+    report.status='STALE';
+    report.reason='5m / 15m не обновились — MTF подтверждение остановлено';
+  }
   latestStructureEvidence=report;
   if(window.ASCEND_FRED_MACRO_UI)window.ASCEND_FRED_MACRO_UI.renderReplay();
   // Pressure panel reads latest evidence; never changes Core's bosDirection().
