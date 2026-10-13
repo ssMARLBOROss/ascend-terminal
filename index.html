@@ -5062,7 +5062,7 @@ body[data-asc-smc-ready="1"] #tfBar #ascSessionHLPrevious{display:none!important
 'use strict';
 var KEY='ascend_smc_layers_v1';
 var defaults={
- liquidity:true,structure:false,sessions:false,vwap:true,
+ liquidity:true,structure:false,sessions:false,previousSessions:false,vwap:true,
  fvg:false,ifvg:false,ob:false,rb:false,stb:false,ote:false,
  confirmation:false,risk:true,orders:true,analytics:false,participation:false
 };
@@ -5070,6 +5070,7 @@ var labels={
  liquidity:['Ликвидность','BSL / SSL · YH/YL · ONH/ONL'],
  structure:['Структура','HH/HL · LH/LL · BOS/CHOCH'],
  sessions:['Торговые сессии','High/Low и замороженные уровни'],
+ previousSessions:['Предыдущие сессии','FROZEN High/Low прошлых сессий'],
  vwap:['VWAP','Средневзвешенная цена на графике'],
  fvg:['FVG','Закрытые 3m свечи · малый/крупный'],
  ifvg:['IFVG','Инверсия дисбаланса · прототип'],
@@ -5098,6 +5099,7 @@ function originalToggle(id,on){
 function updateVisual(){
  originalToggle('ascendStructureToggle',enabled.structure);
  originalToggle('ascSessionHLToggle',enabled.sessions);
+ originalToggle('ascSessionHLPrevious',enabled.previousSessions);
  originalToggle('ascendVwapToggle',enabled.vwap);
  setShown($('ascStructureRibbon'),enabled.structure);
  setShown($('ascStructurePanel'),enabled.structure);
@@ -5108,7 +5110,7 @@ function updateVisual(){
  setShown($('ascConfirmationV2Panel'),enabled.confirmation);
  var trade=document.querySelector('.chart-card .buy-sell');
  setShown(trade,enabled.orders);
- var risk=$('ascSmcRiskNote');if(risk)risk.hidden=!enabled.risk;
+ var risk=$('ascSmcRiskNote');if(risk)risk.hidden=!enabled.risk||!isOpen;
  // Retain original backend analysis, orders and Risk Engine in every mode.
  if(typeof ascendLiquidityDraw==='function')ascendLiquidityDraw();
  if(root.ASCEND_RESEARCH_UI_V1&&enabled.fvg)root.ASCEND_RESEARCH_UI_V1.paint();
@@ -5143,7 +5145,7 @@ function sync(){updateVisual();refreshUI()}
 function set(k,value){if(!Object.prototype.hasOwnProperty.call(defaults,k))return false;enabled[k]=!!value;persist();sync();return true}
 function preset(name){
  var vals=Object.assign({},defaults);
- if(name==='minimum'){vals.liquidity=true;vals.vwap=false;vals.structure=false;vals.sessions=false;vals.risk=false;vals.orders=false;}
+ if(name==='minimum'){vals.liquidity=true;vals.vwap=false;vals.structure=false;vals.sessions=false;vals.previousSessions=false;vals.risk=false;vals.orders=false;}
  else if(name==='work'){vals.liquidity=true;vals.vwap=true;vals.structure=false;vals.sessions=true;vals.confirmation=true;vals.risk=true;vals.orders=true;}
  else if(name==='smc'){vals.liquidity=true;vals.structure=true;vals.sessions=true;vals.vwap=true;vals.fvg=true;vals.confirmation=true;vals.risk=true;vals.orders=true;}
  Object.keys(vals).forEach(function(k){enabled[k]=vals[k]});persist();sync();
@@ -5168,7 +5170,7 @@ function mount(){
   '<div class="asc-smc-presets"><button data-preset="minimum">Минимум</button>'+
   '<button data-preset="work">Рабочий</button><button data-preset="smc">SMC</button></div></div>'+
   '<div class="asc-smc-groups">'+
-  group('01 · ОСНОВНОЙ ГРАФИК',['liquidity','structure','sessions','vwap'],false)+
+  group('01 · ОСНОВНОЙ ГРАФИК',['liquidity','structure','sessions','previousSessions','vwap'],false)+
   group('02 · SMART MONEY / POI',['fvg','ifvg','ob','rb','stb','ote'],true)+
   group('03 · СДЕЛКА И РИСК',['confirmation','risk','orders'],false)+
   group('04 · ИССЛЕДОВАНИЯ',['analytics','participation'],true)+'</div>'+
@@ -5178,12 +5180,12 @@ function mount(){
  var risk=document.createElement('div');risk.id='ascSmcRiskNote';
  risk.textContent='RISK ENGINE · Структурный SL → ближайшая подтверждённая цель TP → проверка R:R ≥ 1:2. Плечо не определяет допустимый риск; реальные параметры смотрите в панели решения. Показ слоя не изменяет расчёт.';
  panel.insertAdjacentElement('afterend',risk);
- launch.addEventListener('click',function(){isOpen=!isOpen;panel.hidden=!isOpen;refreshUI()});
+ launch.addEventListener('click',function(){isOpen=!isOpen;panel.hidden=!isOpen;sync()});
  panel.addEventListener('click',function(e){
   var b=e.target.closest('[data-layer]');if(b){set(b.dataset.layer,!enabled[b.dataset.layer]);return}
   var p=e.target.closest('[data-preset]');if(p)preset(p.dataset.preset);
  });
- document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isOpen){isOpen=false;panel.hidden=true;refreshUI()}});
+ document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isOpen){isOpen=false;panel.hidden=true;sync()}});
  document.body.dataset.ascSmcReady='1';
  sync();
 }
