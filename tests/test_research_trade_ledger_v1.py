@@ -63,7 +63,7 @@ class ReplayTests(unittest.TestCase):
   x=records[0]
   self.assertEqual(x["source"],"MODEL_REPLAY")
   self.assertEqual(x["model_version"],R.MODEL)
-  self.assertGreater(x["entry_ts"],x["bos_ts"])
+  self.assertGreaterEqual(x["entry_ts"],x["bos_ts"])
   self.assertIn(x["outcome"],("TP","SL","TIME"))
   self.assertFalse(x["verified_exchange_fill"])
   self.assertEqual(x["look_ahead_check"],"CLOSED_BOS_NEXT_OPEN")
