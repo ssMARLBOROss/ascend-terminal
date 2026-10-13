@@ -28,8 +28,9 @@
         x.level_source==='V2_NEXT_FROZEN_LIQUIDITY');
       const pnl=done.reduce((a,x)=>a+(Number(x.realized)||0)-(Number(x.entry_fee)||0),0);
       const wins=done.filter(x=>(Number(x.realized)||0)-(Number(x.entry_fee)||0)>0).length;
-      h.textContent='HISTORY LAB · local V2 SHADOW '+done.length+' закрытых сделок'+
+      h.textContent='RESEARCH 100 · '+Math.min(done.length,100)+'/100 закрытых V2 SHADOW сделок'+
         (done.length?' · WR '+number(100*wins/done.length,1)+'% · P&L '+number(pnl,3)+' USDT':' · WR Н/Д')+
+        ' · '+(done.length<100?'ВЫБОРКА МЕНЬШЕ 100 · результат предварительный':'ЦЕЛЬ 100 ДОСТИГНУТА · нужна независимая проверка')+
         ' · server SETUP пока NO DATA · исполнения не проверены';
     }
     const sweep=typeof latestConfirmationV2!=='undefined'?
