@@ -5579,5 +5579,107 @@ root.ASCEND_SMC_UI_V1=Object.freeze({
 </script>
 <!-- ASCEND SMC LAYER MANAGER V1 END -->
 
+<!-- GG-PROXY V2 RESEARCH MODULE: isolated, off by default -->
+<script>
+
+/* GG-Osc independent research proxy. Never read by Core/ENTRY READY or orders. */
+(function(root){
+'use strict';
+const uid='ascGGProxyV2';
+const lengthSec={'1m':60,'3m':180,'5m':300,'10m':600,'15m':900,'30m':1800,'1h':3600,'4h':14400,'1d':86400};
+const params=Object.freeze({rsi:14,stoch:14,stochSmooth:3,donchian:20,sdoSmooth:9,eotFast:6,eotSlow:27,eotSmooth:11,eotTrigger:2,atr:14,eotGain:20,flow:5,blueScale:.82258,blueOffset:8.66129});
+const safe=(v)=>Number.isFinite(v)?v:null;
+const crossUp=(a,b,i)=>[a[i],a[i-1],b[i],b[i-1]].every(Number.isFinite)&&a[i]>b[i]&&a[i-1]<=b[i-1];
+const crossDown=(a,b,i)=>[a[i],a[i-1],b[i],b[i-1]].every(Number.isFinite)&&a[i]<b[i]&&a[i-1]>=b[i-1];
+function ema(rows,n){let prior=null,k=2/(n+1);return rows.map(v=>{if(!Number.isFinite(v))return null;prior=prior===null?v:prior+k*(v-prior);return prior})}
+function sma(rows,n){let acc=0,valid=0;return rows.map((_,i)=>{if(Number.isFinite(rows[i])){acc+=rows[i];valid++}if(i>=n&&Number.isFinite(rows[i-n])){acc-=rows[i-n];valid--}return i>=n-1&&valid===n?acc/n:null})}
+function rsi(close,n){const out=Array(close.length).fill(null);if(close.length<=n)return out;let up=0,dn=0;for(let i=1;i<=n;i++){const d=close[i]-close[i-1];up+=Math.max(d,0);dn+=Math.max(-d,0)}up/=n;dn/=n;const point=()=>dn===0?(up===0?50:100):100-100/(1+up/dn);out[n]=point();for(let i=n+1;i<close.length;i++){const d=close[i]-close[i-1];up=(up*(n-1)+Math.max(0,d))/n;dn=(dn*(n-1)+Math.max(0,-d))/n;out[i]=point()}return out}
+function ehlers(x,n){const a=Math.exp(-1.41421356237*Math.PI/n),b=2*a*Math.cos(1.41421356237*Math.PI/n),c3=-a*a,c2=b,c1=1-c2-c3;const y=[];for(let i=0;i<x.length;i++)y[i]=i<2?x[i]:c1*(x[i]+x[i-1])/2+c2*y[i-1]+c3*y[i-2];return y}
+function asClosed(raw,sec,asOf){if(!Array.isArray(raw)||!Number.isFinite(sec)||sec<60)return [];const seen=new Set();return raw.map(b=>({time:Number(b.time),open:Number(b.open),high:Number(b.high),low:Number(b.low),close:Number(b.close),volume:Number(b.volume)||0})).filter(b=>Number.isInteger(b.time)&&b.time%sec===0&&b.time+sec<=asOf&&[b.open,b.high,b.low,b.close].every(Number.isFinite)&&b.low>0&&b.high>=Math.max(b.close,b.open)&&b.low<=Math.min(b.close,b.open)&&!seen.has(b.time)&&seen.add(b.time)).sort((a,b)=>a.time-b.time)}
+function compute(raw,sec,asOf){
+  const bars=asClosed(raw,sec,asOf),N=bars.length;
+  if(N<Math.max(70,params.eotSlow*2))return {status:'NO DATA',reason:'Нужно ≥70 закрытых свечей',bars:N};
+  const close=bars.map(x=>x.close),r=rsi(close,params.rsi),s=[];
+  for(let i=0;i<N;i++){let st=null,d=null;if(i>=params.stoch-1){const part=bars.slice(i-params.stoch+1,i+1),hi=Math.max(...part.map(x=>x.high)),lo=Math.min(...part.map(x=>x.low));st=(hi-lo)>0?100*(close[i]-lo)/(hi-lo):50}if(i>=params.donchian-1){const part=bars.slice(i-params.donchian+1,i+1),hi=Math.max(...part.map(x=>x.high)),lo=Math.min(...part.map(x=>x.low));d=(hi-lo)>0?100*(close[i]-lo)/(hi-lo):50}s.push({st,d})}
+  const stoch=sma(s.map(x=>x.st),params.stochSmooth),sdo=ema(stoch.map((x,i)=>Number.isFinite(x)&&Number.isFinite(s[i].d)?(x+s[i].d)/2:null),params.sdoSmooth),sdoSignal=ema(sdo,params.stochSmooth);
+  const fast=ehlers(close,params.eotFast),slow=ehlers(close,params.eotSlow);
+  const eotRaw=ema(fast.map((x,i)=>x-slow[i]),params.eotSmooth);
+  const tr=bars.map((b,i)=>i===0?b.high-b.low:Math.max(b.high-b.low,Math.abs(b.high-bars[i-1].close),Math.abs(b.low-bars[i-1].close)));
+  const atr=ema(tr,params.atr),denom=ema(atr,params.eotSlow);
+  const eot=eotRaw.map((x,i)=>50+params.eotGain*x/Math.max(denom[i]||0,1e-12)),trigger=ema(eot,params.eotTrigger),blue=eot.map(x=>params.blueScale*x+params.blueOffset);
+  const flow=ema(r.map((x,i)=>[x,sdo[i],blue[i]].every(Number.isFinite)?(x+sdo[i]+blue[i])/3:null),params.flow);
+  const signals=[];
+  for(let i=1;i<N;i++){
+    const up=(Number.isFinite(r[i-1])&&r[i-1]<=30&&r[i]>30?1:0)+(Number.isFinite(sdo[i-1])&&sdo[i-1]<=25&&sdo[i]>25?1:0)+(crossUp(eot,trigger,i)&&eot[i]<45?1:0);
+    const down=(Number.isFinite(r[i-1])&&r[i-1]>=70&&r[i]<70?1:0)+(Number.isFinite(sdo[i-1])&&sdo[i-1]>=75&&sdo[i]<75?1:0)+(crossDown(eot,trigger,i)&&eot[i]>55?1:0);
+    if(up>=2||down>=2)signals.push({time:bars[i].time+sec,side:up>=2?'LONG':'SHORT',votes:Math.max(up,down),close:bars[i].close});
+  }
+  return {status:'RESEARCH',bars,series:{rsi:r,sdo,sdoSignal,eot,trigger,blue,flow},signals,params,symbolSource:'MEXC',at:bars.at(-1).time+sec};
+}
+function mount(){
+  if(document.getElementById(uid)||!document.getElementById('tfBar')||!document.getElementById('ascResearchPanel'))return;
+  const bar=document.getElementById('tfBar'),button=document.createElement('button');
+  button.id='ascGGToggle';button.className='chart-btn';button.type='button';button.textContent='GG-PROXY · OFF';button.setAttribute('aria-pressed','false');bar.appendChild(button);
+  const panel=document.createElement('section');panel.id=uid;panel.className='asc-confirm-v2-panel';panel.hidden=true;
+  panel.innerHTML='<div class="asc-confirm-v2-head"><strong>GG-PROXY V2 · ИССЛЕДОВАНИЕ</strong><span>НЕ ОРИГИНАЛ GG-OSC · НЕ ТОРГОВЫЙ СИГНАЛ</span></div>'+
+  '<div class="gg-tools"><label for="ascGGMode">Режим</label><select id="ascGGMode"><option>Combined</option><option>RSI</option><option>SDO</option><option>EOT</option></select><button type="button" id="ascGGExport">Скачать CSV (MEXC + PROXY)</button></div>'+
+  '<div id="ascGGStatus" class="gg-status">Ожидание закрытых свечей…</div><div id="ascGGValues" class="gg-values"></div><canvas id="ascGGCanvas" height="215" aria-label="Временные ряды исследовательского GG-PROXY"></canvas>'+
+  '<div class="gg-note">RSI 14 / SDO Stoch 14+Donchian 20 (гипотеза) / EOT Ehlers LP 6·27·11 (гипотеза) / Combined 2 из 3, одна закрытая свеча. Синяя EOT→Combined откалибрована всего по 3 точкам BTC1! CME 13.10.2026; терминал использует другие свечи MEXC. Никаких автоматических входов, уведомлений и изменений Core.</div>';
+  document.getElementById('ascResearchPanel').insertAdjacentElement('afterend',panel);
+  const style=document.createElement('style');style.textContent='#'+uid+'{margin:7px 0 10px;padding:10px;border-color:#304b61}#'+uid+'[hidden]{display:none!important}#'+uid+' .gg-tools{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:9px 0}#'+uid+' .gg-tools label{font-size:10px;color:#9fb8ce}#'+uid+' .gg-tools select,#'+uid+' .gg-tools button{min-height:30px;padding:5px 10px;border:1px solid #35516a;background:#0a1c2e;color:#dbeaf6;border-radius:7px;font-size:11px}#'+uid+' .gg-status{font-size:10px;color:#97bbd3;margin:5px 0}#'+uid+' .gg-values{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;font-weight:800;padding:6px 0}#'+uid+' canvas{display:block;width:100%;height:215px;border:1px solid #1d3348;border-radius:6px;background:#05101c;touch-action:pan-y}#'+uid+' .gg-note{font-size:9px;color:#819aae;line-height:1.5;margin-top:8px}';document.head.appendChild(style);
+  let enabled=false,mode='Combined',key='',latest=null;
+  const modeBox=document.getElementById('ascGGMode'),status=document.getElementById('ascGGStatus'),values=document.getElementById('ascGGValues'),canvas=document.getElementById('ascGGCanvas');
+  function format(x){return Number.isFinite(x)?x.toFixed(1):'—'}
+  function draw(result){
+    const list=result.series,lookup={RSI:[['RSI',list.rsi,'#ffa52a']],SDO:[['SDO · гипотеза',list.sdo,'#eef5ff'],['SDO signal',list.sdoSignal,'#758aa0']],EOT:[['EOT · гипотеза',list.eot,'#56f2b0'],['EOT trigger',list.trigger,'#eef5ff']],Combined:[['RSI',list.rsi,'#ffa52a'],['SDO',list.sdo,'#eef5ff'],['EOT→blue',list.blue,'#4e87ff'],['FLOW',list.flow,'#56e6ac']]},lines=lookup[mode];
+    const N=result.bars.length,end=N,start=Math.max(0,N-100),box=canvas.getBoundingClientRect(),width=Math.max(box.width,280),height=215,ratio=Math.min(2,root.devicePixelRatio||1);
+    canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);
+    const ctx=canvas.getContext('2d');if(!ctx)return;ctx.setTransform(ratio,0,0,ratio,0,0);
+    const left=28,right=8,top=14,bottom=22,w=width-left-right,h=height-top-bottom;
+    const finite=lines.flatMap(x=>x[1].slice(start,end)).filter(Number.isFinite);
+    if(!finite.length)return;
+    const lo=mode==='EOT'?Math.min(0,Math.floor(Math.min(...finite)/10)*10):0,hi=Math.max(mode==='EOT'?110:100,Math.ceil(Math.max(...finite)/10)*10);
+    function y(v){return top+(hi-v)*h/(hi-lo)}
+    ctx.font='10px system-ui';ctx.textAlign='right';ctx.fillStyle='#8196ac';ctx.strokeStyle='#1d2f42';ctx.lineWidth=1;
+    const grid=[0,30,50,70,100,110].filter(v=>v>=lo&&v<=hi);
+    for(const v of grid){const yy=y(v);ctx.beginPath();ctx.moveTo(left,yy);ctx.lineTo(width-right,yy);ctx.stroke();ctx.fillText(String(v),left-4,yy+3)}
+    for(const [name,arr,color] of lines){ctx.strokeStyle=color;ctx.lineWidth=name==='FLOW'?2.2:1.7;ctx.beginPath();let started=false;
+      for(let i=start;i<end;i++){if(!Number.isFinite(arr[i])){started=false;continue}const x=left+(i-start)/Math.max(1,end-start-1)*w,yy=y(arr[i]);if(!started){ctx.moveTo(x,yy);started=true}else ctx.lineTo(x,yy)}ctx.stroke();
+    }
+    for(const signal of result.signals){const i=result.bars.findIndex(b=>b.time===signal.time-(lengthSec[state.timeframe]||300));if(i<start||i>=end)continue;const x=left+(i-start)/Math.max(1,end-start-1)*w;ctx.fillStyle=signal.side==='LONG'?'#5ce2a7':'#ff7388';ctx.beginPath();ctx.arc(x,signal.side==='LONG'?height-15:11,3.4,0,Math.PI*2);ctx.fill()}
+    ctx.textAlign='left';ctx.fillStyle='#7693a8';ctx.fillText('−'+String(end-start)+' свечей',left,height-6);
+    ctx.textAlign='right';ctx.fillText(new Date(result.at*1000).toISOString().slice(11,16)+' UTC',width-9,height-6);
+  }
+  function refresh(force=false){
+    if(!enabled)return;
+    if(typeof state==='undefined'||!state.tf){status.textContent='Нет доступа к свечам';return}
+    const sec=lengthSec[state.timeframe]||300,raw=state.tf[state.timeframe]||[],tail=raw.at(-1)||{},sig=[state.symbol,state.timeframe,raw.length,tail.time,tail.close,mode].join('|');
+    if(!force&&sig===key)return;key=sig;
+    const result=compute(raw,sec,Date.now()/1000);latest=result;
+    if(result.status!=='RESEARCH'){status.textContent=result.reason+' · '+result.bars;values.textContent='';const ctx=canvas.getContext('2d');ctx&&ctx.clearRect(0,0,canvas.width,canvas.height);return}
+    const n=result.bars.length-1,s=result.series,hit=result.signals.at(-1),recent=result.signals.filter(x=>x.time>result.at-50*sec);
+    status.textContent=state.symbol.replace('_','/')+' · '+state.timeframe+' · MEXC · '+result.bars.length+' закрытых свечей · RESEARCH ONLY · 50 баров: '+recent.length+' совпадений'+(hit?' · последнее '+hit.side+' '+new Date(hit.time*1000).toISOString().slice(11,16)+' UTC':'');
+    const data=[['RSI',s.rsi[n],'#ffa52a'],['SDO proxy',s.sdo[n],'#eef5ff'],['EOT proxy',s.eot[n],'#56f2b0'],['BLUE fit',s.blue[n],'#5b96ff'],['FLOW',s.flow[n],'#56e6ac']];
+    values.replaceChildren();for(const [label,value,color] of data){const div=document.createElement('span');div.style.color=color;div.textContent=label+' '+format(value);values.appendChild(div)}
+    draw(result);
+  }
+  button.addEventListener('click',()=>{enabled=!enabled;panel.hidden=!enabled;button.textContent='GG-PROXY · '+(enabled?'ON':'OFF');button.classList.toggle('active',enabled);button.setAttribute('aria-pressed',String(enabled));refresh(true)});
+  modeBox.addEventListener('change',()=>{mode=modeBox.value;refresh(true)});
+  document.getElementById('ascGGExport').addEventListener('click',()=>{
+    if(!enabled||latest?.status!=='RESEARCH')return;
+    const cols=['time_utc','open','high','low','close','volume','proxy_rsi','proxy_sdo','proxy_sdo_signal','proxy_eot','proxy_eot_trigger','proxy_combined_blue_fit','proxy_flow'],s=latest.series;
+    const rows=latest.bars.map((b,i)=>[new Date(b.time*1000).toISOString(),b.open,b.high,b.low,b.close,b.volume,s.rsi[i],s.sdo[i],s.sdoSignal[i],s.eot[i],s.trigger[i],s.blue[i],s.flow[i]].map(x=>x===null?'':x).join(','));
+    const file=new Blob([[cols.join(','),...rows].join('\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(file),a=document.createElement('a');
+    a.href=url;a.download='ASCEND_GG_PROXY_V2_'+state.symbol+'_'+state.timeframe+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
+  });
+  setInterval(refresh,6500);
+  document.addEventListener('click',e=>{if(enabled&&e.target.closest('[data-tf]'))setTimeout(()=>refresh(true),350)});
+  root.addEventListener('resize',()=>refresh(true),{passive:true});
+}
+root.ASCEND_GG_PROXY_V2=Object.freeze({compute,params,version:'V2-RESEARCH',isTradingSignal:false});
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})(window);
+
+</script>
 </body>
 </html>
