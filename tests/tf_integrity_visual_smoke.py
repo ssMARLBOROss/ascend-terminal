@@ -86,13 +86,16 @@ async def test_browser():
         await page.goto("http://127.0.0.1:8765/index.html?view=market",
                         wait_until="domcontentloaded",timeout=25000)
         await page.wait_for_timeout(6500)
+        # Reveal session layer via the new compact SMC menu.
+        await page.locator('#ascSmcLayersBtn').click()
+        await page.locator('#ascSmcSwitch_sessions').click()
         result=await page.evaluate("""() => ({
           loaded:document.readyState,
           pageTitle:document.title,
           chartReady:typeof state !=='undefined'?state.chartReady:false,
           selectedSymbol:typeof state !=='undefined'?state.symbol:null,
           sessionUI:typeof window.ASCEND_SESSION_HL,
-          buttons:['ascSessionHLToggle','ascSessionHLPrevious','ascendLayoutFocus']
+          buttons:['ascSmcLayersBtn','ascSmcSwitch_sessions','ascSmcSwitch_previousSessions','ascendLayoutFocus']
             .map(id=>{let x=document.getElementById(id),r=x?.getBoundingClientRect();
               return {id,exists:!!x,text:x?.textContent.trim(),width:r?.width,
                 height:r?.height,visible:!!r&&r.width>0&&r.height>0}}),
@@ -142,7 +145,7 @@ async def test_browser():
         if len(result["items"])<4:
             raise AssertionError("Four session cards not rendered")
 
-        await page.locator('#ascSessionHLPrevious').click(timeout=5000)
+        await page.locator('#ascSmcSwitch_previousSessions').click(timeout=5000)
         after=await page.evaluate("""() => ({
             count:document.querySelectorAll('#ascSessionHLRows .asc-session-hl-item').length,
             prior:document.querySelectorAll('#ascSessionHLRows .asc-session-hl-item.previous').length,
@@ -150,14 +153,14 @@ async def test_browser():
         })""")
         print("PRIOR_CLICK",json.dumps(after,ensure_ascii=False))
         assert after['prior']>=4 and after['count']>=8,"Cannot reveal preceding sessions"
-        await page.locator('#ascSessionHLToggle').click(timeout=5000)
+        await page.locator('#ascSmcSwitch_sessions').click(timeout=5000)
         hidden=await page.evaluate("""() => ({
           panel:document.querySelector('#ascSessionHLPanel').hidden,
           toggle:document.querySelector('#ascSessionHLToggle').textContent.trim()
         })""")
         print("TOGGLE_OFF",json.dumps(hidden,ensure_ascii=False))
         assert hidden['panel'] is True
-        await page.locator('#ascSessionHLToggle').click(timeout=5000)
+        await page.locator('#ascSmcSwitch_sessions').click(timeout=5000)
         await page.locator('#ascendLayoutFocus').click(timeout=5000)
         focus=await page.evaluate("""() => ({
           active:document.body.classList.contains('asc-layout-focus'),
@@ -190,7 +193,7 @@ async def test_browser():
         await page.set_viewport_size({"width":390,"height":844})
         await page.wait_for_timeout(1000)
         mobile=await page.evaluate("""() => ({
-           button: (()=>{let r=document.querySelector('#ascSessionHLToggle').getBoundingClientRect();
+           button: (()=>{let r=document.querySelector('#ascSmcLayersBtn').getBoundingClientRect();
              return {width:r.width,height:r.height,left:r.left,right:r.right}})(),
            scrollerWidth:document.documentElement.scrollWidth,
            width:innerWidth,
