@@ -8,7 +8,7 @@ UI-only extension in `index.html` for the existing GitHub Pages/Cloudflare Worke
 - Collapsible four-part drawer: core chart (liquidity, structure, session H/L, VWAP), SMC zones (FVG, IFVG, OB, RB, STB/BTS, OTE), trading/risk (confirmation panel, educational risk note, paper order buttons), Research (journal preview, market participation).
 - Presets: **Минимум**, **Рабочий**, **SMC**. Individual controls persist in browser localStorage key `ascend_smc_layers_v1`.
 - Default view favors frozen liquidity and VWAP; extra structure/session labels are hidden, not disabled in the decision engine.
-- Liquidity layer toggle uses a guard around the **existing** map drawing call. Structure, session, VWAP are delegated to existing handlers via existing buttons. FVG's chart zone draws from the existing closed-3m FVG detector. All draw operations are read-only.
+- Liquidity layer toggle uses a guard around the **existing** map drawing call. The structure sensor keeps analyzing in the background even when its markers are hidden; session H/L and VWAP delegate to their existing display handlers. FVG's chart zone draws from the existing closed-3m FVG detector. All draw operations are read-only.
 - **IFVG / OB / RB / STB-BTS / OTE**: toggle rows are available but marked **NO DATA** until an independently tested read-only detector supplies verified zones. Enabling these rows must not generate an entry signal or fake price levels.
 - Existing trade controls operate in **shadow/paper mode**, not live exchange orders.
 - The **Risk / R:R** layer includes an independent position-size calculator (equity, risk %, entry, SL, TP, leverage) that computes theoretical notional, margin and R:R; it never sends orders, and excludes fees/funding/slippage from its estimate.
