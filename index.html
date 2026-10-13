@@ -4879,7 +4879,22 @@ body.ascend-ui-v11 .topbar{gap:8px}
     if(ariaControls)b.setAttribute('aria-controls',ariaControls);
     return b;
   }
-  function mount(){
+  function calcRisk(){
+ var ids=['ascSmcEq','ascSmcRiskPct','ascSmcEntry','ascSmcStop','ascSmcTp','ascSmcLev'];
+ var v=ids.map(function(id){return Number($(id)?.value||0)});
+ var output=$('ascSmcRiskResult');if(!output)return;
+ var eq=v[0],pct=v[1],entry=v[2],stop=v[3],tp=v[4],lev=v[5];
+ if(eq<=0||pct<=0||pct>10||lev<1||lev>125){output.textContent='Проверьте депозит, риск 0–10% и плечо 1–125×.';return}
+ if(entry<=0||stop<=0||entry===stop){output.textContent='Риск '+(eq*pct/100).toFixed(2)+' USDT · задайте разные положительные Entry и SL.';return}
+ var side=stop<entry?'LONG':'SHORT',r=Math.abs(entry-stop)/entry;
+ var risk=eq*pct/100,notional=risk/r,margin=notional/lev;
+ var rr=tp>0?((side==='LONG'?tp>entry:tp<entry)?Math.abs(tp-entry)/Math.abs(entry-stop):NaN):null;
+ var msg=side+' · стоп '+(r*100).toFixed(3)+'% · риск '+risk.toFixed(2)+' USDT · номинал '+notional.toFixed(2)+' USDT · маржа ≈ '+margin.toFixed(2)+' USDT';
+ if(rr!==null)msg+=' · R:R '+(Number.isFinite(rr)?'1:'+rr.toFixed(2)+(rr<2?' (ниже 1:2)':''):'неверное направление TP');
+ if(margin>eq)msg+=' · ВНИМАНИЕ: маржа больше депозита';
+ output.textContent=msg;
+}
+function mount(){
     // Controls exist in HTML even if the radar initializes late or API data fails.
     // Do not abort because the radar is not ready yet.
     if(document.body.dataset.ascWorkspaceBound==='true')return;
@@ -5054,7 +5069,13 @@ body[data-asc-smc-ready="1"] #tfBar #ascSessionHLPrevious{display:none!important
 #ascSmcResearchNote[hidden]{display:none}
 #ascSmcResearchNote{margin-top:7px;border:1px solid #244159;border-radius:7px;padding:8px 10px;background:#0a1d2c;font-size:10px;line-height:1.55;color:#b6cedd}
 #ascSmcRiskNote[hidden]{display:none}
-#ascSmcRiskNote{font-size:10px;color:#b8cbd9;margin:4px 10px 9px;border-left:2px solid #4780aa;padding:6px 9px;background:#091827}
+#ascSmcRiskNote{font-size:10px;color:#b8cbd9;margin-top:10px;border:1px solid #29445a;border-radius:8px;padding:10px;background:#091827}
+.asc-smc-risk-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin:8px 0}
+.asc-smc-risk-grid label{display:grid;gap:4px;font-size:9px;color:#98b1c2;min-width:0}
+.asc-smc-risk-grid input{min-width:0;width:100%;background:#06121d;border:1px solid #36516a;border-radius:5px;color:#e1ecf5;padding:7px;font-size:12px}
+#ascSmcRiskResult{color:#c7e9f5;line-height:1.5;font-size:11px}
+@media(max-width:750px){.asc-smc-risk-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:420px){.asc-smc-risk-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.asc-smc-groups{grid-template-columns:1fr}.asc-smc-presets{margin-left:0;flex-wrap:wrap}.asc-smc-head{align-items:start}#ascSmcLayersBtn{margin-left:0}}
 </style>
 <script>
@@ -5178,8 +5199,17 @@ function mount(){
   '<div class="asc-smc-foot">Включение зон показывает данные только при наличии проверенного источника. SMC-исследования не отменяют Structure Engine. Настройки сохраняются в этом браузере.</div>';
  bar.insertAdjacentElement('afterend',panel);
  var risk=document.createElement('div');risk.id='ascSmcRiskNote';
- risk.textContent='RISK ENGINE · Структурный SL → ближайшая подтверждённая цель TP → проверка R:R ≥ 1:2. Плечо не определяет допустимый риск; реальные параметры смотрите в панели решения. Показ слоя не изменяет расчёт.';
- panel.insertAdjacentElement('afterend',risk);
+ risk.innerHTML='<b>RISK · независимый калькулятор размера позиции</b><div class="asc-smc-risk-grid">'+
+  '<label>Депозит, USDT<input id="ascSmcEq" type="number" min="1" value="500" step="1"></label>'+
+  '<label>Риск, %<input id="ascSmcRiskPct" type="number" min="0.01" max="10" value="1" step="0.1"></label>'+
+  '<label>Entry<input id="ascSmcEntry" type="number" min="0.00000001" step="any" placeholder="Цена"></label>'+
+  '<label>SL<input id="ascSmcStop" type="number" min="0.00000001" step="any" placeholder="Цена"></label>'+
+  '<label>TP<input id="ascSmcTp" type="number" min="0.00000001" step="any" placeholder="Цель"></label>'+
+  '<label>Плечо, ×<input id="ascSmcLev" type="number" min="1" max="125" value="20" step="1"></label></div>'+
+  '<div id="ascSmcRiskResult" aria-live="polite">Укажите Entry и SL · расчёт не открывает сделки.</div>'+
+  '<small>Позиция рассчитывается от риска по стопу; комиссии, funding, проскальзывание и ликвидация требуют отдельной проверки. Никаких заявок не отправляет.</small>';
+ panel.appendChild(risk);
+ risk.addEventListener('input',calcRisk);calcRisk();
  launch.addEventListener('click',function(){isOpen=!isOpen;panel.hidden=!isOpen;sync()});
  panel.addEventListener('click',function(e){
   var b=e.target.closest('[data-layer]');if(b){set(b.dataset.layer,!enabled[b.dataset.layer]);return}
