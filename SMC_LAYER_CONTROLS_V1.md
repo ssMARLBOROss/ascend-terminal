@@ -11,6 +11,8 @@ UI-only extension in `index.html` for the existing GitHub Pages/Cloudflare Worke
 - Liquidity layer toggle uses a guard around the **existing** map drawing call. Structure, session, VWAP are delegated to existing handlers via existing buttons. FVG's chart zone draws from the existing closed-3m FVG detector. All draw operations are read-only.
 - **IFVG / OB / RB / STB-BTS / OTE**: toggle rows are available but marked **NO DATA** until an independently tested read-only detector supplies verified zones. Enabling these rows must not generate an entry signal or fake price levels.
 - Existing trade controls operate in **shadow/paper mode**, not live exchange orders.
+- The **Risk / R:R** layer includes an independent position-size calculator (equity, risk %, entry, SL, TP, leverage) that computes theoretical notional, margin and R:R; it never sends orders, and excludes fees/funding/slippage from its estimate.
+- The **previous sessions** toggle is retained inside the drawer even though the legacy toolbar button is hidden.
 
 ## Safety and architecture
 
