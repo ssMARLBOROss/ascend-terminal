@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import math
 import re
 import statistics
@@ -10,7 +11,7 @@ from email.utils import parsedate_to_datetime
 from typing import Any
 
 import httpx
-from fastapi import HTTPException, Query
+from fastapi import HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 import history_store
@@ -18,6 +19,7 @@ import macro_fred
 import capital_flow_mexc
 import market_participation_v1
 import data_quality_v1
+import research_trade_ledger_v1
 
 MEXC_BASE_URL = "https://api.mexc.com"
 MEXC_KLINE_URL = MEXC_BASE_URL + "/api/v1/contract/kline/{symbol}"
@@ -720,6 +722,57 @@ def install(app: Any) -> None:
             ticker = None
         return JSONResponse(await capital_flow_mexc.snapshot(safe, ticker),
                             headers={"Cache-Control": "private, no-store"})
+
+    async def _verify_research_admin(request: Request) -> None:
+        # Reuse the existing ASCEND owner credentials, never allow anonymous
+        # journal mutation or promotion of a paper trade to a real fill.
+        auth = request.headers.get("authorization") or ""
+        if not (auth.startswith("Basic ") or auth.startswith("Bearer ")):
+            raise HTTPException(401, "owner authorization required")
+        core = (os.getenv("ASCEND_CORE_URL") or
+                "https://ascend-clean-production.up.railway.app").rstrip("/")
+        try:
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                resp = await client.get(core + "/api/platform/admin/status",
+                                        headers={"authorization": auth})
+        except httpx.HTTPError:
+            raise HTTPException(503, "owner authorization service unavailable")
+        if resp.status_code != 200:
+            raise HTTPException(401, "owner authorization failed")
+
+    @app.post("/api/v2/admin/research/model-trades")
+    async def research_append_model_trades(request: Request):
+        await _verify_research_admin(request)
+        pool = history_store._pool
+        if pool is None:
+            raise HTTPException(503, "research journal database unavailable")
+        try:
+            payload = await request.json()
+            await research_trade_ledger_v1.ensure_schema(pool)
+            accepted = await research_trade_ledger_v1.append_batch(
+                pool, payload.get("trades") if isinstance(payload, dict) else None)
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(422, str(exc))
+        return JSONResponse({**accepted, "broker_fills": "NOT_VERIFIED",
+                             "real_orders_enabled": False},
+                            headers={"Cache-Control": "private, no-store"})
+
+    @app.get("/api/v2/admin/research/model-trades")
+    async def research_model_ledger(
+        request: Request,
+        experiment_id: str = Query(default="ASCEND_RESEARCH_V1"),
+        limit: int = Query(default=100, ge=1, le=1000),
+    ):
+        await _verify_research_admin(request)
+        pool = history_store._pool
+        if pool is None:
+            raise HTTPException(503, "research journal database unavailable")
+        try:
+            await research_trade_ledger_v1.ensure_schema(pool)
+            result = await research_trade_ledger_v1.list_records(pool, experiment_id, limit)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc))
+        return JSONResponse(result, headers={"Cache-Control": "private, no-store"})
 
     @app.get("/api/v2/research/data-quality")
     async def research_data_quality(
