@@ -17,5 +17,6 @@ jobs:
       - run: node --check workspace-layout.js
       - run: node tests/cloudflare-workspace-layout.test.mjs
       - run: node tests/smc-layer-controls-v1.test.mjs
+      - run: node tests/smc-poi-research-v1.test.mjs
       - run: node tests/cloudflare-liquidity-map.test.mjs
       - run: node tests/cloudflare-vwap.test.mjs
