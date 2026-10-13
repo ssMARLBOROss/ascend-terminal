@@ -11,7 +11,7 @@ const start=Date.UTC(2026,9,7)/1000;
 const make=(n=75)=>Array.from({length:n},(_,i)=>({
  time:start+i*300,open:100,high:100.2,low:99.8,close:100,volume:100
 }));
-const report=(arr,i=arr.length-1)=>E.scan(arr,arr[i].time+300);
+const report=(arr,i=arr.length-1)=>E.scan(arr,arr[i]?.time?arr[i].time+300:start);
 assert.equal(report([]).status,'NO DATA');
 assert.equal(report(make(30)).status,'NO DATA');
 const base=make(75);
