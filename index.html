@@ -4879,22 +4879,7 @@ body.ascend-ui-v11 .topbar{gap:8px}
     if(ariaControls)b.setAttribute('aria-controls',ariaControls);
     return b;
   }
-  function calcRisk(){
- var ids=['ascSmcEq','ascSmcRiskPct','ascSmcEntry','ascSmcStop','ascSmcTp','ascSmcLev'];
- var v=ids.map(function(id){return Number($(id)?.value||0)});
- var output=$('ascSmcRiskResult');if(!output)return;
- var eq=v[0],pct=v[1],entry=v[2],stop=v[3],tp=v[4],lev=v[5];
- if(eq<=0||pct<=0||pct>10||lev<1||lev>125){output.textContent='Проверьте депозит, риск 0–10% и плечо 1–125×.';return}
- if(entry<=0||stop<=0||entry===stop){output.textContent='Риск '+(eq*pct/100).toFixed(2)+' USDT · задайте разные положительные Entry и SL.';return}
- var side=stop<entry?'LONG':'SHORT',r=Math.abs(entry-stop)/entry;
- var risk=eq*pct/100,notional=risk/r,margin=notional/lev;
- var rr=tp>0?((side==='LONG'?tp>entry:tp<entry)?Math.abs(tp-entry)/Math.abs(entry-stop):NaN):null;
- var msg=side+' · стоп '+(r*100).toFixed(3)+'% · риск '+risk.toFixed(2)+' USDT · номинал '+notional.toFixed(2)+' USDT · маржа ≈ '+margin.toFixed(2)+' USDT';
- if(rr!==null)msg+=' · R:R '+(Number.isFinite(rr)?'1:'+rr.toFixed(2)+(rr<2?' (ниже 1:2)':''):'неверное направление TP');
- if(margin>eq)msg+=' · ВНИМАНИЕ: маржа больше депозита';
- output.textContent=msg;
-}
-function mount(){
+  function mount(){
     // Controls exist in HTML even if the radar initializes late or API data fails.
     // Do not abort because the radar is not ready yet.
     if(document.body.dataset.ascWorkspaceBound==='true')return;
@@ -5176,6 +5161,21 @@ function row(k,research){
 }
 function group(title,keys,research){
  return '<section class="asc-smc-group"><h4>'+title+'</h4>'+keys.map(function(k){return row(k,research)}).join('')+'</section>';
+}
+function calcRisk(){
+ var ids=['ascSmcEq','ascSmcRiskPct','ascSmcEntry','ascSmcStop','ascSmcTp','ascSmcLev'];
+ var v=ids.map(function(id){return Number($(id)?.value||0)});
+ var output=$('ascSmcRiskResult');if(!output)return;
+ var eq=v[0],pct=v[1],entry=v[2],stop=v[3],tp=v[4],lev=v[5];
+ if(eq<=0||pct<=0||pct>10||lev<1||lev>125){output.textContent='Проверьте депозит, риск 0–10% и плечо 1–125×.';return}
+ if(entry<=0||stop<=0||entry===stop){output.textContent='Риск '+(eq*pct/100).toFixed(2)+' USDT · задайте разные положительные Entry и SL.';return}
+ var side=stop<entry?'LONG':'SHORT',r=Math.abs(entry-stop)/entry;
+ var risk=eq*pct/100,notional=risk/r,margin=notional/lev;
+ var rr=tp>0?((side==='LONG'?tp>entry:tp<entry)?Math.abs(tp-entry)/Math.abs(entry-stop):NaN):null;
+ var msg=side+' · стоп '+(r*100).toFixed(3)+'% · риск '+risk.toFixed(2)+' USDT · номинал '+notional.toFixed(2)+' USDT · маржа ≈ '+margin.toFixed(2)+' USDT';
+ if(rr!==null)msg+=' · R:R '+(Number.isFinite(rr)?'1:'+rr.toFixed(2)+(rr<2?' (ниже 1:2)':''):'неверное направление TP');
+ if(margin>eq)msg+=' · ВНИМАНИЕ: маржа больше депозита';
+ output.textContent=msg;
 }
 function mount(){
  if($('ascSmcLayersBtn'))return;
