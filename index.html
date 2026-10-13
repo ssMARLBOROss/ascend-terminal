@@ -2383,6 +2383,7 @@ async function openManualPaper(side){
   const trade={
     id:"M"+now,symbol:state.symbol,side,status:"OPEN",opened_at:now,entry,
     margin,leverage:20,notional,remaining:1,tp1_hit:false,tp2_hit:false,tp3_hit:false,
+    original_stop:setup.plan.stop,paper_audit_fills:[],
     sl:setup.plan.stop,tp1:setup.plan.target,tp2:setup.plan.target,tp3:setup.plan.target,
     level_source:'V2_NEXT_FROZEN_LIQUIDITY',setup_v2:{
       asOf:setup.asOf,microAt:setup.plan.microAt,triggerEntry:setup.plan.triggerEntry,
@@ -2403,6 +2404,8 @@ async function openManualPaper(side){
 function paperFill(t,fraction,price,label){
   fraction=Math.min(Number(fraction)||0,Number(t.remaining)||0);if(fraction<=0)return;
   const sign=t.side==="LONG"?1:-1,gross=t.notional*fraction*((price-t.entry)/t.entry)*sign,fee=t.notional*fraction*PAPER_FEE,net=gross-fee;
+  t.paper_audit_fills??=[];
+  t.paper_audit_fills.push({time_ms:Date.now(),fraction,price,fee,net,label:String(label||'')});
   t.realized=(Number(t.realized)||0)+net;t.remaining=Math.max(0,t.remaining-fraction);t.last_price=price;state.paperEquity+=net;
   pushJournal("SHADOW "+label,t.side,(net>=0?"+":"")+net.toFixed(3)+" USDT · "+fmt(price));
 }
@@ -4942,6 +4945,7 @@ body.ascend-ui-v11 .topbar{gap:8px}
   'use strict';
   const $=id=>document.getElementById(id);
   let loadedAt=0,loadedSym='',lastData=null,busy=false;
+  let qualityData=null,qualityAt=0,qualityBusy=false;
   const number=(x,d=4)=>typeof x==='number'&&Number.isFinite(x)?x.toFixed(d):'—';
   function paint(){
     if(typeof state==='undefined'||document.body.dataset.view!=='market')return;
@@ -4978,6 +4982,27 @@ body.ascend-ui-v11 .topbar{gap:8px}
       const after=engine.scan(qaAggregate(q,60,180),asOf).filter(z=>z.formedAt>sweep.at);
       box.textContent+=' · ПОСЛЕ SWEEP '+after.length+' / active '+after.filter(z=>z.status!=='FILLED').length;
     }
+    const quality=$('ascResearchIntegrity');
+    if(quality){
+      const d=qualityData;
+      if(!d||d.symbol!==state.symbol||Date.now()-qualityAt>=90000){
+        quality.textContent='DATA HEALTH · NO DATA · ожидание проверки источника';
+      }else if(d.status!=='READ_ONLY_AUDIT'){
+        quality.textContent='DATA HEALTH · NO DATA · '+(d.reason||'проверка недоступна');
+      }else{
+        const candle=d.candles_1m||{},m=candle.mexc||{},b=candle.bybit||{},
+              feeds=d.participation||{};
+        quality.textContent='DATA HEALTH · MEXC 1m '+(m.status||'NO DATA')+
+          ' '+(m.observed??0)+'/'+(m.expected??60)+' · пропусков '+(m.missing??'—')+
+          ' · возраст '+(m.age_after_close_sec??'—')+'с'+
+          ' · Bybit '+(b.status||'NO DATA')+' '+(b.observed??0)+'/'+(b.expected??60)+
+          ' · CVD '+(feeds.cvd?.status||'NO DATA')+
+          ' · OI '+(feeds.oi?.status||'NO DATA')+
+          ' · BOOK '+(feeds.book?.status||'NO DATA')+
+          ' · LIQ '+(feeds.liquidations?.status||'NO DATA')+
+          ' · только контроль, не фильтр входа';
+      }
+    }
     const status=$('ascResearchParticipation');
     if(status){
       const d=lastData,valid=d&&d.symbol===state.symbol.replace('_','')&&
@@ -5008,15 +5033,32 @@ body.ascend-ui-v11 .topbar{gap:8px}
     }catch(_){lastData=null;loadedAt=0}
     finally{busy=false;paint()}
   }
+  async function fetchQuality(){
+    if(typeof state==='undefined'||document.body.dataset.view!=='market'||qualityBusy)return;
+    const symbol=String(state.symbol||'');
+    if(!/^[A-Z0-9]+_USDT$/.test(symbol))return;
+    qualityBusy=true;
+    try{
+      const res=await fetch('/api/v2/research/data-quality?symbol='+encodeURIComponent(symbol)+'&minutes=60',
+        {headers:{Accept:'application/json'},cache:'no-store'});
+      if(!res.ok)throw Error(String(res.status));
+      const d=await res.json();
+      if(state.symbol!==symbol)return;
+      qualityData=d;qualityAt=Date.now();
+    }catch(_){qualityData=null;qualityAt=0}
+    finally{qualityBusy=false;paint()}
+  }
   function start(){
     setInterval(paint,8000);
     setInterval(fetchOne,30000);
+    setInterval(fetchQuality,30000);
     setTimeout(fetchOne,1300);
+    setTimeout(fetchQuality,1700);
     paint();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
   else start();
-  root.ASCEND_RESEARCH_UI_V1=Object.freeze({paint,refresh:fetchOne});
+  root.ASCEND_RESEARCH_UI_V1=Object.freeze({paint,refresh:fetchOne,refreshQuality:fetchQuality});
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 
@@ -5272,7 +5314,9 @@ function updateVisual(){
  setShown($('ascStructureRibbon'),enabled.structure);
  setShown($('ascStructurePanel'),enabled.structure);
  setShown($('ascResearchHistory'),enabled.analytics);
+ setShown($('ascResearchSync'),enabled.analytics);
  setShown($('ascResearchParticipation'),enabled.participation);
+ setShown($('ascResearchIntegrity'),enabled.participation);
  setShown($('ascResearchFvg'),enabled.fvg);
  setShown($('ascResearchPoi'),['ifvg','ob','rb','stb','ote'].some(k=>enabled[k]));
  setShown($('ascResearchPanel'),enabled.fvg||enabled.analytics||enabled.participation||['ifvg','ob','rb','stb','ote'].some(k=>enabled[k]));
@@ -5345,6 +5389,64 @@ function calcRisk(){
  if(margin>eq)msg+=' · ВНИМАНИЕ: маржа больше депозита';
  output.textContent=msg;
 }
+async function syncPaperResearchJournal(){
+ const note=$('ascResearchSyncStatus');
+ if(!note)return;
+ if(typeof state==='undefined'||typeof adminFetch!=='function'){
+  note.textContent='NO DATA · владелец или журнал недоступен';return;
+ }
+ const closed=(state.paperTrades||[]).filter(t=>t.status==='CLOSED');
+ const eligible=[],skipped=[];
+ for(const t of closed){
+  const fills=Array.isArray(t.paper_audit_fills)?t.paper_audit_fills:[];
+  const total=fills.reduce((sum,x)=>sum+(Number(x.fraction)||0),0);
+  const entry=Number(t.entry),stop=Number(t.original_stop),target=Number(t.tp3);
+  if(!t.closed_at||!t.opened_at||t.closed_at<=t.opened_at||
+     !Number.isFinite(entry)||!Number.isFinite(stop)||!Number.isFinite(target)||
+     !fills.length||Math.abs(total-1)>.00001||
+     fills.some(x=>!Number.isFinite(Number(x.price))||!Number.isFinite(Number(x.fee)))) {
+     skipped.push(t.id);continue;
+  }
+  const last=fills.reduce((sum,x)=>sum+Number(x.fraction)*Number(x.price),0)/total;
+  const fee=typeof PAPER_FEE!=='undefined'?Number(PAPER_FEE):.0008;
+  const outcome=t.close_reason==='SL'?'SL':String(t.close_reason).startsWith('TP')?'TP':t.close_reason==='MANUAL'?'MANUAL':'OTHER';
+  const paper={
+   experiment_id:'ASCEND_SHADOW_V2',trade_id:String(t.id).replace(/[^A-Za-z0-9_.:-]/g,'').slice(0,96),
+   source:'PAPER_OBSERVED',model_version:'',quote_source:'MEXC_TICKER_PAPER_NO_BROKER_FILL',
+   symbol:t.symbol,side:t.side,outcome,
+   entry_ts:Math.floor(Number(t.opened_at)/1000),
+   exit_ts:Math.floor(Number(t.closed_at)/1000),
+   entry,stop,target,exit_price:last,
+   fee_pct:fee*(1+total),slippage_pct:0,
+   data_ref:'MEXC_TICKER_PAPER:'+t.symbol+':'+t.opened_at+':'+t.closed_at,
+   look_ahead_check:'V2_SHADOW_CLIENT_SIDE_NOT_EXCHANGE_VERIFIED'
+  };
+  if(!paper.trade_id){skipped.push(t.id);continue}
+  eligible.push(paper);
+ }
+ if(!eligible.length){
+  note.textContent='Нет новых проверяемых CLOSED SHADOW сделок · '+skipped.length+
+   ' старых/неполных записей исключены. Без заполнения пропусков.';return;
+ }
+ const action=$('ascResearchSyncButton');
+ if(action)action.disabled=true;
+ note.textContent='Отправка журнала PAPER · '+eligible.length+' · только по вашему нажатию…';
+ let accepted=0,duplicate=0;
+ try{
+  for(let i=0;i<eligible.length;i+=100){
+   const res=await adminFetch('/api/v2/admin/research/model-trades',{
+    method:'POST',body:JSON.stringify({trades:eligible.slice(i,i+100)})});
+   accepted+=Number(res.inserted||0);duplicate+=Number(res.already_present||0);
+  }
+  note.textContent='СЕРВЕРНЫЙ PAPER JOURNAL · новые '+accepted+
+   ' · повторные '+duplicate+' · неполные '+skipped.length+
+   ' · биржевые fill НЕ подтверждены';
+ }catch(e){
+  note.textContent='Не синхронизировано: '+String(e?.message||'ошибка')+
+   ' · сделок на бирже не было';
+ }finally{if(action)action.disabled=false}
+}
+
 function mount(){
  if($('ascSmcLayersBtn'))return;
  var bar=$('tfBar');if(!bar)return;
@@ -5367,6 +5469,21 @@ function mount(){
   '<div class="asc-smc-foot">Включение зон показывает данные только при наличии проверенного источника. SMC-исследования не отменяют Structure Engine. Настройки сохраняются в этом браузере.</div>';
  bar.insertAdjacentElement('afterend',panel);
  const lab=document.getElementById('ascResearchPanel');
+ if(lab&&!$('ascResearchSync')){
+  const sync=document.createElement('div');sync.id='ascResearchSync';
+  sync.style.cssText='margin-top:8px;padding-top:7px;border-top:1px solid #234159;font-size:10px;color:#adc8d8';
+  sync.innerHTML='<button id="ascResearchSyncButton" type="button" style="background:#0c2639;color:#d5ebf8;border:1px solid #35546b;border-radius:6px;padding:6px 10px;cursor:pointer">Сверить PAPER-журнал с сервером</button>'+
+   '<div id="ascResearchSyncStatus" role="status" style="margin-top:6px">Только закрытые SHADOW с сохранёнными fill · старые неполные сделки не восстанавливаются</div>';
+  lab.appendChild(sync);
+  $('ascResearchSyncButton').addEventListener('click',syncPaperResearchJournal);
+ }
+ if(lab&&!$('ascResearchIntegrity')){
+  const node=document.createElement('div');
+  node.id='ascResearchIntegrity';
+  node.style.cssText='font-size:10px;margin:8px 0;color:#b8d2e0;line-height:1.45;border-left:2px solid #36546b;padding:6px 9px;background:#0a1b29';
+  const part=$('ascResearchParticipation');
+  if(part)part.insertAdjacentElement('beforebegin',node);else lab.appendChild(node);
+ }
  if(lab&&!$('ascResearchPoi')){
   const poi=document.createElement('div');poi.id='ascResearchPoi';poi.style.cssText='font-size:10px;margin:8px 0;color:#a8ccd9';
   const fvg=$('ascResearchFvg');if(fvg)fvg.insertAdjacentElement('afterend',poi);else lab.appendChild(poi);

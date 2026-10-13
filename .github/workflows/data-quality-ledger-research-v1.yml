@@ -1,0 +1,27 @@
+name: ASCEND Data Quality and Research Ledger V1
+on:
+  push:
+    branches: [feature/data-quality-ledger-research-v1-20261013]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  research-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install asyncpg httpx
+      - run: python -m py_compile data_quality_v1.py research_trade_ledger_v1.py research_replay_v1.py terminal_api_v2.py
+      - run: PYTHONPATH=. python tests/test_data_quality_v1.py
+      - run: PYTHONPATH=. python tests/test_research_trade_ledger_v1.py
+      - run: node tests/smc-layer-controls-v1.test.mjs
+      - run: node tests/smc-poi-research-v1.test.mjs
+      - run: node tests/cloudflare-confirmation-v2.test.mjs
+      - run: node tests/cloudflare-v2-unified-setup.test.mjs

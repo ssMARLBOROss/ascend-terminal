@@ -3,6 +3,7 @@
   'use strict';
   const $=id=>document.getElementById(id);
   let loadedAt=0,loadedSym='',lastData=null,busy=false;
+  let qualityData=null,qualityAt=0,qualityBusy=false;
   const number=(x,d=4)=>typeof x==='number'&&Number.isFinite(x)?x.toFixed(d):'—';
   function paint(){
     if(typeof state==='undefined'||document.body.dataset.view!=='market')return;
@@ -39,6 +40,27 @@
       const after=engine.scan(qaAggregate(q,60,180),asOf).filter(z=>z.formedAt>sweep.at);
       box.textContent+=' · ПОСЛЕ SWEEP '+after.length+' / active '+after.filter(z=>z.status!=='FILLED').length;
     }
+    const quality=$('ascResearchIntegrity');
+    if(quality){
+      const d=qualityData;
+      if(!d||d.symbol!==state.symbol||Date.now()-qualityAt>=90000){
+        quality.textContent='DATA HEALTH · NO DATA · ожидание проверки источника';
+      }else if(d.status!=='READ_ONLY_AUDIT'){
+        quality.textContent='DATA HEALTH · NO DATA · '+(d.reason||'проверка недоступна');
+      }else{
+        const candle=d.candles_1m||{},m=candle.mexc||{},b=candle.bybit||{},
+              feeds=d.participation||{};
+        quality.textContent='DATA HEALTH · MEXC 1m '+(m.status||'NO DATA')+
+          ' '+(m.observed??0)+'/'+(m.expected??60)+' · пропусков '+(m.missing??'—')+
+          ' · возраст '+(m.age_after_close_sec??'—')+'с'+
+          ' · Bybit '+(b.status||'NO DATA')+' '+(b.observed??0)+'/'+(b.expected??60)+
+          ' · CVD '+(feeds.cvd?.status||'NO DATA')+
+          ' · OI '+(feeds.oi?.status||'NO DATA')+
+          ' · BOOK '+(feeds.book?.status||'NO DATA')+
+          ' · LIQ '+(feeds.liquidations?.status||'NO DATA')+
+          ' · только контроль, не фильтр входа';
+      }
+    }
     const status=$('ascResearchParticipation');
     if(status){
       const d=lastData,valid=d&&d.symbol===state.symbol.replace('_','')&&
@@ -69,13 +91,30 @@
     }catch(_){lastData=null;loadedAt=0}
     finally{busy=false;paint()}
   }
+  async function fetchQuality(){
+    if(typeof state==='undefined'||document.body.dataset.view!=='market'||qualityBusy)return;
+    const symbol=String(state.symbol||'');
+    if(!/^[A-Z0-9]+_USDT$/.test(symbol))return;
+    qualityBusy=true;
+    try{
+      const res=await fetch('/api/v2/research/data-quality?symbol='+encodeURIComponent(symbol)+'&minutes=60',
+        {headers:{Accept:'application/json'},cache:'no-store'});
+      if(!res.ok)throw Error(String(res.status));
+      const d=await res.json();
+      if(state.symbol!==symbol)return;
+      qualityData=d;qualityAt=Date.now();
+    }catch(_){qualityData=null;qualityAt=0}
+    finally{qualityBusy=false;paint()}
+  }
   function start(){
     setInterval(paint,8000);
     setInterval(fetchOne,30000);
+    setInterval(fetchQuality,30000);
     setTimeout(fetchOne,1300);
+    setTimeout(fetchQuality,1700);
     paint();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
   else start();
-  root.ASCEND_RESEARCH_UI_V1=Object.freeze({paint,refresh:fetchOne});
+  root.ASCEND_RESEARCH_UI_V1=Object.freeze({paint,refresh:fetchOne,refreshQuality:fetchQuality});
 })(typeof window!=='undefined'?window:globalThis);
