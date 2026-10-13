@@ -17,6 +17,7 @@ import history_store
 import macro_fred
 import capital_flow_mexc
 import market_participation_v1
+import data_quality_v1
 
 MEXC_BASE_URL = "https://api.mexc.com"
 MEXC_KLINE_URL = MEXC_BASE_URL + "/api/v1/contract/kline/{symbol}"
@@ -719,6 +720,19 @@ def install(app: Any) -> None:
             ticker = None
         return JSONResponse(await capital_flow_mexc.snapshot(safe, ticker),
                             headers={"Cache-Control": "private, no-store"})
+
+    @app.get("/api/v2/research/data-quality")
+    async def research_data_quality(
+        symbol: str = Query(default="BTC_USDT"),
+        minutes: int = Query(default=60, ge=5, le=180),
+    ):
+        safe = _safe_symbol(symbol)
+        # Read-only introspection. No reconstruction of absent 1m bars or
+        # promotion of partial CVD into a full cumulative measurement.
+        return JSONResponse(
+            await data_quality_v1.report(safe, minutes=minutes),
+            headers={"Cache-Control": "private, no-store"},
+        )
 
     @app.get("/api/v2/research/market-participation")
     async def research_market_participation(symbol: str = Query(default="BTC_USDT")):
