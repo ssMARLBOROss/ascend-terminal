@@ -5019,6 +5019,167 @@ body.ascend-ui-v11 .topbar{gap:8px}
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 
+<!-- ASCEND SMC POI ENGINE V1 (embedded source parity) -->
+<script>
+/* ASCEND SMC POI Research V1 — closed 5m OHLC only; not an entry engine.
+ * Heuristic definitions, NOT proof of institutional orders or future direction.
+ * Never modifies the trading core, alerts, paper fills or Risk Engine.
+ */
+(function(root){
+'use strict';
+const TYPES=['ifvg','ob','rb','stb','ote'];
+const finite=Number.isFinite;
+function prepare(raw,asOf){
+ if(!Array.isArray(raw)||!finite(asOf))return [];
+ const sorted=raw.filter(b=>b&&finite(b.time)&&b.time+300<=asOf&&
+  [b.open,b.high,b.low,b.close].every(x=>finite(x)&&x>0)&&
+  b.low<=Math.min(b.open,b.close)&&b.high>=Math.max(b.open,b.close))
+  .sort((a,b)=>a.time-b.time);
+ const unique=[];for(const b of sorted){if(unique.length&&unique.at(-1).time===b.time)continue;unique.push(b);}
+ // Use a contiguous tail only; never bridge exchange or feed gaps.
+ let start=unique.length-1;
+ while(start>0&&unique[start].time-unique[start-1].time===300)start--;
+ return unique.slice(start).slice(-240);
+}
+function atrAt(b,i){
+ if(i<14)return null;
+ let tr=0;
+ for(let k=i-13;k<=i;k++){
+  const x=b[k],p=b[k-1];if(!p)return null;
+  tr+=Math.max(x.high-x.low,Math.abs(x.high-p.close),Math.abs(x.low-p.close));
+ }
+ return tr/14;
+}
+function zone(type,side,lower,upper,at,extra={}){
+ if(![lower,upper,at].every(finite)||lower<=0||upper<=lower)return null;
+ return {type,side,lower,upper,formedAt:at,status:'OPEN',sourceTF:'5m',...extra};
+}
+function checkActive(z,b,from){
+ for(let i=from;i<b.length;i++){
+  const x=b[i];
+  // Zone becomes invalid only after a *closed* candle beyond its outer edge.
+  if(z.side==='LONG'?x.close<z.lower:x.close>z.upper){z.status='INVALID';z.invalidAt=x.time+300;break;}
+  if(x.high>=z.lower&&x.low<=z.upper){
+   z.status='TOUCHED';if(!z.firstTouchAt)z.firstTouchAt=x.time+300;
+  }
+ }
+ return z;
+}
+function detect(b){
+ const zones=[];
+ for(let i=17;i<b.length;i++){
+  const x=b[i],prev=b[i-1],atr=atrAt(b,i);if(!atr||atr<=0)continue;
+  // IFVG: an existing confirmed 3-candle 5m price gap is closed through
+  // the opposite edge. NOT merely an overlapping opposite-color gap.
+  if(i>=20){
+   const f=b[i-2],j=b[i-1],lowerLong=f.high,upperLong=x.low;
+   const lowerShort=x.high,upperShort=f.low;
+   let base=null;
+   if(upperLong>lowerLong&&upperLong-lowerLong>=.25*atr)
+    base=zone('fvg-base','LONG',lowerLong,upperLong,x.time+300);
+   else if(upperShort>lowerShort&&upperShort-lowerShort>=.25*atr)
+    base=zone('fvg-base','SHORT',lowerShort,upperShort,x.time+300);
+   if(base)zones.push({...base,originIndex:i});
+  }
+  // Order block proxy: last opposite candle followed by displacement
+  // close beyond the previous 6-bar extreme (with measurable ATR).
+  if(i>=20&&Math.abs(x.close-x.open)>=1.0*atr){
+   const up=x.close>x.open&&prev.close<prev.open&&
+    x.close>Math.max(...b.slice(i-7,i).map(v=>v.high));
+   const down=x.close<x.open&&prev.close>prev.open&&
+    x.close<Math.min(...b.slice(i-7,i).map(v=>v.low));
+   if(up||down){
+    const z=zone('ob',up?'LONG':'SHORT',Math.min(prev.open,prev.close),
+     Math.max(prev.open,prev.close),x.time+300,{context:'противоположная свеча → displacement'});
+    if(z)zones.push({...z,originIndex:i});
+   }
+  }
+  // Rejection block: wick dominates (>2x body) AND swept the previous
+  // five-bar extreme; confirmation only on the *next* closed candle.
+  if(i>=20&&i+1<b.length){
+   const range=x.high-x.low,body=Math.abs(x.close-x.open),upW=x.high-Math.max(x.open,x.close),
+     downW=Math.min(x.open,x.close)-x.low,after=b[i+1];
+   const lowSweep=x.low<Math.min(...b.slice(i-5,i).map(v=>v.low));
+   const hiSweep=x.high>Math.max(...b.slice(i-5,i).map(v=>v.high));
+   const long=range>=.7*atr&&body<=range*.30&&downW>=2*Math.max(body,.001*atr)&&
+     downW>=upW*1.4&&lowSweep&&after.close>x.high;
+   const short=range>=.7*atr&&body<=range*.30&&upW>=2*Math.max(body,.001*atr)&&
+     upW>=downW*1.4&&hiSweep&&after.close<x.low;
+   if(long||short){
+    const z=zone('rb',long?'LONG':'SHORT',long?x.low:Math.max(x.open,x.close),
+      long?Math.min(x.open,x.close):x.high,after.time+300,{context:'sweep + rejection + follow-through'});
+    if(z)zones.push({...z,originIndex:i+1});
+   }
+  }
+  // STB/BTS: confirmed sweep/reclaim and next-bar impulse; no inference
+  // that any particular market maker caused it.
+  if(i>=23&&i+1<b.length){
+   const after=b[i+1],down=x.low<Math.min(...b.slice(i-10,i).map(v=>v.low))&&
+    x.close>b[i-1].low&&after.close>x.high&&after.close-after.open>=.6*atr;
+   const up=x.high>Math.max(...b.slice(i-10,i).map(v=>v.high))&&
+    x.close<b[i-1].high&&after.close<x.low&&after.open-after.close>=.6*atr;
+   if(down||up){
+    const z=zone('stb',down?'LONG':'SHORT',down?x.low:Math.max(x.open,x.close),
+       down?Math.min(x.open,x.close):x.high,after.time+300,
+       {context:down?'STB · low sweep/reclaim':'BTS · high sweep/reclaim'});
+    if(z)zones.push({...z,originIndex:i+1});
+   }
+  }
+ }
+ // An old gap becomes an inverse gap only on a *later* close through it.
+ const base=zones.filter(z=>z.type==='fvg-base');
+ for(const f of base){
+  for(let k=f.originIndex+1;k<b.length;k++){
+   const flipped=f.side==='LONG'?b[k].close<f.lower:b[k].close>f.upper;
+   if(flipped){
+    const z=zone('ifvg',f.side==='LONG'?'SHORT':'LONG',f.lower,f.upper,b[k].time+300,
+       {context:'5m gap → close through far edge'});
+    if(z)zones.push({...z,originIndex:k});
+    break;
+   }
+  }
+ }
+ // OTE is the most recent completed extreme-to-extreme leg in a 48-bar
+ // causal window; it is a reference zone, not a predictive signal.
+ if(b.length>=48){
+  const h=b.slice(-48),hi=Math.max(...h.map(x=>x.high)),lo=Math.min(...h.map(x=>x.low));
+  const highIndex=h.findLastIndex(x=>x.high===hi),lowIndex=h.findLastIndex(x=>x.low===lo);
+  const a=atrAt(b,b.length-1);
+  if(a&&hi-lo>=2*a&&highIndex!==lowIndex){
+   const long=lowIndex<highIndex,leg=hi-lo;
+   const lower=long?hi-.79*leg:lo+.62*leg;
+   const upper=long?hi-.62*leg:lo+.79*leg;
+   const i=b.length-48+Math.max(highIndex,lowIndex);
+   const z=zone('ote',long?'LONG':'SHORT',lower,upper,b[i].time+300,
+       {context:'последняя волна 48×5m · Fibonacci 0.62–0.79'});
+   if(z)zones.push({...z,originIndex:i});
+  }
+ }
+ const now=b.at(-1)?.time+300,price=b.at(-1)?.close;
+ const active=zones.filter(z=>z.type!=='fvg-base'&&
+  now-z.formedAt<=96*300&&now>=z.formedAt)
+  .map(z=>checkActive(z,b,z.originIndex+1))
+  .filter(z=>z.status!=='INVALID');
+ // Retain only the latest candidate per type+side, ranked near current price.
+ const uniq=new Map();
+ for(const z of active){const key=z.type+'_'+z.side;const before=uniq.get(key);
+  if(!before||z.formedAt>before.formedAt)uniq.set(key,z);
+ }
+ return [...uniq.values()].map(z=>({...z,distancePct:100*
+   (price<z.lower?z.lower-price:price>z.upper?price-z.upper:0)/price}))
+  .sort((a,b)=>a.distancePct-b.distancePct||b.formedAt-a.formedAt);
+}
+function scan(raw,asOf){
+ const candles=prepare(raw,asOf);
+ if(candles.length<48)return {status:'NO DATA',reason:'недостаточно непрерывной истории 5m',
+  asOf,candles:candles.length,zones:[],counts:{}};
+ const zones=detect(candles),counts={};
+ TYPES.forEach(k=>counts[k]=zones.filter(z=>z.type===k).length);
+ return {status:'RESEARCH',asOf,candles:candles.length,zones,counts};
+}
+root.ASCEND_SMC_POI_RESEARCH_V1=Object.freeze({scan,prepare,atrAt,TYPES});
+})(typeof window!=='undefined'?window:globalThis);
+</script>
 <!-- ASCEND SMC LAYER MANAGER V1 — display-only, no trading-signal changes -->
 <style>
 body[data-asc-smc-ready="1"] #tfBar #ascendVwapToggle,
@@ -5079,11 +5240,11 @@ var labels={
  previousSessions:['Предыдущие сессии','FROZEN High/Low прошлых сессий'],
  vwap:['VWAP','Средневзвешенная цена на графике'],
  fvg:['FVG','Закрытые 3m свечи · малый/крупный'],
- ifvg:['IFVG','Инверсия дисбаланса · прототип'],
- ob:['Order Block','Зона перед импульсом · прототип'],
- rb:['Rejection Block','Отбой по фитилю · прототип'],
- stb:['STB / BTS','Sell-to-Buy / Buy-to-Sell · прототип'],
- ote:['OTE','Коррекция 0.62–0.79 · прототип'],
+ ifvg:['IFVG','Пробой исходного FVG + инверсия · 5m'],
+ ob:['Order Block','Последняя противоположная свеча + импульс · 5m'],
+ rb:['Rejection Block','Снятие + фитиль + подтверждение · 5m'],
+ stb:['STB / BTS','Sweep + reclaim + импульс · 5m'],
+ ote:['OTE','Коррекция последней волны 0.62–0.79 · 5m'],
  confirmation:['Подтверждения','Этапы 30m → 1m · только показ'],
  risk:['Risk / R:R','Справка по SL / TP / риску'],
  orders:['Управление сделкой','Кнопки теневой покупки и продажи'],
@@ -5112,7 +5273,8 @@ function updateVisual(){
  setShown($('ascResearchHistory'),enabled.analytics);
  setShown($('ascResearchParticipation'),enabled.participation);
  setShown($('ascResearchFvg'),enabled.fvg);
- setShown($('ascResearchPanel'),enabled.fvg||enabled.analytics||enabled.participation);
+ setShown($('ascResearchPoi'),['ifvg','ob','rb','stb','ote'].some(k=>enabled[k]));
+ setShown($('ascResearchPanel'),enabled.fvg||enabled.analytics||enabled.participation||['ifvg','ob','rb','stb','ote'].some(k=>enabled[k]));
  setShown($('ascConfirmationV2Panel'),enabled.confirmation);
  var trade=document.querySelector('.chart-card .buy-sell');
  setShown(trade,enabled.orders);
@@ -5123,7 +5285,12 @@ function updateVisual(){
 }
 function statusOf(k){
  if(!enabled[k])return 'Скрыто с графика';
- if(['ifvg','ob','rb','stb','ote'].indexOf(k)>=0)return 'NO DATA · алгоритм наблюдения ещё не подключён';
+ if(['ifvg','ob','rb','stb','ote'].includes(k)){
+  const report=readPoi();
+  if(report.status!=='RESEARCH')return 'NO DATA · '+report.reason;
+  const n=report.counts[k]||0;
+  return n?n+' проверенных зон на 5m · только наблюдение':'NO DATA · активная зона 5m отсутствует';
+ }
  if(k==='risk')return 'Справка; фактические SL/TP рассчитываются существующим движком';
  if(k==='orders')return 'Только теневые сделки; реальные ордера не включены';
  if(k==='fvg')return $('ascResearchFvg')?.textContent||'Ожидание закрытых 3m свечей';
@@ -5198,6 +5365,11 @@ function mount(){
   '<div id="ascSmcResearchNote" hidden role="status"></div>'+
   '<div class="asc-smc-foot">Включение зон показывает данные только при наличии проверенного источника. SMC-исследования не отменяют Structure Engine. Настройки сохраняются в этом браузере.</div>';
  bar.insertAdjacentElement('afterend',panel);
+ const lab=document.getElementById('ascResearchPanel');
+ if(lab&&!$('ascResearchPoi')){
+  const poi=document.createElement('div');poi.id='ascResearchPoi';poi.style.cssText='font-size:10px;margin:8px 0;color:#a8ccd9';
+  const fvg=$('ascResearchFvg');if(fvg)fvg.insertAdjacentElement('afterend',poi);else lab.appendChild(poi);
+ }
  var risk=document.createElement('div');risk.id='ascSmcRiskNote';
  risk.innerHTML='<b>RISK · независимый калькулятор размера позиции</b><div class="asc-smc-risk-grid">'+
   '<label>Депозит, USDT<input id="ascSmcEq" type="number" min="1" value="500" step="1"></label>'+
@@ -5225,26 +5397,60 @@ function mount(){
  }
  document.body.dataset.ascSmcReady='1';
  sync();
+ setInterval(function(){if(isOpen)refreshUI();if(['ifvg','ob','rb','stb','ote'].some(k=>enabled[k]))updatePoiSummary(readPoi());},10000);
+}
+function readPoi(){
+ if(typeof state==='undefined'||!state.tf||typeof qaRows!=='function'||
+    !root.ASCEND_SMC_POI_RESEARCH_V1)return {status:'NO DATA',reason:'нет данных 5m',zones:[],counts:{}};
+ const rows=qaRows(state.tf['5m']||[],'5m');
+ const asOf=Math.min(Date.now()/1000+10,
+   (qaRows(state.tf['1m']||[],'1m').at(-1)?.time||0)+60);
+ if(!asOf)return {status:'NO DATA',reason:'нет закрытых свечей 1m',zones:[],counts:{}};
+ return root.ASCEND_SMC_POI_RESEARCH_V1.scan(rows,asOf);
+}
+function updatePoiSummary(report){
+ const node=$('ascResearchPoi');if(!node)return;
+ if(report.status!=='RESEARCH'){node.textContent='POI · NO DATA · '+(report.reason||'ожидание истории');return}
+ const active=['ifvg','ob','rb','stb','ote'].filter(k=>enabled[k]);
+ if(!active.length){node.textContent='';return}
+ const found=report.zones.filter(z=>enabled[z.type]);
+ node.textContent='POI 5m · '+active.map(k=>labels[k][0]+': '+(report.counts[k]||0)).join(' · ')+
+  ' · '+(found.length?'отмечены только ближайшие зоны':'активных зон нет')+
+  ' · RESEARCH ONLY / не ENTRY READY';
+}
+function paintZone(ctx,priceToY,w,h,z,label){
+ const y1=priceToY(z.lower),y2=priceToY(z.upper);
+ if(!Number.isFinite(y1)||!Number.isFinite(y2))return;
+ const top=Math.max(2,Math.min(y1,y2)),height=Math.max(3,Math.abs(y1-y2));
+ if(top>h||top+height<0)return;
+ const x=Math.max(7,w*.72),width=Math.max(10,w-80-x);
+ ctx.save();
+ ctx.fillStyle=z.side==='LONG'?'rgba(53,165,125,.065)':'rgba(214,93,110,.06)';
+ ctx.strokeStyle=z.side==='LONG'?'rgba(93,196,154,.49)':'rgba(235,124,145,.49)';
+ ctx.lineWidth=1;ctx.setLineDash([4,5]);
+ ctx.fillRect(x,top,width,height);ctx.strokeRect(x,top,width,height);
+ ctx.setLineDash([]);ctx.font='700 9px system-ui';ctx.fillStyle='#a9bfcd';
+ ctx.fillText(label+' · LAB',x+5,Math.max(11,top-4),Math.max(25,width-10));
+ ctx.restore();
 }
 function draw(ctx,priceToY,w,h){
- if(!enabled.fvg||typeof state==='undefined'||!state.tf||!root.ASCEND_FVG_RESEARCH_V1||
-    typeof qaRows!=='function'||typeof qaAggregate!=='function')return;
- var q=qaRows(state.tf['1m']||[],'1m'),last=q.at(-1);
- if(!last||!Number.isFinite(last.time))return;
- var asOf=last.time+60,rows=qaAggregate(q,60,180);
- var report=root.ASCEND_FVG_RESEARCH_V1.observe(rows,asOf),z=report&&report.nearestActive;
- if(!z||!Number.isFinite(z.lower)||!Number.isFinite(z.upper))return;
- var y1=priceToY(z.lower),y2=priceToY(z.upper);
- if(!Number.isFinite(y1)||!Number.isFinite(y2))return;
- var top=Math.max(2,Math.min(y1,y2)),height=Math.max(2,Math.abs(y1-y2));
- var x=Math.max(7,w*.67),width=Math.max(10,w-80-x);
- ctx.save();
- ctx.fillStyle=z.side==='LONG'?'rgba(53,165,125,.09)':'rgba(214,93,110,.08)';
- ctx.strokeStyle=z.side==='LONG'?'rgba(93,196,154,.65)':'rgba(235,124,145,.65)';
- ctx.setLineDash([4,5]);ctx.fillRect(x,top,width,height);ctx.strokeRect(x,top,width,height);
- ctx.setLineDash([]);ctx.font='700 10px system-ui';ctx.fillStyle='#bad9ec';
- ctx.fillText('FVG '+(z.cls||'')+' · RESEARCH',x+5,Math.max(13,top-4),Math.max(20,width-10));
- ctx.restore();
+ if(typeof state==='undefined'||!state.tf||typeof qaRows!=='function')return;
+ let slots=0; // At most three sparse overlays on the main candle view.
+ if(enabled.fvg&&root.ASCEND_FVG_RESEARCH_V1&&typeof qaAggregate==='function'){
+  const q=qaRows(state.tf['1m']||[],'1m'),last=q.at(-1),asOf=last?.time+60;
+  if(Number.isFinite(asOf)){
+   const r=root.ASCEND_FVG_RESEARCH_V1.observe(qaAggregate(q,60,180),asOf);
+   if(r.nearestActive){paintZone(ctx,priceToY,w,h,r.nearestActive,'FVG '+r.nearestActive.cls);slots++}
+  }
+ }
+ if(['ifvg','ob','rb','stb','ote'].some(k=>enabled[k])){
+  const report=readPoi();updatePoiSummary(report);
+  if(report.status==='RESEARCH')for(const z of report.zones){
+   if(!enabled[z.type])continue;
+   paintZone(ctx,priceToY,w,h,z,z.type.toUpperCase());
+   if(++slots>=3)break;
+  }
+ }
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 root.ASCEND_SMC_UI_V1=Object.freeze({
