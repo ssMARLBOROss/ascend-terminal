@@ -91,6 +91,13 @@ async def test_browser():
         await page.locator('#ascSmcLayersBtn').click()
         await page.locator('#ascSmcSwitch_sessions').click()
         await page.locator('#ascSmcSwitch_confirmation').click()
+        # Independent risk calculator: $500, 1% risk, entry 100, SL 99, TP 102, 20x.
+        await page.locator('#ascSmcEntry').fill('100')
+        await page.locator('#ascSmcStop').fill('99')
+        await page.locator('#ascSmcTp').fill('102')
+        calc=await page.locator('#ascSmcRiskResult').text_content()
+        assert 'риск 5.00 USDT' in calc and 'маржа ≈ 25.00 USDT' in calc
+        assert 'R:R 1:2.00' in calc
         result=await page.evaluate("""() => ({
           loaded:document.readyState,
           pageTitle:document.title,
