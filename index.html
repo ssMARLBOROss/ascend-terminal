@@ -1646,7 +1646,7 @@ function ascendLiquidityDraw(){
   if(model&&window.AscendLiquidityMap&&(!window.ASCEND_SMC_UI_V1||window.ASCEND_SMC_UI_V1.isEnabled('liquidity')))window.AscendLiquidityMap.draw(
     ctx,{left:6,right:Math.max(6,w-70)},priceToY,model);
   drawSessionHL(ctx,priceToY,w,h);
-  if(structureEvidenceOn&&latestStructureEvidence?.status==='READY'){
+  if(structureEvidenceOn&&(!window.ASCEND_SMC_UI_V1||window.ASCEND_SMC_UI_V1.isEnabled('structure'))&&latestStructureEvidence?.status==='READY'){
     const tfSeconds={'1m':60,'5m':300,'10m':600,'15m':900,'30m':1800,
       '1h':3600,'4h':14400,'1d':86400}[state.timeframe]||300;
     const visible=latestStructureEvidence.recent.filter(e=>
@@ -5103,7 +5103,7 @@ function originalToggle(id,on){
  if((el.getAttribute('aria-pressed')==='true')!==on)el.click();
 }
 function updateVisual(){
- originalToggle('ascendStructureToggle',enabled.structure);
+ // Structure calculations must stay active even when graphic annotations are hidden.
  originalToggle('ascSessionHLToggle',enabled.sessions);
  originalToggle('ascSessionHLPrevious',enabled.previousSessions);
  originalToggle('ascendVwapToggle',enabled.vwap);
@@ -5216,6 +5216,13 @@ function mount(){
   var p=e.target.closest('[data-preset]');if(p)preset(p.dataset.preset);
  });
  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isOpen){isOpen=false;panel.hidden=true;sync()}});
+ // Old structure switch also disabled computation; migrate it to always-on
+ // computation and let this panel control visibility of the annotations only.
+ if(typeof structureEvidenceOn!=='undefined'&&!structureEvidenceOn){
+  structureEvidenceOn=true;structureEvidenceKey='';
+  try{localStorage.setItem('ascend_structure_research_v1','on')}catch(_){}
+  if(typeof renderStructureEvidence==='function')renderStructureEvidence();
+ }
  document.body.dataset.ascSmcReady='1';
  sync();
 }
