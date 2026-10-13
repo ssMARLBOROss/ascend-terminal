@@ -1643,7 +1643,7 @@ function ascendLiquidityDraw(){
   // CHOCH is independent from frozen liquidity data; retain its marker
   // even when incomplete session history makes the map unavailable.
   const priceToY=p=>candles.priceToCoordinate(Number(p));
-  if(model&&window.AscendLiquidityMap)window.AscendLiquidityMap.draw(
+  if(model&&window.AscendLiquidityMap&&(!window.ASCEND_SMC_UI_V1||window.ASCEND_SMC_UI_V1.isEnabled('liquidity')))window.AscendLiquidityMap.draw(
     ctx,{left:6,right:Math.max(6,w-70)},priceToY,model);
   drawSessionHL(ctx,priceToY,w,h);
   if(structureEvidenceOn&&latestStructureEvidence?.status==='READY'){
@@ -1690,6 +1690,7 @@ function ascendLiquidityDraw(){
     }
     ctx.restore();
   }
+  if(window.ASCEND_SMC_UI_V1)window.ASCEND_SMC_UI_V1.draw(ctx,priceToY,w,h);
 }
 function ascendLiquidityRender(){
   if(!state.chartReady||!window.AscendLiquidityMap)return;
@@ -5017,5 +5018,203 @@ body.ascend-ui-v11 .topbar{gap:8px}
   root.ASCEND_RESEARCH_UI_V1=Object.freeze({paint,refresh:fetchOne});
 })(typeof window!=='undefined'?window:globalThis);
 </script>
+
+<!-- ASCEND SMC LAYER MANAGER V1 — display-only, no trading-signal changes -->
+<style>
+body[data-asc-smc-ready="1"] #tfBar #ascendVwapToggle,
+body[data-asc-smc-ready="1"] #tfBar #ascendVwapBadge,
+body[data-asc-smc-ready="1"] #tfBar #ascendStructureToggle,
+body[data-asc-smc-ready="1"] #tfBar #ascStructureMini,
+body[data-asc-smc-ready="1"] #tfBar #ascSessionHLToggle,
+body[data-asc-smc-ready="1"] #tfBar #ascSessionHLPrevious{display:none!important}
+#ascSmcLayersBtn{margin-left:auto;border:1px solid #36546b;background:#0b2032;color:#e0eef9;border-radius:7px;min-height:32px;padding:0 12px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}
+#ascSmcLayersBtn[aria-expanded="true"]{border-color:#50b1dd;background:#11314a}
+#ascSmcPanel[hidden]{display:none!important}
+#ascSmcPanel{border:1px solid #23415a;border-radius:9px;margin:7px 10px 10px;padding:12px;background:#071421;color:#dbe9f6;box-shadow:0 12px 28px #0003}
+.asc-smc-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.asc-smc-head strong{font-size:12px;letter-spacing:.04em}
+.asc-smc-head small,.asc-smc-foot{font-size:10px;color:#8da9bc}
+.asc-smc-presets{display:flex;gap:5px;margin-left:auto}
+.asc-smc-presets button{border:1px solid #34506a;border-radius:6px;background:#0a2032;color:#bdcfdf;padding:6px 8px;font-size:10px;cursor:pointer}
+.asc-smc-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.asc-smc-group{border:1px solid #22384c;border-radius:9px;padding:9px;background:#091a29;min-width:0}
+.asc-smc-group>h4{margin:0 0 7px;color:#c5dded;font-size:11px}
+.asc-smc-row{width:100%;min-height:40px;border:0;border-top:1px solid #182d41;background:none;color:#c1d2df;display:flex;gap:10px;align-items:center;text-align:left;padding:7px 3px;cursor:pointer}
+.asc-smc-row:first-of-type{border-top:0}
+.asc-smc-row:hover,.asc-smc-row:focus-visible{background:#112a3d;outline:none}
+.asc-smc-copy{display:grid;gap:2px;min-width:0;flex:1}
+.asc-smc-copy b{font-size:11px;color:#e3ecf4}
+.asc-smc-copy small{font-size:9px;color:#829fb3;line-height:1.25}
+.asc-smc-switch{width:31px;height:17px;background:#293b4a;border:1px solid #486076;border-radius:12px;position:relative;flex:none}
+.asc-smc-switch:before{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#8ba1b3;transition:transform .12s ease}
+.asc-smc-row[aria-checked="true"] .asc-smc-switch{background:#14533e;border-color:#359676}
+.asc-smc-row[aria-checked="true"] .asc-smc-switch:before{transform:translateX(14px);background:#90f4c9}
+.asc-smc-row[data-research="true"] .asc-smc-copy small:after{content:" · исследование";color:#c4aa78}
+.asc-smc-foot{margin-top:9px;line-height:1.4}
+#ascSmcResearchNote[hidden]{display:none}
+#ascSmcResearchNote{margin-top:7px;border:1px solid #244159;border-radius:7px;padding:8px 10px;background:#0a1d2c;font-size:10px;line-height:1.55;color:#b6cedd}
+#ascSmcRiskNote[hidden]{display:none}
+#ascSmcRiskNote{font-size:10px;color:#b8cbd9;margin:4px 10px 9px;border-left:2px solid #4780aa;padding:6px 9px;background:#091827}
+@media(max-width:700px){.asc-smc-groups{grid-template-columns:1fr}.asc-smc-presets{margin-left:0;flex-wrap:wrap}.asc-smc-head{align-items:start}#ascSmcLayersBtn{margin-left:0}}
+</style>
+<script>
+(function(root){
+'use strict';
+var KEY='ascend_smc_layers_v1';
+var defaults={
+ liquidity:true,structure:false,sessions:false,vwap:true,
+ fvg:false,ifvg:false,ob:false,rb:false,stb:false,ote:false,
+ confirmation:false,risk:true,orders:true,analytics:false,participation:false
+};
+var labels={
+ liquidity:['Ликвидность','BSL / SSL · YH/YL · ONH/ONL'],
+ structure:['Структура','HH/HL · LH/LL · BOS/CHOCH'],
+ sessions:['Торговые сессии','High/Low и замороженные уровни'],
+ vwap:['VWAP','Средневзвешенная цена на графике'],
+ fvg:['FVG','Закрытые 3m свечи · малый/крупный'],
+ ifvg:['IFVG','Инверсия дисбаланса · прототип'],
+ ob:['Order Block','Зона перед импульсом · прототип'],
+ rb:['Rejection Block','Отбой по фитилю · прототип'],
+ stb:['STB / BTS','Sell-to-Buy / Buy-to-Sell · прототип'],
+ ote:['OTE','Коррекция 0.62–0.79 · прототип'],
+ confirmation:['Подтверждения','Этапы 30m → 1m · только показ'],
+ risk:['Risk / R:R','Справка по SL / TP / риску'],
+ orders:['Управление сделкой','Кнопки теневой покупки и продажи'],
+ analytics:['Журнал / Analytics','Исторический Research Lab'],
+ participation:['Participation','CVD · OI · стакан · исследование']
+};
+var saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(_){}
+var enabled=Object.assign({},defaults);
+Object.keys(defaults).forEach(function(k){if(typeof saved[k]==='boolean')enabled[k]=saved[k]});
+var elements={},isOpen=false;
+function $(id){return document.getElementById(id)}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(enabled))}catch(_){}}
+function setShown(el,on){if(el)el.style.display=on?'':'none'}
+function originalToggle(id,on){
+ var el=$(id);if(!el)return;
+ // Drive the already implemented visualization switch, never replace its handler.
+ if((el.getAttribute('aria-pressed')==='true')!==on)el.click();
+}
+function updateVisual(){
+ originalToggle('ascendStructureToggle',enabled.structure);
+ originalToggle('ascSessionHLToggle',enabled.sessions);
+ originalToggle('ascendVwapToggle',enabled.vwap);
+ setShown($('ascStructureRibbon'),enabled.structure);
+ setShown($('ascStructurePanel'),enabled.structure);
+ setShown($('ascResearchHistory'),enabled.analytics);
+ setShown($('ascResearchParticipation'),enabled.participation);
+ setShown($('ascResearchFvg'),enabled.fvg);
+ setShown($('ascResearchPanel'),enabled.fvg||enabled.analytics||enabled.participation);
+ setShown($('ascConfirmationV2Panel'),enabled.confirmation);
+ var trade=document.querySelector('.chart-card .buy-sell');
+ setShown(trade,enabled.orders);
+ var risk=$('ascSmcRiskNote');if(risk)risk.hidden=!enabled.risk;
+ // Retain original backend analysis, orders and Risk Engine in every mode.
+ if(typeof ascendLiquidityDraw==='function')ascendLiquidityDraw();
+ if(root.ASCEND_RESEARCH_UI_V1&&enabled.fvg)root.ASCEND_RESEARCH_UI_V1.paint();
+}
+function statusOf(k){
+ if(!enabled[k])return 'Скрыто с графика';
+ if(['ifvg','ob','rb','stb','ote'].indexOf(k)>=0)return 'NO DATA · алгоритм наблюдения ещё не подключён';
+ if(k==='risk')return 'Справка; фактические SL/TP рассчитываются существующим движком';
+ if(k==='orders')return 'Только теневые сделки; реальные ордера не включены';
+ if(k==='fvg')return $('ascResearchFvg')?.textContent||'Ожидание закрытых 3m свечей';
+ if(k==='participation')return $('ascResearchParticipation')?.textContent||'NO DATA';
+ return 'Видимый аналитический слой · на решение ENTRY READY не влияет';
+}
+function refreshUI(){
+ var n=Object.values(enabled).filter(Boolean).length;
+ var launch=$('ascSmcLayersBtn');
+ if(launch){launch.textContent='☷ Слои · '+n;launch.setAttribute('aria-expanded',String(isOpen));}
+ Object.keys(enabled).forEach(function(k){
+  var row=$('ascSmcSwitch_'+k);
+  if(!row)return;
+  row.setAttribute('aria-checked',String(enabled[k]));
+  row.setAttribute('title',statusOf(k));
+ });
+ var note=$('ascSmcResearchNote');
+ if(note){
+  var research=['fvg','ifvg','ob','rb','stb','ote'].filter(function(k){return enabled[k]});
+  note.hidden=!research.length;
+  if(research.length)note.textContent=research.map(function(k){return labels[k][0]+': '+statusOf(k)}).join('  •  ');
+ }
+}
+function sync(){updateVisual();refreshUI()}
+function set(k,value){if(!Object.prototype.hasOwnProperty.call(defaults,k))return false;enabled[k]=!!value;persist();sync();return true}
+function preset(name){
+ var vals=Object.assign({},defaults);
+ if(name==='minimum'){vals.liquidity=true;vals.vwap=false;vals.structure=false;vals.sessions=false;vals.risk=false;vals.orders=false;}
+ else if(name==='work'){vals.liquidity=true;vals.vwap=true;vals.structure=false;vals.sessions=true;vals.confirmation=true;vals.risk=true;vals.orders=true;}
+ else if(name==='smc'){vals.liquidity=true;vals.structure=true;vals.sessions=true;vals.vwap=true;vals.fvg=true;vals.confirmation=true;vals.risk=true;vals.orders=true;}
+ Object.keys(vals).forEach(function(k){enabled[k]=vals[k]});persist();sync();
+}
+function row(k,research){
+ return '<button type="button" class="asc-smc-row" role="switch" aria-checked="false" id="ascSmcSwitch_'+k+'" data-layer="'+k+'"'+(research?' data-research="true"':'')+'><span class="asc-smc-copy"><b>'+labels[k][0]+'</b><small>'+labels[k][1]+'</small></span><span class="asc-smc-switch" aria-hidden="true"></span></button>';
+}
+function group(title,keys,research){
+ return '<section class="asc-smc-group"><h4>'+title+'</h4>'+keys.map(function(k){return row(k,research)}).join('')+'</section>';
+}
+function mount(){
+ if($('ascSmcLayersBtn'))return;
+ var bar=$('tfBar');if(!bar)return;
+ var launch=document.createElement('button');launch.type='button';
+ launch.id='ascSmcLayersBtn';launch.setAttribute('aria-controls','ascSmcPanel');
+ launch.setAttribute('aria-expanded','false');
+ bar.appendChild(launch);
+ var panel=document.createElement('section');panel.id='ascSmcPanel';panel.hidden=true;
+ panel.setAttribute('aria-label','Слои ASCEND');
+ panel.innerHTML='<div class="asc-smc-head"><strong>СЛОИ ASCEND</strong>'+
+  '<small>График остаётся чистым · переключаются только элементы отображения</small>'+
+  '<div class="asc-smc-presets"><button data-preset="minimum">Минимум</button>'+
+  '<button data-preset="work">Рабочий</button><button data-preset="smc">SMC</button></div></div>'+
+  '<div class="asc-smc-groups">'+
+  group('01 · ОСНОВНОЙ ГРАФИК',['liquidity','structure','sessions','vwap'],false)+
+  group('02 · SMART MONEY / POI',['fvg','ifvg','ob','rb','stb','ote'],true)+
+  group('03 · СДЕЛКА И РИСК',['confirmation','risk','orders'],false)+
+  group('04 · ИССЛЕДОВАНИЯ',['analytics','participation'],true)+'</div>'+
+  '<div id="ascSmcResearchNote" hidden role="status"></div>'+
+  '<div class="asc-smc-foot">Включение зон показывает данные только при наличии проверенного источника. SMC-исследования не отменяют Structure Engine. Настройки сохраняются в этом браузере.</div>';
+ bar.insertAdjacentElement('afterend',panel);
+ var risk=document.createElement('div');risk.id='ascSmcRiskNote';
+ risk.textContent='RISK ENGINE · Структурный SL → ближайшая подтверждённая цель TP → проверка R:R ≥ 1:2. Плечо не определяет допустимый риск; реальные параметры смотрите в панели решения. Показ слоя не изменяет расчёт.';
+ panel.insertAdjacentElement('afterend',risk);
+ launch.addEventListener('click',function(){isOpen=!isOpen;panel.hidden=!isOpen;refreshUI()});
+ panel.addEventListener('click',function(e){
+  var b=e.target.closest('[data-layer]');if(b){set(b.dataset.layer,!enabled[b.dataset.layer]);return}
+  var p=e.target.closest('[data-preset]');if(p)preset(p.dataset.preset);
+ });
+ document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isOpen){isOpen=false;panel.hidden=true;refreshUI()}});
+ document.body.dataset.ascSmcReady='1';
+ sync();
+}
+function draw(ctx,priceToY,w,h){
+ if(!enabled.fvg||typeof state==='undefined'||!state.tf||!root.ASCEND_FVG_RESEARCH_V1||
+    typeof qaRows!=='function'||typeof qaAggregate!=='function')return;
+ var q=qaRows(state.tf['1m']||[],'1m'),last=q.at(-1);
+ if(!last||!Number.isFinite(last.time))return;
+ var asOf=last.time+60,rows=qaAggregate(q,60,180);
+ var report=root.ASCEND_FVG_RESEARCH_V1.observe(rows,asOf),z=report&&report.nearestActive;
+ if(!z||!Number.isFinite(z.lower)||!Number.isFinite(z.upper))return;
+ var y1=priceToY(z.lower),y2=priceToY(z.upper);
+ if(!Number.isFinite(y1)||!Number.isFinite(y2))return;
+ var top=Math.max(2,Math.min(y1,y2)),height=Math.max(2,Math.abs(y1-y2));
+ var x=Math.max(7,w*.67),width=Math.max(10,w-80-x);
+ ctx.save();
+ ctx.fillStyle=z.side==='LONG'?'rgba(53,165,125,.09)':'rgba(214,93,110,.08)';
+ ctx.strokeStyle=z.side==='LONG'?'rgba(93,196,154,.65)':'rgba(235,124,145,.65)';
+ ctx.setLineDash([4,5]);ctx.fillRect(x,top,width,height);ctx.strokeRect(x,top,width,height);
+ ctx.setLineDash([]);ctx.font='700 10px system-ui';ctx.fillStyle='#bad9ec';
+ ctx.fillText('FVG '+(z.cls||'')+' · RESEARCH',x+5,Math.max(13,top-4),Math.max(20,width-10));
+ ctx.restore();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+root.ASCEND_SMC_UI_V1=Object.freeze({
+ isEnabled:function(k){return !!enabled[k]},set:set,preset:preset,sync:sync,draw:draw,
+ state:function(){return Object.assign({},enabled)}
+});
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<!-- ASCEND SMC LAYER MANAGER V1 END -->
+
 </body>
 </html>
