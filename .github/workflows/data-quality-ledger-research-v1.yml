@@ -21,6 +21,7 @@ jobs:
       - run: python -m py_compile data_quality_v1.py research_trade_ledger_v1.py research_replay_v1.py terminal_api_v2.py
       - run: PYTHONPATH=. python tests/test_data_quality_v1.py
       - run: PYTHONPATH=. python tests/test_research_trade_ledger_v1.py
+      - run: PYTHONPATH=. python tests/test_research_90d_100_models.py
       - run: node tests/smc-layer-controls-v1.test.mjs
       - run: node tests/smc-poi-research-v1.test.mjs
       - run: node tests/cloudflare-confirmation-v2.test.mjs
