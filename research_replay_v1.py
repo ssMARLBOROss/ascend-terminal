@@ -63,6 +63,8 @@ def _fvg_tags(bars,si,bi,side,atr):
 def _exit(bars,en,side,sl,tp):
     for j in range(en,min(len(bars),en+MAX_HOLD)):
         b=bars[j]
+        if j>en and b["time"]-bars[j-1]["time"]!=STEP:
+            return None  # Future candle gap invalidates the modeled outcome.
         stop=b["low"]<=sl if side==1 else b["high"]>=sl
         target=b["high"]>=tp if side==1 else b["low"]<=tp
         if stop:return ("SL",sl,b["time"]+STEP)
