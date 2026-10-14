@@ -16,9 +16,9 @@ export function initialChartRange(
   timeframe:string,length:number,mode:ChartViewMode
 ):LogicalRange|null{
   if(length<2)return null;
-  if(mode==='FULL')return {from:Math.max(0,length-320),to:length+5};
+  if(mode==='FULL')return {from:Math.max(0,length-320),to:length+2};
   const count=TIGHT_FOCUS_BARS[timeframe]??115;
-  return {from:Math.max(0,length-count),to:length+5};
+  return {from:Math.max(0,length-count),to:length+2};
 }
 /**
  * A tightly scaled main price axis computed from WICKS of only visible bars.
