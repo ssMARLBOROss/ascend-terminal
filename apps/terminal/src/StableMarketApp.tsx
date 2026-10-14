@@ -26,6 +26,8 @@ import MarketStudiesRow from './components/MarketStudiesRow';
 import {StructureStatusRibbon,LevelChronologyPanel} from './components/StructureOverview';
 import {buildMarketLiquidity,buildDecisionResearch} from './market/liquidityDecisionResearch';
 import {LiquidityMapPanel,DecisionResearchPanel} from './components/LiquidityDecisionPanel';
+import {buildTrendStructure} from './market/trendStructureResearch';
+import TrendStructurePanel from './components/TrendStructurePanel';
 import {loadIndicatorSettings,DEFAULT_INDICATORS,STORAGE_KEY,
   type IndicatorSettings,type IndicatorKey} from './market/indicatorSettings';
 
@@ -69,6 +71,10 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
     symbol,bars:structure.closed1m??[],asOf:structure.report?.asOf??0,
     previousDay,onh:structure.report?.onh,onl:structure.report?.onl
   }),[symbol,structure.closed1m,structure.report,previousDay]);
+  const trendStructure=useMemo(()=>buildTrendStructure({
+    symbol,closed1m:structure.closed1m??[],asOf:structure.report?.asOf??0,
+    freshAt:structure.updatedAt,now:Date.now(),setupDirection:structure.report?.direction
+  }),[symbol,structure.closed1m,structure.updatedAt,structure.report]);
   const researchDecision=useMemo(()=>buildDecisionResearch({
     symbol,bars:structure.closed1m??[],report:structure.report,liquidity:liquidityMap,
     now:Date.now(),freshAt:structure.updatedAt
@@ -152,6 +158,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         {expandedOverlays?'Свернуть дополнительные слои':'Раскрыть FVG / TPO / Participation'}
       </button>
     </div>
+    <TrendStructurePanel snapshot={trendStructure}/>
     <StructureStatusRibbon feed={structure} decision={researchDecision}/>
     <div className={'asc-mp-layout'+(settings.participation&&expandedOverlays?' visible':'')}>
 
