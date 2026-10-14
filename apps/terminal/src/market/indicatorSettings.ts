@@ -5,7 +5,7 @@ import type {ChartViewMode} from '../components/chartViewport';
 
 export type IndicatorKey=
   'volume'|'vwap'|'sessions'|'sessionClock'|'dayLevels'|'sessionLevels'|
-  'book'|'stops'|'tpo'|'fvg'|'oi'|'longShort'|'cvd'|'participation'|'week'|'stats'|'coins';
+  'book'|'stops'|'tpo'|'fvg'|'oi'|'longShort'|'cvd'|'participation'|'week'|'stats'|'coins'|'rsi'|'sma'|'overnightLevels';
 
 export type IndicatorSettings=Record<IndicatorKey,boolean>&{
   fvgThreshold:number;
@@ -23,7 +23,7 @@ export type IndicatorSettings=Record<IndicatorKey,boolean>&{
 export const STORAGE_KEY='ascend.terminal.indicators.v1';
 
 export const DEFAULT_INDICATORS:IndicatorSettings={
-  volume:true,vwap:true,sessions:true,sessionClock:false,
+  volume:true,vwap:true,rsi:true,sma:false,overnightLevels:true,sessions:true,sessionClock:false,
   dayLevels:true,sessionLevels:false,book:false,stops:false,
   tpo:true,fvg:true,oi:true,longShort:true,cvd:true,participation:true,
   week:false,stats:true,coins:true,
@@ -42,6 +42,9 @@ export type IndicatorDefinition={
 };
 export const INDICATOR_CATALOG:IndicatorDefinition[]=[
   {key:'volume',name:'Volume',detail:'Объёмы под свечами',group:'График',color:'#52bba0'},
+  {key:'sma',name:'SMA 20 / 50 / 200',detail:'Средние линии на свечном графике',group:'График',color:'#4d97e8'},
+  {key:'overnightLevels',name:'ONH / ONL FROZEN',detail:'Замороженный ночной диапазон 00:00–06:00 UTC',group:'График',color:'#60bfb0'},
+  {key:'rsi',name:'RSI(14) · RC30/50/70',detail:'Импульс по закрытым свечам',group:'Нижние панели',color:'#e2be69'},
   {key:'vwap',name:'VWAP · UTC',detail:'Средневзвешенная цена',group:'График',color:'#edcf69'},
   {key:'fvg',name:'Fair Value Gap · FVG',detail:'Имбалансы и заполнение зон',group:'График',color:'#51d4a4'},
   {key:'tpo',name:'TPO · POC / VAH / VAL',detail:'Профиль ценового баланса',group:'График',color:'#c59beb'},

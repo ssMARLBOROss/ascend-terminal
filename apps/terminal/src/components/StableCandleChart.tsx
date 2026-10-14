@@ -20,7 +20,7 @@ type Snapshot={first?:number;last?:number;length:number};
 type BaseAutoscale=()=>({priceRange:{minValue:number;maxValue:number}}|null);
 
 /** Bounded session canvas only; no indicator computations or extra market subscriptions. */
-export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,fvgAppearance,focusRequest,viewMode,showVolume,showVwap,showSessions,showSessionClock,showDayLevels,showSessionLevels}:{
+export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,fvgAppearance,focusRequest,viewMode,showVolume,showVwap,showSessions,showSessionClock,showDayLevels,showSessionLevels,showSma=false,overnightLevels}:{
   candles:Candle[];timeframe:string;previousDay?:PreviousDayLevels;
   previousSessions?:PreviousSessionLevels;dailyVwap?:DailyVwap;
   orderbook?:OrderbookSnapshot;showBook:boolean;showStops:boolean;
@@ -29,6 +29,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
   focusRequest:number;viewMode:ChartViewMode;
   showVolume:boolean;showVwap:boolean;showSessions:boolean;showSessionClock:boolean;
   showDayLevels:boolean;showSessionLevels:boolean;
+  showSma?:boolean;overnightLevels?:{high:number;low:number;availableFrom:number};
 }){
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
@@ -50,6 +51,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
   const priceRef=useRef<ISeriesApi<'Candlestick'>|null>(null);
   const volumeRef=useRef<ISeriesApi<'Histogram'>|null>(null);
   const vwapRef=useRef<ISeriesApi<'Line'>|null>(null);
+  const smaRefs=useRef<Record<20|50|200,ISeriesApi<'Line'>|null>>({20:null,50:null,200:null});
   const snapshotRef=useRef<Snapshot>({length:0});
 
   useEffect(()=>{
@@ -102,6 +104,15 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
       autoscaleInfoProvider:(original:BaseAutoscale)=>
         viewModeRef.current==='TIGHT'?null:original()
     });
+    // Cloudflare market's SMA 20/50/200: display-only lines, no Core gating.
+    for(const [length,color] of [[20,'#2e84ff'],[50,'#ff9f2f'],[200,'#dce3ee']] as const){
+      smaRefs.current[length]=chart.addLineSeries({
+        color,lineWidth:2,lineStyle:LineStyle.Solid,priceLineVisible:false,
+        lastValueVisible:true,title:'SMA '+length,visible:showSma,
+        autoscaleInfoProvider:(original:BaseAutoscale)=>
+          viewModeRef.current==='TIGHT'?null:original()
+      });
+    }
     snapshotRef.current={length:0};
 
     // Coalesce pan/zoom/resize and live-candle requests into one canvas frame.
@@ -146,6 +157,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
       priceRef.current=null;
       volumeRef.current=null;
       vwapRef.current=null;
+      smaRefs.current={20:null,50:null,200:null};
       snapshotRef.current={length:0};
       chart.remove();
     };
@@ -186,6 +198,27 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
     volumeRef.current?.applyOptions({visible:showVolume});
   },[showVolume,timeframe]);
   useEffect(()=>{redrawRef.current()},[showSessions]);
+
+  // Moving averages use the already loaded selected-exchange candles.
+  useEffect(()=>{
+    for(const length of [20,50,200] as const){
+      const line=smaRefs.current[length];
+      if(!line)continue;
+      line.applyOptions({visible:showSma});
+      if(!showSma){line.setData([]);continue}
+      const points:{time:UTCTimestamp;value:number}[]=[];
+      let rolling=0;
+      for(let i=0;i<candles.length;i++){
+        rolling+=candles[i].close;
+        if(i>=length)rolling-=candles[i-length].close;
+        if(i>=length-1&&Number.isFinite(rolling))points.push({
+          time:Math.floor(candles[i].timestamp/1000) as UTCTimestamp,
+          value:rolling/length
+        });
+      }
+      line.setData(points);
+    }
+  },[candles,showSma,timeframe]);
 
   // Rolling price-based TPO profile: never modifies or gates ASCEND Core entries.
   // Visually distinct from green/red YH/YL and the golden VWAP.
@@ -261,6 +294,19 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
       series.removePriceLine(lowLine);
     };
   },[previousDay,showDayLevels]);
+
+  // Overnight high/low only once the 00:00–06:00 UTC range is FROZEN.
+  // Never reuse a prior day or provisional research value as today's live level.
+  useEffect(()=>{
+    const series=priceRef.current;
+    if(!series||!overnightLevels||Date.now()<overnightLevels.availableFrom||
+      !Number.isFinite(overnightLevels.high)||!Number.isFinite(overnightLevels.low))return;
+    const high=series.createPriceLine({price:overnightLevels.high,color:'#4dbbd8',
+      lineWidth:2,lineStyle:LineStyle.Dashed,axisLabelVisible:true,title:'ONH FROZEN'});
+    const low=series.createPriceLine({price:overnightLevels.low,color:'#b59ce3',
+      lineWidth:2,lineStyle:LineStyle.Dashed,axisLabelVisible:true,title:'ONL FROZEN'});
+    return()=>{series.removePriceLine(high);series.removePriceLine(low)};
+  },[overnightLevels?.high,overnightLevels?.low,overnightLevels?.availableFrom,timeframe]);
 
   // Yesterday's 3 session ranges are frozen lines: no recalculation on ticks.
   // Original YH/YL remain 4px solid; session levels are 2px dashed.
