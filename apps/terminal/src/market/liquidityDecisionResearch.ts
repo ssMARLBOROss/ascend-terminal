@@ -211,8 +211,9 @@ export function buildDecisionResearch(args:{
   let targetLevel:string|undefined;
   if(direction&&entry!==undefined&&sl!==undefined&&
     (direction==='LONG'?sl<entry:sl>entry)){
+    const candidateEntry=entry; // Stable narrowed value inside the filter callback.
     const known=liquidity.levels.filter(x=>x.state==='FROZEN'&&x.availableFrom<=asOf&&
-      (direction==='LONG'?x.price>entry:x.price<entry))
+      (direction==='LONG'?x.price>candidateEntry:x.price<candidateEntry))
       .sort((a,b)=>direction==='LONG'?a.price-b.price:b.price-a.price);
     if(known.length){tp=known[0].price;targetLevel=known[0].id;
       rr=Math.abs(tp-entry)/Math.abs(entry-sl);
