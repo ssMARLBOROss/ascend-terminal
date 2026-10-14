@@ -3,6 +3,8 @@ const FRONTEND = "https://raw.githubusercontent.com/ssMARLBOROss/ascend-terminal
 
 
 const OWNER_TOKEN_HASH = "d40b212fe51d0c456d7c5df5abe528df9817c646a63edcc38893a5063dc8a509";
+// Additional high-entropy owner key; original owner key remains valid.
+const RECOVERY_OWNER_TOKEN_HASH = "119542d16b3dcd51d7a665f650781c3067ccb870412a84b8f53833cab572ead8";
 const SHARE_TOKEN_HASH = "fa5ef0fe3a2ddb95cb234de5c9238e97761f3d198b64a87d950b3bbe3ae50cdd";
 const MULTI_SHARE_TOKEN_HASH = "d328e25505cd4d511c234adfb1143e6339fe7491fec35cd7cc7306b4e376fbbc";
 const SHARE_LINK_EXPIRES_AT = Date.parse("2026-10-02T16:48:00Z");
@@ -25,8 +27,11 @@ function eq(a,b){
   if(typeof a!=="string"||typeof b!=="string"||a.length!==b.length) return false;
   let d=0; for(let i=0;i<a.length;i++) d|=a.charCodeAt(i)^b.charCodeAt(i); return d===0;
 }
+function ownerDigestAllowed(value){
+  return eq(value,OWNER_TOKEN_HASH)||eq(value,RECOVERY_OWNER_TOKEN_HASH);
+}
 async function owner(req){
-  const t=cookie(req,"ascend_owner"); return !!t && eq(await sha(t),OWNER_TOKEN_HASH);
+  const t=cookie(req,"ascend_owner"); return !!t && ownerDigestAllowed(await sha(t));
 }
 async function shared(req){
   const t=cookie(req,"ascend_share"); return !!t && eq(await sha(t),MULTI_SHARE_TOKEN_HASH);
@@ -117,7 +122,7 @@ export default{
 
     if(u.pathname.startsWith("/owner/")){
       const t=decodeURIComponent(u.pathname.slice(7));
-      if(!t||!eq(await sha(t),OWNER_TOKEN_HASH)) return locked(403,"ASCEND · OWNER LINK INVALID");
+      if(!t||!ownerDigestAllowed(await sha(t))) return locked(403,"ASCEND · OWNER LINK INVALID");
       return new Response(null,{status:302,headers:{location:"/?view=market","set-cookie":"ascend_owner="+encodeURIComponent(t)+"; Path=/; Max-Age=2592000; HttpOnly; Secure; SameSite=Strict","cache-control":"no-store","referrer-policy":"no-referrer"}});
     }
     if(u.pathname.startsWith("/guest/")){
