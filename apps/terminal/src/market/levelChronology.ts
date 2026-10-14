@@ -35,17 +35,18 @@ export function deriveLevelChronology(
       const rejection=wickBeyond&&!outside(c.close)&&(!prior||!outside(prior.close));
       const reclaim=!!prior&&outside(prior.close)&&!outside(c.close);
       const touching=c.low<=p&&c.high>=p;
-      let kind:LevelMoment['kind']|undefined;
-      if(reclaim)kind='RECLAIM';
-      else if(rejection)kind='SWEEP';
-      else if(touching&&at-lastTouch>=10*60000)kind='TOUCH';
-      if(!kind)continue;
-      if(touching)lastTouch=at;
-      const ev={kind,at,price:c.close};
-      result.events.push(ev);
-      if(kind==='TOUCH')result.touch=ev;
-      if(kind==='SWEEP')result.sweep=ev;
-      if(kind==='RECLAIM')result.reclaim=ev;
+      const emit=(kind:LevelMoment['kind'])=>{
+        const ev:LevelMoment={kind,at,price:c.close};
+        result.events.push(ev);
+        if(kind==='TOUCH')result.touch=ev;
+        if(kind==='SWEEP')result.sweep=ev;
+        if(kind==='RECLAIM')result.reclaim=ev;
+      };
+      // A wick touch and a sweep can happen on the same CLOSED minute.
+      // Both are timestamped at its close, with no invented tick sequence.
+      if(touching&&at-lastTouch>=10*60000){emit('TOUCH');lastTouch=at}
+      if(reclaim)emit('RECLAIM');
+      else if(rejection)emit('SWEEP');
     }
     result.events=result.events.slice(-12);
     return result;
