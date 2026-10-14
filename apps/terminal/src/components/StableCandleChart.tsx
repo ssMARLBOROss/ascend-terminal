@@ -71,7 +71,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
       rightPriceScale:{borderColor:'#1d4055',autoScale:true,scaleMargins:{top:.065,bottom:.13}},
       timeScale:{
         borderColor:'#1d4055',timeVisible:true,secondsVisible:false,
-        rightOffset:6,barSpacing:7,minBarSpacing:2
+        rightOffset:2,barSpacing:8,minBarSpacing:2
       },
       crosshair:{mode:CrosshairMode.Normal},
       localization:{locale:'ru-RU'}

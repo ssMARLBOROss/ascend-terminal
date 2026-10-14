@@ -22,7 +22,8 @@ import {useMarketParticipation} from './market/useMarketParticipation';
 import {useContinuousCvd,type ContinuousCvd} from './market/useContinuousCvd';
 import ContinuousCvdPanel from './components/ContinuousCvdPanel';
 import IndicatorManager from './components/IndicatorManager';
-import CloudflareMarketIndicators from './components/CloudflareMarketIndicators';
+import MarketStudiesRow from './components/MarketStudiesRow';
+import {StructureStatusRibbon,LevelChronologyPanel} from './components/StructureOverview';
 import {loadIndicatorSettings,DEFAULT_INDICATORS,STORAGE_KEY,
   type IndicatorSettings,type IndicatorKey} from './market/indicatorSettings';
 
@@ -51,6 +52,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
   const[focusRequest,setFocusRequest]=useState(0);
   const[selectedFvgId,setSelectedFvgId]=useState<string>();
+  const[expandedOverlays,setExpandedOverlays]=useState(false);
   // Participation is a separate read-only consumer; hiding book rectangles
   // must not stop its selected-symbol snapshots when this panel is enabled.
   const liquidity=useOrderbookClusters(symbol,settings.book||settings.participation);
@@ -74,6 +76,14 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const shownFvg=useMemo(()=>selectFvgZones(
     fvgResearch.zones,displayPrice??0,settings.fvgViewMode,fvgAppearance
   ),[fvgResearch.zones,displayPrice,settings.fvgViewMode,fvgAppearance]);
+  const chartFvgAppearance=useMemo<FvgAppearance>(()=>expandedOverlays?fvgAppearance:{
+    ...fvgAppearance,opacity:Math.min(fvgAppearance.opacity,20),
+    maxZones:Math.min(fvgAppearance.maxZones,2),
+    showCreated:false,showRetest:false,showFill:false,midline:false
+  },[fvgAppearance,expandedOverlays]);
+  const chartFvg=useMemo(()=>selectFvgZones(
+    fvgResearch.zones,displayPrice??0,'near',chartFvgAppearance
+  ),[fvgResearch.zones,displayPrice,chartFvgAppearance]);
   const participation=useMarketParticipation({
     enabled:settings.participation,symbol,timeframe,candles,price:displayPrice,
     priceAt:lastUpdate,dailyVwap,tpo:liveMetrics.tpo,oi:liveMetrics.oi,
@@ -125,15 +135,25 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
       bookState={settings.book?
         (liquidity.status==='ready'?'ONLINE · '+new Date(liquidity.snapshot!.receivedAt).toLocaleTimeString('ru-RU'):
           liquidity.status==='error'?'НЕДОСТУПЕН':'ПОДКЛЮЧЕНИЕ'):'ВЫКЛЮЧЕН'}/>
-    <div className={'asc-mp-layout'+(settings.participation?' visible':'')}>
+    <div className="asc-chart-focus-controls">
+      <span>Рабочий график · свечи, ликвидность, VWAP</span>
+      <button type="button" aria-pressed={expandedOverlays}
+        onClick={()=>setExpandedOverlays(value=>!value)}>
+        {expandedOverlays?'Свернуть дополнительные слои':'Раскрыть FVG / TPO / Participation'}
+      </button>
+    </div>
+    <StructureStatusRibbon feed={structure}/>
+    <div className={'asc-mp-layout'+(settings.participation&&expandedOverlays?' visible':'')}>
+
       <div className="asc-mp-chart-column">
         <div className="asc-lite-chart-box">
       <StableCandleChart candles={candles} timeframe={timeframe} previousDay={previousDay}
         previousSessions={previousSessions} dailyVwap={dailyVwap}
         orderbook={liquidity.status==='ready'?liquidity.snapshot:undefined}
         showBook={settings.book} showStops={settings.stops}
-        tpo={liveMetrics.tpo.status==='ready'?liveMetrics.tpo.data:undefined} showTpo={settings.tpo}
-        fvgZones={shownFvg} showFvg={settings.fvg} fvgAppearance={fvgAppearance}
+        tpo={liveMetrics.tpo.status==='ready'?liveMetrics.tpo.data:undefined}
+        showTpo={settings.tpo&&expandedOverlays}
+        fvgZones={chartFvg} showFvg={settings.fvg} fvgAppearance={chartFvgAppearance}
         focusRequest={focusRequest} viewMode={settings.chartViewMode}
         showVolume={settings.volume} showVwap={settings.vwap}
         showSessions={settings.sessions} showSessionClock={settings.sessionClock}
@@ -146,25 +166,27 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         <span>{error??'График появится после получения истории Bybit REST'}</span>
       </div>}
         </div>
-        <CloudflareMarketIndicators candles={candles} timeframe={timeframe}
-          showRsi={settings.rsi} showSma={settings.sma}/>
-        {settings.cvd&&<ContinuousCvdPanel symbol={symbol} live={cvdStream}
+        <LevelChronologyPanel feed={structure} previousDay={previousDay} lastPrice={displayPrice}/>
+        <MarketStudiesRow symbol={symbol} candles={candles} timeframe={timeframe}
+          cvd={cvdStream} oi={liveMetrics.oi} showRsi={settings.rsi}
+          showSma={settings.sma} showCvd={settings.cvd} showOi={settings.oi}/>
+        {settings.cvd&&expandedOverlays&&<ContinuousCvdPanel symbol={symbol} live={cvdStream}
           interval={settings.cvdInterval} onInterval={tf=>onUpdate({cvdInterval:tf})}/>}
-        {settings.participation&&<ParticipationMicroCharts journal={participation.journal}/>}
+        {settings.participation&&expandedOverlays&&<ParticipationMicroCharts journal={participation.journal}/>}
       </div>
-      {settings.participation&&<MarketParticipationPanel symbol={symbol}
+      {settings.participation&&expandedOverlays&&<MarketParticipationPanel symbol={symbol}
         snapshot={participation.snapshot} journal={participation.journal}
         fvgs={fvgResearch.zones}/>}
     </div>
-    <AscendStructurePanel feed={structure} symbol={symbol}/>
-    {settings.fvg&&<FvgDetailsPanel symbol={symbol}
+    {expandedOverlays&&<AscendStructurePanel feed={structure} symbol={symbol}/>}
+    {settings.fvg&&expandedOverlays&&<FvgDetailsPanel symbol={symbol}
       records={fvgResearch.zones} journal={fvgResearch.journal}
       selectedId={selectedFvgId} onSelect={setSelectedFvgId}
       price={displayPrice} zoneTimeframes={fvgResearch.loadedTimeframes}
       errors={fvgResearch.errors} structure={structure.report}/>}
     {settings.week&&<WeekOverlayCompare symbol={symbol}/>}
-    <LiveMarketPanels symbol={symbol} {...liveMetrics} visibility={settings}
-      continuousCvd={cvdStream}/>
+    {expandedOverlays&&<LiveMarketPanels symbol={symbol} {...liveMetrics} visibility={settings}
+      continuousCvd={cvdStream}/>}
     {settings.sessionLevels&&<div className="asc-prev-session-strip" aria-label="Максимумы и минимумы вчерашних сессий">
       <div className="asc-prev-session-title">
         <b>ВЧЕРА · СЕССИИ</b>
