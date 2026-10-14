@@ -24,6 +24,8 @@ import ContinuousCvdPanel from './components/ContinuousCvdPanel';
 import IndicatorManager from './components/IndicatorManager';
 import MarketStudiesRow from './components/MarketStudiesRow';
 import {StructureStatusRibbon,LevelChronologyPanel} from './components/StructureOverview';
+import {buildMarketLiquidity,buildDecisionResearch} from './market/liquidityDecisionResearch';
+import {LiquidityMapPanel,DecisionResearchPanel} from './components/LiquidityDecisionPanel';
 import {loadIndicatorSettings,DEFAULT_INDICATORS,STORAGE_KEY,
   type IndicatorSettings,type IndicatorKey} from './market/indicatorSettings';
 
@@ -63,6 +65,14 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const fvgResearch=useFvgResearch(symbol,timeframe,candles,settings.fvgTimeframes,
     engineSettings,previousDay,previousSessions);
   const structure=useAscendStructureResearch(symbol,previousDay);
+  const liquidityMap=useMemo(()=>buildMarketLiquidity({
+    symbol,bars:structure.closed1m??[],asOf:structure.report?.asOf??0,
+    previousDay,onh:structure.report?.onh,onl:structure.report?.onl
+  }),[symbol,structure.closed1m,structure.report,previousDay]);
+  const researchDecision=useMemo(()=>buildDecisionResearch({
+    symbol,bars:structure.closed1m??[],report:structure.report,liquidity:liquidityMap,
+    now:Date.now(),freshAt:structure.updatedAt
+  }),[symbol,structure.closed1m,structure.report,structure.updatedAt,liquidityMap]);
   const latest=candles[candles.length-1];
   const displayPrice=lastPrice??latest?.close;
   const fvgAppearance=useMemo<FvgAppearance>(()=>({
@@ -142,7 +152,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         {expandedOverlays?'Свернуть дополнительные слои':'Раскрыть FVG / TPO / Participation'}
       </button>
     </div>
-    <StructureStatusRibbon feed={structure}/>
+    <StructureStatusRibbon feed={structure} decision={researchDecision}/>
     <div className={'asc-mp-layout'+(settings.participation&&expandedOverlays?' visible':'')}>
 
       <div className="asc-mp-chart-column">
@@ -160,13 +170,17 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         showDayLevels={settings.dayLevels} showSessionLevels={settings.sessionLevels}
         showSma={settings.sma}
         overnightLevels={settings.overnightLevels&&structure.status==='ready'&&structure.report?.onh!==undefined&&structure.report?.onl!==undefined
-          ?{high:structure.report.onh,low:structure.report.onl,availableFrom:structure.report.dayStart+6*3600000}:undefined}/>
+          ?{high:structure.report.onh,low:structure.report.onl,availableFrom:structure.report.dayStart+6*3600000}:undefined}
+        researchLiquidity={structure.status==='ready'?liquidityMap:undefined}/>
       {candles.length<20&&<div className="asc-lite-loading" role="status">
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
       </div>}
         </div>
-        <LevelChronologyPanel feed={structure} previousDay={previousDay} lastPrice={displayPrice}/>
+        <LiquidityMapPanel data={liquidityMap} price={displayPrice}/>
+        <LevelChronologyPanel feed={structure} previousDay={previousDay} lastPrice={displayPrice}
+          extraLevels={liquidityMap.levels}/>
+        <DecisionResearchPanel key={symbol} decision={researchDecision} asOf={structure.report?.asOf??0}/>
         <MarketStudiesRow symbol={symbol} candles={candles} timeframe={timeframe}
           cvd={cvdStream} oi={liveMetrics.oi} showRsi={settings.rsi}
           showSma={settings.sma} showCvd={settings.cvd} showOi={settings.oi}/>
