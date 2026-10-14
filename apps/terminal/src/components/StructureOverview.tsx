@@ -1,6 +1,7 @@
 import {useMemo} from 'react';
 import type {Candle} from '@ascend/contracts';
 import type {StructureReport} from '../market/ascendStructureResearch';
+import type {ResearchDecision,LiquidityLevel} from '../market/liquidityDecisionResearch';
 import type {PreviousDayLevels} from '../market/usePreviousDayLevels';
 import {deriveLevelChronology,type ObservedLevel,type LevelMoment} from '../market/levelChronology';
 
@@ -14,14 +15,17 @@ const nicePrice=(v:number)=>v.toLocaleString('en-US',{
 });
 
 /** Compact decision ribbon. A research phase is not an executable order. */
-export function StructureStatusRibbon({feed}:{feed:Feed}){
+export function StructureStatusRibbon({feed,decision}:{feed:Feed;decision?:ResearchDecision}){
   const stale=!feed.updatedAt||Date.now()-feed.updatedAt>130000;
   const available=feed.status==='ready'&&!!feed.report&&!stale;
-  const phase=available?feed.report!.phase:undefined;
+  // Never expose the old CORE research READY if the 30m/15m/risk gate is WAIT/SKIP.
+  const phase=available?(decision?.status==='ENTRY READY'?'ENTRY READY':
+    feed.report!.phase==='ENTRY READY'?'CONFIRMED':feed.report!.phase):undefined;
   const progress=phase?ORDER.indexOf(phase):-1;
   return <section className="asc-chart-structure-ribbon" aria-label="Статус Structure Engine">
     <header><strong>STRUCTURE ENGINE</strong>
-      <small>{available?'RESEARCH · '+clock(feed.report?.asOf)+' UTC':
+      <small>{available?'RESEARCH · '+clock(feed.report?.asOf)+' UTC · '+
+        (decision?.status??'WAIT'):
         feed.status==='error'?'НЕТ ДАННЫХ · '+(feed.reason??'Ошибка потока'):
           stale&&feed.status==='ready'?'ДАННЫЕ УСТАРЕЛИ':'ОЖИДАНИЕ ПОЛНОЙ 1m ИСТОРИИ'}</small>
     </header>
@@ -41,8 +45,9 @@ const badge=(event?:LevelMoment)=>event?clock(event.at):'—';
 /** All event times are the CLOSE of an observed, complete one-minute bar.
  * No inference about which tick within that minute touched the level first.
  */
-export function LevelChronologyPanel({feed,previousDay,lastPrice}:{
-  feed:Feed;previousDay?:PreviousDayLevels;lastPrice?:number
+export function LevelChronologyPanel({feed,previousDay,lastPrice,extraLevels}:{
+  feed:Feed;previousDay?:PreviousDayLevels;lastPrice?:number;
+  extraLevels?:LiquidityLevel[]
 }){
   const report=feed.status==='ready'?feed.report:undefined;
   const candles=feed.status==='ready'?feed.closed1m:undefined;
@@ -57,8 +62,13 @@ export function LevelChronologyPanel({feed,previousDay,lastPrice}:{
       rows.push({id:'ONH',price:report.onh,side:'UPPER',availableFrom:report.dayStart+6*3600000},
         {id:'ONL',price:report.onl,side:'LOWER',availableFrom:report.dayStart+6*3600000});
     }
+    for(const level of extraLevels??[]){
+      if(level.state!=='FROZEN'||!['RTHH','RTHL','IBH','IBL'].includes(level.id))continue;
+      rows.push({id:level.id,price:level.price,side:level.side,
+        availableFrom:level.availableFrom});
+    }
     return rows;
-  },[previousDay,report?.dayStart,report?.asOf,report?.onh,report?.onl]);
+  },[previousDay,report?.dayStart,report?.asOf,report?.onh,report?.onl,extraLevels]);
   const observations=useMemo(()=>
     candles&&report?deriveLevelChronology(candles,levels,report.asOf):[],
     [candles,levels,report?.asOf]);
