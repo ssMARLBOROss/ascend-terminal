@@ -1,5 +1,6 @@
 import {useMemo,useState} from 'react';
 import StableCandleChart from './StableCandleChart';
+import CloudflareMarketIndicators from './CloudflareMarketIndicators';
 import {useMexcMarket} from '../market/useMexcMarket';
 import type {StableTimeframe} from '../market/useStableMarket';
 import type {FvgAppearance} from './fvgOverlay';
@@ -66,13 +67,15 @@ export default function MexcWorkspace({contract,timeframe,settings,onViewMode}:{
         focusRequest={focus} viewMode={settings.chartViewMode}
         showVolume={showVolume} showVwap={false}
         showSessions={showSessions} showSessionClock={false}
-        showDayLevels={false} showSessionLevels={false}/>
+        showDayLevels={false} showSessionLevels={false} showSma={settings.sma}/>
       {data.length<10&&<div className="asc-lite-loading" role="status">
         <strong>{market.status==='ERROR'?'Данные MEXC недоступны':
           'Загружаем фьючерсные свечи MEXC…'}</strong>
         <span>{market.error??'При отсутствии ответа API график не заменяется свечами Bybit.'}</span>
       </div>}
     </div>
+    <CloudflareMarketIndicators candles={data} timeframe={timeframe}
+      showRsi={settings.rsi} showSma={settings.sma}/>
     <div className="asc-mexc-research-warning" role="note">
       <strong>MEXC · НЕЗАВИСИМЫЕ БИРЖЕВЫЕ ДАННЫЕ</strong>
       <p>Сейчас для MEXC доступны реальные свечи, объёмы контрактов, визуальные сессии и поиск пар.
