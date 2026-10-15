@@ -49,7 +49,6 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
     (a.distancePct??Infinity)-(b.distancePct??Infinity)||
     b.turnover24h-a.turnover24h),[feed.rows,search,group,filter,side,rc,onFocus,onlyOn]);
   const verified=feed.rows.filter(r=>r.integrity==='COMPLETE');
-  const active=verified.filter(r=>['WATCH','SWEEP','SHIFTING','CHECK 1M'].includes(r.stage)).length;
   const shifting=verified.filter(r=>r.stage==='SHIFTING').length;
   const check=verified.filter(r=>r.stage==='CHECK 1M').length;
   const nearOnl=verified.filter(r=>r.onSide==='ONL'&&
