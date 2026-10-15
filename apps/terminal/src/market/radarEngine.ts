@@ -3,6 +3,11 @@ import type {Candle} from '@ascend/contracts';
 export type RadarGroup='0.5–3%'|'3–12%'|'12%+'|'<0.5%';
 export type RadarStage='BUILDING'|'SCANNING'|'WATCH'|'SWEEP'|'SHIFTING'|'CHECK 1M'|'NO DATA';
 export type RadarDirection='LONG'|'SHORT'|'NEUTRAL';
+export type RadarOnSide='ONH'|'ONL'|'NONE';
+export type RadarOnEvent='FORMING'|'APPROACH'|'TOUCH'|'SWEEP'|'RECLAIM'|'ACCEPTANCE'|'AWAY'|'NONE';
+export type RadarOnState='LIVE'|'FROZEN'|'NO DATA';
+export const ON_WATCH_DISTANCE_PCT=0.5;
+export const ON_HOT_DISTANCE_PCT=0.2;
 export type RadarTicker={
   symbol:string;price:number;change24h:number;turnover24h:number;
 };
@@ -11,6 +16,8 @@ export type RadarObservation={
   stage:RadarStage;direction:RadarDirection;reason:string;
   rsi?:number;zone:'RC30'|'RC70'|'MID'|'UNAVAILABLE';
   onh?:number;onl?:number;distancePct?:number;
+  onSide:RadarOnSide;onEvent:RadarOnEvent;onState:RadarOnState;
+  levelPrice?:number;touchAt?:number;sweepAt?:number;resolutionAt?:number;
   eventAt?:number;observedAt?:number;volumeRatio?:number;
   integrity:'COMPLETE'|'INCOMPLETE';
 };
@@ -116,7 +123,8 @@ export function observeRadarTicker(ticker:RadarTicker,bars:Candle[],now:number):
   const base:RadarObservation={
     ...ticker,group:groupMove(ticker.change24h),stage:'NO DATA',
     direction:'NEUTRAL',reason:'Ожидание полных закрытых 5m свечей',
-    zone:'UNAVAILABLE',integrity:'INCOMPLETE'
+    zone:'UNAVAILABLE',integrity:'INCOMPLETE',onSide:'NONE',
+    onEvent:'NONE',onState:'NO DATA'
   };
   const day=bars.filter(b=>b.timestamp>=dayStart&&b.timestamp<=latestClosed);
   const expected=Math.max(0,Math.floor((latestClosed-dayStart)/FIVE)+1);
@@ -132,56 +140,90 @@ export function observeRadarTicker(ticker:RadarTicker,bars:Candle[],now:number):
   const common={...base,integrity:'COMPLETE' as const,rsi,zone,
     observedAt:last.timestamp+FIVE,volumeRatio};
   const finish=dayStart+6*3600000;
-  if(now<finish)return {...common,stage:'BUILDING',reason:
-    'ONH/ONL 00:00–06:00 UTC формируются; не заморожены · '+sessionName(now)};
+  if(now<finish){
+    const liveHigh=Math.max(...day.map(b=>b.high));
+    const liveLow=Math.min(...day.map(b=>b.low));
+    return {...common,stage:'BUILDING',onState:'LIVE',onEvent:'FORMING',
+      onh:liveHigh,onl:liveLow,
+      reason:'ONH/ONL LIVE · до 06:00 UTC уровни изменяются, сигналы запрещены · '+sessionName(now)};
+  }
   if(day.length<72)return {...common,stage:'NO DATA',
     reason:'Не хватает 72 закрытых 5m свечей для диапазона ONH/ONL'};
   const range=day.slice(0,72),onh=Math.max(...range.map(c=>c.high)),
     onl=Math.min(...range.map(c=>c.low));
-  const distance=Math.min(Math.abs(last.close/onh-1),Math.abs(last.close/onl-1))*100;
-  const context={...common,onh,onl,distancePct:distance};
-  const post=day.slice(72),sweeps:{i:number;side:'HIGH'|'LOW';at:number}[]=[];
+  const nearH=Math.abs(last.close/onh-1)*100;
+  const nearL=Math.abs(last.close/onl-1)*100;
+  const closest:RadarOnSide=nearH<=nearL?'ONH':'ONL';
+  const distance=Math.min(nearH,nearL);
+  const context={...common,onh,onl,distancePct:distance,
+    onState:'FROZEN' as const,onSide:closest,
+    onEvent:'AWAY' as const,levelPrice:closest==='ONH'?onh:onl};
+  const post=day.slice(72);
+  type Sweep={i:number;side:'HIGH'|'LOW';at:number};
+  const sweeps:Sweep[]=[];
+  let lastTouchH:number|undefined,lastTouchL:number|undefined;
   for(let i=0;i<post.length;i++){
-    const b=post[i],prev=post[i-1];
-    if(b.high>onh&&b.low<onl)continue; // unknown intrabar ordering
+    const b=post[i],prev=post[i-1],closedAt=b.timestamp+FIVE;
+    // Both thresholds in one candle: intrabar event ordering is unknown.
+    // Do not register contradictory touches/sweeps from that candle.
+    if(b.high>onh&&b.low<onl)continue;
+    if(b.low<=onh&&b.high>=onh)lastTouchH=closedAt;
+    if(b.low<=onl&&b.high>=onl)lastTouchL=closedAt;
     if(b.high>onh&&(!prev||prev.close<=onh))
-      sweeps.push({i,side:'HIGH',at:b.timestamp+FIVE});
+      sweeps.push({i,side:'HIGH',at:closedAt});
     if(b.low<onl&&(!prev||prev.close>=onl))
-      sweeps.push({i,side:'LOW',at:b.timestamp+FIVE});
+      sweeps.push({i,side:'LOW',at:closedAt});
   }
+  const selectedTouch=closest==='ONH'?lastTouchH:lastTouchL;
+  const freshTouch=selectedTouch!==undefined&&now-selectedTouch<=30*60000;
+  const distanceContext={...context,touchAt:selectedTouch};
   const s=sweeps.at(-1);
+  // The radar is ON-first: RSI is explanatory ONLY and never elevates a
+  // ticker to WATCH if the frozen ONH/ONL are not nearby.
   if(!s){
-    if(distance<=.5||zone==='RC30'||zone==='RC70')
-      return {...context,stage:'WATCH',reason:distance<=.5?
-        'Подход к замороженному ONH/ONL · '+distance.toFixed(2)+'%':
-        zone+' · без снятия ONH/ONL'};
-    return {...context,stage:'SCANNING',reason:'Нет снятия/подхода к ONH/ONL'};
+    if(distance<=ON_WATCH_DISTANCE_PCT||freshTouch)
+      return {...distanceContext,stage:'WATCH',
+        onEvent:freshTouch?'TOUCH':'APPROACH',eventAt:freshTouch?selectedTouch:last.timestamp+FIVE,
+        reason:(freshTouch?'Касание ':'Подход к ')+closest+' FROZEN · '+
+          distance.toFixed(2)+'% · ждём sweep / реакцию'};
+    return {...distanceContext,stage:'SCANNING',
+      reason:'Нет свежего взаимодействия с ONH/ONL (RSI — только контекст)'};
   }
-  const signal=post[s.i];
+  const levelSide:RadarOnSide=s.side==='HIGH'?'ONH':'ONL';
+  const level=levelSide==='ONH'?onh:onl;
+  const levelDistance=Math.abs(last.close/level-1)*100;
+  const signalContext={...distanceContext,onSide:levelSide,
+    levelPrice:level,distancePct:levelDistance,sweepAt:s.at,
+    touchAt:levelSide==='ONH'?lastTouchH:lastTouchL};
   let dir:RadarDirection='NEUTRAL',resolutionAt:number|undefined;
+  let resolution:'RECLAIM'|'ACCEPTANCE'|undefined;
   for(let i=s.i;i<Math.min(post.length,s.i+7);i++){
     const b=post[i],prev=post[i-1];
     if(s.side==='HIGH'){
-      if(b.close<onh){dir='SHORT';resolutionAt=b.timestamp+FIVE;break}
+      if(b.close<onh){dir='SHORT';resolution='RECLAIM';resolutionAt=b.timestamp+FIVE;break}
       if(prev&&i>s.i&&b.close>onh&&prev.close>onh){
-        dir='LONG';resolutionAt=b.timestamp+FIVE;break}
+        dir='LONG';resolution='ACCEPTANCE';resolutionAt=b.timestamp+FIVE;break}
     }else{
-      if(b.close>onl){dir='LONG';resolutionAt=b.timestamp+FIVE;break}
+      if(b.close>onl){dir='LONG';resolution='RECLAIM';resolutionAt=b.timestamp+FIVE;break}
       if(prev&&i>s.i&&b.close<onl&&prev.close<onl){
-        dir='SHORT';resolutionAt=b.timestamp+FIVE;break}
+        dir='SHORT';resolution='ACCEPTANCE';resolutionAt=b.timestamp+FIVE;break}
     }
   }
-  const age=now-s.at;
-  if(!resolutionAt)return {...context,stage:age<=90*60000?'SWEEP':'SCANNING',
-    reason:s.side==='HIGH'?'ONH снят · ожидаем закрытие / acceptance':
-      'ONL снят · ожидаем закрытие / acceptance',eventAt:s.at};
+  if(!resolutionAt){
+    if(now-s.at>90*60000)return {...distanceContext,stage:'SCANNING',
+      reason:'Старый sweep '+levelSide+' · ждём новое взаимодействие'};
+    return {...signalContext,stage:'SWEEP',onEvent:'SWEEP',eventAt:s.at,
+      reason:levelSide+' снят · нет подтверждённого 5m reclaim / acceptance'};
+  }
   if(now-resolutionAt>2*3600000)
-    return {...context,stage:'SCANNING',direction:dir,
-      reason:'Старое подтверждение: требуется новый setup',eventAt:resolutionAt};
+    return {...distanceContext,stage:'SCANNING',
+      reason:'Последний reclaim/acceptance старше 2 часов · ждём новый setup'};
   const after=post.filter(b=>b.timestamp+FIVE>=resolutionAt);
   const breakAt=pivotBreak(after,dir,resolutionAt);
-  return {...context,direction:dir,stage:breakAt?'CHECK 1M':'SHIFTING',
-    reason:breakAt?'5m pivot пробит · полный 10m/3m/1m Core ещё не проверен':
-      '5m reclaim/acceptance · ждём подтверждение структуры',
+  return {...signalContext,resolutionAt,direction:dir,
+    onEvent:resolution??'NONE',stage:breakAt?'CHECK 1M':'SHIFTING',
+    reason:levelSide+' '+resolution+' · '+dir+
+      (breakAt?' · 5m pivot пробит, 10m/3m/1m Core не проверен':
+        ' · ждём подтверждения структуры'),
     eventAt:breakAt??resolutionAt};
 }
