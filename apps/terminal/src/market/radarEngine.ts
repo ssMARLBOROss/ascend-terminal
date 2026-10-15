@@ -47,7 +47,7 @@ export function parseRadarTickers(payload:unknown):RadarTicker[]{
 
 /** Balanced fixed-size sample, NOT a claim of whole-market candle coverage. */
 export function selectRadarUniverse(tickers:RadarTicker[],limit=20):RadarTicker[]{
-  const preferred=['BTCUSDT','ETHUSDT','SOLUSDT'];
+  const preferred=['BTCUSDT','ETHUSDT','SOLUSDT','ZECUSDT'];
   const selected:RadarTicker[]=[],used=new Set<string>();
   for(const symbol of preferred){
     const item=tickers.find(t=>t.symbol===symbol);
