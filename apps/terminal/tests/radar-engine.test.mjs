@@ -28,13 +28,18 @@ const make=n=>Array.from({length:n},(_,i)=>({
  timestamp:start+i*step,open:100,high:101,low:99,close:100,volume:10
 }));
 const ticker=tickers[0];
+const makeQuiet=n=>{
+  const rows=make(n);
+  for(let i=72;i<n;i++)rows[i]={...rows[i],high:100.5,low:99.5};
+  return rows;
+};
 const before=observeRadarTicker(ticker,make(60),start+60*step);
 assert.equal(before.stage,'BUILDING');
 assert.equal(before.onState,'LIVE');
 assert.equal(before.onEvent,'FORMING');
 assert.equal(before.onh,101);
 assert.equal(before.onl,99);
-const quiet=observeRadarTicker(ticker,make(85),start+85*step);
+const quiet=observeRadarTicker(ticker,makeQuiet(85),start+85*step);
 assert.equal(quiet.stage,'SCANNING');
 assert.equal(quiet.onh,101);
 assert.equal(quiet.onState,'FROZEN');
@@ -67,7 +72,7 @@ assert.equal(onl.direction,'LONG');
 assert.equal(onl.sweepAt,start+75*step);
 assert.equal(onl.resolutionAt,start+75*step);
 // Near frozen ONL within 0.5% is WATCH without needing RSI30/70.
-const approaching=make(85);
+const approaching=makeQuiet(85);
 approaching[84]={...approaching[84],open:99.3,high:99.5,low:99.3,close:99.4};
 const watched=observeRadarTicker(ticker,approaching,start+85*step);
 assert.equal(watched.stage,'WATCH');
@@ -75,7 +80,7 @@ assert.equal(watched.onSide,'ONL');
 assert.equal(watched.onEvent,'APPROACH');
 assert.ok(watched.distancePct<.5);
 // Touch is distinct from wick sweep and must not imply a confirmed reversal.
-const touching=make(85);
+const touching=makeQuiet(85);
 touching[84]={...touching[84],open:99.3,high:100,low:99,close:99.4};
 const touched=observeRadarTicker(ticker,touching,start+85*step);
 assert.equal(touched.stage,'WATCH');
