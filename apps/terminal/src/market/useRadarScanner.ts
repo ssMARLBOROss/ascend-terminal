@@ -10,7 +10,8 @@ const EMPTY:RadarFeed={status:'loading',rows:[],checked:0,total:0};
 function initial(t:RadarTicker):RadarObservation{
   return {...t,group:groupMove(t.change24h),stage:'NO DATA',
     direction:'NEUTRAL',reason:'Загрузка закрытых 5m свечей',
-    zone:'UNAVAILABLE',integrity:'INCOMPLETE'};
+    zone:'UNAVAILABLE',integrity:'INCOMPLETE',
+    onSide:'NONE',onEvent:'NONE',onState:'NO DATA'};
 }
 /** Scans only chosen Bybit futures while the radar tab is mounted. */
 export function useRadarScanner(limit:number,revision:number){
