@@ -181,7 +181,8 @@ export function observeRadarTicker(ticker:RadarTicker,bars:Candle[],now:number):
   // The radar is ON-first: RSI is explanatory ONLY and never elevates a
   // ticker to WATCH if the frozen ONH/ONL are not nearby.
   if(!s){
-    if(distance<=ON_WATCH_DISTANCE_PCT||freshTouch)
+    if(distance<=ON_WATCH_DISTANCE_PCT||
+      (freshTouch&&distance<=ON_WATCH_DISTANCE_PCT*1.5))
       return {...distanceContext,stage:'WATCH',
         onEvent:freshTouch?'TOUCH':'APPROACH',eventAt:freshTouch?selectedTouch:last.timestamp+FIVE,
         reason:(freshTouch?'Касание ':'Подход к ')+closest+' FROZEN · '+
