@@ -66,7 +66,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const[showChartNarrative,setShowChartNarrative]=useState(true);
   // Participation is a separate read-only consumer; hiding book rectangles
   // must not stop its selected-symbol snapshots when this panel is enabled.
-  const liquidity=useOrderbookClusters(symbol,settings.book||settings.participation);
+  const liquidity=useOrderbookClusters(symbol,!focusMode&&(settings.book||settings.participation));
   const engineSettings=useMemo(()=>({
     atrLength:settings.fvgAtrLength,fillMode:settings.fvgFillMode,
     minGapPercent:settings.fvgThreshold
@@ -115,7 +115,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
     fvgResearch.zones,displayPrice??0,'near',chartFvgAppearance
   ),[fvgResearch.zones,displayPrice,chartFvgAppearance]);
   const participation=useMarketParticipation({
-    enabled:settings.participation,symbol,timeframe,candles,price:displayPrice,
+    enabled:!focusMode&&settings.participation,symbol,timeframe,candles,price:displayPrice,
     priceAt:lastUpdate,dailyVwap,tpo:liveMetrics.tpo,oi:liveMetrics.oi,
     cvd:liveMetrics.cvd,continuousCvd:cvdStream,
     book:liquidity.status==='ready'?liquidity.snapshot:undefined,
@@ -148,6 +148,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
     <div className="asc-lite-toolbar">
       <div className="asc-lite-pair">
         <strong>{symbol}</strong>
+        {focusMode&&<b className="asc-focus-current-price">{fmtPrice(displayPrice)}</b>}
         <span>BYBIT · USDT PERPETUAL · REAL DATA</span>
       </div>
       <div className="asc-lite-daily-levels" title="Максимум и минимум предыдущего закрытого дня · 00:00–00:00 UTC">
@@ -281,12 +282,12 @@ function BybitDataWorkspace({symbol,timeframe,settings,onToggle,onUpdate,onReset
   const previousDay=usePreviousDayLevels(symbol);
   const previousSessions=usePreviousSessionLevels(symbol);
   const vwap=useDailyVwap(symbol);
-  const cvdStream=useContinuousCvd(symbol,settings.cvd||settings.participation,
+  const cvdStream=useContinuousCvd(symbol,focusMode||settings.cvd||settings.participation,
     settings.cvdInterval);
   const liveMetrics=useLiveMarketMetrics(symbol,{
-    tpo:settings.tpo||settings.participation,
-    oi:settings.oi||settings.participation,
-    longShort:settings.longShort,
+    tpo:!focusMode&&(settings.tpo||settings.participation),
+    oi:focusMode||settings.oi||settings.participation,
+    longShort:!focusMode&&settings.longShort,
     cvd:false
   });
   return <Workspace key={symbol+':'+timeframe} symbol={symbol} timeframe={timeframe}
