@@ -55,6 +55,8 @@
 .asc-mode-focus .asc-lite-toolbar{min-height:34px;height:34px;flex-shrink:0;
  padding:3px 10px;gap:9px;overflow:hidden}
 .asc-mode-focus .asc-lite-pair strong{font-size:14px}
+.asc-focus-current-price{display:inline-block;font-size:15px;color:#aaf1dd;margin-left:12px}
+.asc-mode-focus .asc-lite-pair strong{display:inline-block}
 .asc-mode-focus .asc-lite-pair span{font-size:8px;margin-top:1px;white-space:nowrap}
 .asc-mode-focus .asc-lite-feed small,.asc-mode-focus .asc-lite-daily-levels small{
  display:none}
