@@ -168,7 +168,11 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         {expandedOverlays?'Свернуть дополнительные слои':'Раскрыть FVG / TPO / Participation'}
       </button>
     </div>
-    <TrendStructurePanel snapshot={trendStructure}/>
+    <details className="asc-chart-trend-details">
+      <summary>Структура по 6 TF · {trendStructure.alignment}
+        {' · '}подробные HH/HL, LH/LL (на графике — краткая сводка)</summary>
+      <TrendStructurePanel snapshot={trendStructure}/>
+    </details>
     <StructureStatusRibbon feed={structure} decision={researchDecision}/>
     <div className={'asc-mp-layout'+(settings.participation&&expandedOverlays?' visible':'')}>
 
