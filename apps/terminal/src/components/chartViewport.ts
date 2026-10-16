@@ -9,8 +9,8 @@ export type PriceWindow={minValue:number;maxValue:number};
  * FULL is explicitly user-selected; nothing about this changes OHLC data.
  */
 export const TIGHT_FOCUS_BARS:Record<string,number>={
-  '1m':180,'3m':155,'5m':145,'15m':115,'30m':100,
-  '1H':90,'4H':80,'1D':90
+  '1m':180,'3m':155,'5m':145,'10m':130,'15m':115,
+  '30m':100,'45m':95,'1H':90,'2H':90,'4H':80,'6H':78,'12H':70,'1D':90
 };
 export function initialChartRange(
   timeframe:string,length:number,mode:ChartViewMode
