@@ -15,6 +15,8 @@ import type {FvgRecord} from '../market/fvgContextEngine';
 import SessionClock from './SessionClock';
 import {drawSessionBands} from './drawSessionBands';
 import {drawResearchWalls} from './drawResearchWalls';
+import {drawChartNarrative} from './drawChartNarrative';
+import type {ChartNarrative} from '../market/chartNarrativeResearch';
 import type {MarketLiquidity} from '../market/liquidityDecisionResearch';
 import {initialChartRange,tightCandlestickRange,TIGHT_FOCUS_BARS,type ChartViewMode} from './chartViewport';
 
@@ -22,7 +24,7 @@ type Snapshot={first?:number;last?:number;length:number};
 type BaseAutoscale=()=>({priceRange:{minValue:number;maxValue:number}}|null);
 
 /** Bounded session canvas only; no indicator computations or extra market subscriptions. */
-export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,fvgAppearance,focusRequest,viewMode,showVolume,showVwap,showSessions,showSessionClock,showDayLevels,showSessionLevels,showSma=false,overnightLevels,researchLiquidity}:{
+export default function StableCandleChart({candles,timeframe,previousDay,previousSessions,dailyVwap,orderbook,showBook,showStops,tpo,showTpo,fvgZones,showFvg,fvgAppearance,focusRequest,viewMode,showVolume,showVwap,showSessions,showSessionClock,showDayLevels,showSessionLevels,showSma=false,overnightLevels,researchLiquidity,chartNarrative,showChartNarrative=true}:{
   candles:Candle[];timeframe:string;previousDay?:PreviousDayLevels;
   previousSessions?:PreviousSessionLevels;dailyVwap?:DailyVwap;
   orderbook?:OrderbookSnapshot;showBook:boolean;showStops:boolean;
@@ -33,12 +35,16 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
   showDayLevels:boolean;showSessionLevels:boolean;
   showSma?:boolean;overnightLevels?:{high:number;low:number;availableFrom:number};
   researchLiquidity?:MarketLiquidity;
+  chartNarrative?:ChartNarrative;showChartNarrative?:boolean;
 }){
   const hostRef=useRef<HTMLDivElement|null>(null);
   const overlayRef=useRef<HTMLCanvasElement|null>(null);
   const liquidityOverlayRef=useRef<HTMLCanvasElement|null>(null);
   const fvgOverlayRef=useRef<HTMLCanvasElement|null>(null);
   const researchWallOverlayRef=useRef<HTMLCanvasElement|null>(null);
+  const narrativeCanvasRef=useRef<HTMLCanvasElement|null>(null);
+  const narrativeRef=useRef({chartNarrative,showChartNarrative});
+  narrativeRef.current={chartNarrative,showChartNarrative};
   const researchLiquidityRef=useRef(researchLiquidity);
   researchLiquidityRef.current=researchLiquidity;
   const stopZones=useMemo(()=>estimateStopZones(previousDay,previousSessions),[previousDay,previousSessions]);
@@ -136,8 +142,12 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
             view.orderbook,view.stopZones,view.showBook,view.showStops,view.tpo,view.showTpo);
         }
         if(priceRef.current&&researchWallOverlayRef.current){
-        drawResearchWalls(chart,priceRef.current,host,researchWallOverlayRef.current,researchLiquidityRef.current);
-      }
+          drawResearchWalls(chart,priceRef.current,host,researchWallOverlayRef.current,researchLiquidityRef.current);
+        }
+        if(priceRef.current&&narrativeCanvasRef.current){
+          drawChartNarrative(chart,priceRef.current,host,narrativeCanvasRef.current,
+            narrativeRef.current.chartNarrative,narrativeRef.current.showChartNarrative);
+        }
       if(priceRef.current&&fvgOverlayRef.current){
           const view=fvgViewRef.current;
           drawFvgOverlay(chart,priceRef.current,host,fvgOverlayRef.current,
@@ -206,7 +216,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
   useEffect(()=>{
     volumeRef.current?.applyOptions({visible:showVolume});
   },[showVolume,timeframe]);
-  useEffect(()=>{redrawRef.current()},[showSessions,researchLiquidity]);
+  useEffect(()=>{redrawRef.current()},[showSessions,researchLiquidity,chartNarrative,showChartNarrative]);
 
   // Moving averages use the already loaded selected-exchange candles.
   useEffect(()=>{
@@ -404,6 +414,24 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
     <canvas className="asc-lite-liquidity-canvas" ref={liquidityOverlayRef} aria-hidden="true"/>
     <canvas className="asc-lite-fvg-canvas" ref={fvgOverlayRef} aria-hidden="true"/>
     <canvas className="asc-lite-research-wall-canvas" ref={researchWallOverlayRef} aria-hidden="true"/>
+    <canvas className="asc-lite-context-canvas" ref={narrativeCanvasRef} aria-hidden="true"/>
+    {showChartNarrative&&<div className="asc-lite-context-hud" aria-label="Структура, тренд, сессия и сделка">
+      <strong>STRUCTURE · TREND · SESSION · SL/TP</strong>
+      <b className={chartNarrative?.trend==='LONG'?'up':chartNarrative?.trend==='SHORT'?'down':'wait'}>
+        {chartNarrative?.headline??'ОЖИДАЕМ ДАННЫЕ'}</b>
+      <span>{chartNarrative?.session?
+        chartNarrative.session.name.toUpperCase()+' · '+chartNarrative.session.phase+
+        (chartNarrative.session.overlap?' · '+chartNarrative.session.overlap:'')+
+        ' · от OPEN '+(chartNarrative.session.changePct>0?'+':'')+
+        chartNarrative.session.changePct.toFixed(2)+'%':
+        'СЕССИЯ: нет непрерывной истории 1m'}</span>
+      <span>{chartNarrative?.impulse??'5m / 30 мин: ожидание свечей'}</span>
+      <span>СЕТАП: {chartNarrative?.setup??'—'} · CORE: {chartNarrative?.status??'WAIT'}</span>
+      <em>{chartNarrative?.warning??'Нет актуального структурного подтверждения'}</em>
+      {chartNarrative?.ready&&<small>ENTRY / SL / TP на графике · R:R {chartNarrative.rr?.toFixed(2)}
+        {' · '}RESEARCH, не исполненный ордер</small>}
+      {!chartNarrative?.ready&&<small>SL / TP появятся только после полного ENTRY READY</small>}
+    </div>}
     {showSessionClock&&<SessionClock embedded/>}
     {showSessions&&timeframe==='1D'&&<span className="asc-session-daily-note">Сессионные зоны по часам показаны на таймфреймах до 4H</span>}
   </div>;
