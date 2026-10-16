@@ -1,4 +1,5 @@
 import type {TrendStructureSnapshot} from '../market/trendStructureResearch';
+import type {ExpandedTrendSnapshot} from '../market/useExpandedTrendResearch';
 import type {ResearchDecision,MarketLiquidity} from '../market/liquidityDecisionResearch';
 import type {ChartNarrative} from '../market/chartNarrativeResearch';
 import type {EarlyOnResearch} from '../market/earlyOnResearch';
@@ -6,8 +7,8 @@ const fmt=(n?:number)=>n===undefined||!Number.isFinite(n)?'—':
   n.toLocaleString('en-US',{maximumFractionDigits:n>=1000?2:n>=1?4:7});
 const clock=(at?:number)=>at?new Date(at).toLocaleTimeString('ru-RU',{
   timeZone:'UTC',hour:'2-digit',minute:'2-digit'}):'—';
-export default function FocusDecisionPanel({trend,decision,liquidity,narrative,early}:{
-  trend:TrendStructureSnapshot;decision:ResearchDecision;
+export default function FocusDecisionPanel({trend,extended,decision,liquidity,narrative,early}:{
+  trend:TrendStructureSnapshot;extended:ExpandedTrendSnapshot;decision:ResearchDecision;
   liquidity:MarketLiquidity;narrative:ChartNarrative;early:EarlyOnResearch;
 }){
   const reason=narrative.valid?narrative.warning:
@@ -41,6 +42,20 @@ export default function FocusDecisionPanel({trend,decision,liquidity,narrative,e
           <small>{row?.high??'—'} / {row?.low??'—'}</small>
         </div>;
       })}
+    </div>
+    <div className="asc-focus-timeframe-ladder" aria-label="Наблюдение: 13 таймфреймов от минуты до дня">
+      <header><b>ТРЕНД ПО 13 TF</b><small>RESEARCH · отдельный от CORE</small></header>
+      <div className="asc-focus-timeframe-chips">
+        {extended.rows.map(row=><span key={row.tf}
+          title={row.reason+' · '+(row.at?new Date(row.at).toISOString():'нет времени подтверждения')}
+          className={'asc-focus-tf-chip trend-'+row.trend.toLowerCase().replace(' ','-')}>
+          <b>{row.tf}</b>
+          <small>{row.high}/{row.low}</small>
+        </span>)}
+      </div>
+      <small>{extended.status==='error'?'Нет истории Bybit: '+(extended.reason??'ошибка'):
+        extended.fresh?'30m/15m наблюдение: '+extended.observed30m15m:
+          'Ожидаем исторические свечи · без подстановки тренда'}</small>
     </div>
     <div className="asc-focus-on-levels">
       <span>ONH <b>{fmt(onh?.price)}</b></span>
