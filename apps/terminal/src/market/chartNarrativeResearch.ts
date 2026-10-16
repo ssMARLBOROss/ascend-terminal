@@ -1,6 +1,6 @@
 import type {Candle} from '@ascend/contracts';
 import type {TrendStructureSnapshot} from './trendStructureResearch';
-import type {ResearchDecision} from './liquidityDecisionResearch';
+import {aggregateClosed,type ResearchDecision} from './liquidityDecisionResearch';
 
 const MINUTE=60000,DAY=86400000,HOUR=3600000;
 const WINDOWS=[
@@ -18,7 +18,7 @@ export type ChartRiskMark={kind:'ENTRY'|'SL'|'TP';price:number;label:string};
 export type ChartNarrative={
   asOf:number;valid:boolean;headline:string;trend:string;setup:string;status:string;
   warning:string;session?:SessionPriceContext;
-  swingHigh?:number;swingLow?:number;
+  swingHigh?:number;swingLow?:number;impulse?:string;impulseDirection?:'LONG'|'SHORT';
   marks:ChartRiskMark[];ready:boolean;rr?:number;reason?:string;
 };
 
@@ -66,6 +66,17 @@ export function buildChartNarrative(args:{
           age<=20?'ОТКРЫТИЕ':remaining<=20?'ЗАВЕРШЕНИЕ':'АКТИВНА'};
     }
   }
+  const lastSix=aggregateClosed(bars,5).slice(-6);
+  const validSix=lastSix.length===6&&lastSix.every((b,i)=>
+    i===0||b.timestamp===lastSix[i-1].timestamp+5*MINUTE);
+  const impulsePct=validSix&&lastSix[0].open>0?
+    (lastSix.at(-1)!.close/lastSix[0].open-1)*100:undefined;
+  const impulseDirection=impulsePct!==undefined&&impulsePct>=1?'LONG':
+    impulsePct!==undefined&&impulsePct<=-1?'SHORT':undefined;
+  const impulse=impulsePct===undefined?'5m / 30 мин: недостаточно данных':
+    '5m / 30 мин: '+(impulsePct>=0?'+':'')+impulsePct.toFixed(2)+'%'+
+    (impulseDirection==='LONG'?' · ИМПУЛЬС ВВЕРХ':
+      impulseDirection==='SHORT'?' · ИМПУЛЬС ВНИЗ':' · БЕЗ СИЛЬНОГО ИМПУЛЬСА');
   const htf=trend.alignment;
   const headline=htf==='LONG'?'ВОСХОДЯЩИЙ ТРЕНД':
     htf==='SHORT'?'НИСХОДЯЩИЙ ТРЕНД':
@@ -74,21 +85,24 @@ export function buildChartNarrative(args:{
   const against=(htf==='LONG'&&setup==='SHORT')||
     (htf==='SHORT'&&setup==='LONG');
   const status=decision.status;
+  const impulseConflict=impulseDirection!==undefined&&setup===
+    (impulseDirection==='LONG'?'SHORT':'LONG');
   const warning=against?'СЕТАП ПРОТИВ 30m/15m ТРЕНДА · ждать слома структуры':
+    impulseConflict?'СЕТАП ПРОТИВ 5m ИМПУЛЬСА · ждём подтверждения слома':
     decision.status==='SKIP'?'Риск / структура запрещают вход':
     decision.status==='WAIT'?decision.reasons[0]??'Не хватает подтверждения CORE':
     'Исследовательский план подтверждён, ордер не открыт';
   const fifteen=trend.rows.find(x=>x.tf==='15m');
   const ready=decision.status==='ENTRY READY'&&
     decision.entry!==undefined&&decision.sl!==undefined&&decision.tp!==undefined&&
-    Number.isFinite(decision.rr)&&decision.rr!>=2;
+    decision.rr!==undefined&&Number.isFinite(decision.rr)&&decision.rr>=2;
   const marks:ChartRiskMark[]=ready?[
     {kind:'ENTRY',price:decision.entry!,label:'ENTRY · RESEARCH'},
     {kind:'SL',price:decision.sl!,label:'SL · STRUCTURE'},
     {kind:'TP',price:decision.tp!,label:'TP · '+(decision.targetLevel??'FROZEN')}
   ]:[];
   return {asOf,valid:true,headline,trend:htf,setup:String(setup),
-    status,warning,session,swingHigh:fifteen?.recentHigh?.price,
+    status,warning,session,impulse,impulseDirection,swingHigh:fifteen?.recentHigh?.price,
     swingLow:fifteen?.recentLow?.price,
     marks,rr:ready?decision.rr:undefined,ready};
 }
