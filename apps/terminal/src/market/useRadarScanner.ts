@@ -2,6 +2,7 @@ import {useEffect,useState} from 'react';
 import {FIVE,observeRadarTicker,parseRadar5mRows,parseRadarTickers,
   selectRadarUniverse,groupMove,type RadarObservation,type RadarTicker
 } from './radarEngine';
+import {analyzeEarlyOnSetup} from './earlyOnResearch';
 
 export type RadarFeed={status:'loading'|'scanning'|'ready'|'error';
   rows:RadarObservation[];checked:number;total:number;updatedAt?:number;error?:string};
@@ -51,7 +52,8 @@ export function useRadarScanner(limit:number,revision:number){
                   cache:'no-store',signal:abort.signal});
                 if(!res.ok)throw Error('HTTP '+res.status);
                 const bars=parseRadar5mRows(await res.json());
-                row=observeRadarTicker(ticker,bars,scanTime);
+                const observation=observeRadarTicker(ticker,bars,scanTime);
+                row={...observation,early:analyzeEarlyOnSetup(observation,bars,scanTime)};
               }else row={...row,stage:'BUILDING',
                 reason:'Ожидание первого закрытого 5m бара нового UTC дня'};
             }catch{
