@@ -24,3 +24,10 @@
  .asc-lite-context-hud>span,.asc-lite-context-hud>em{font-size:9px}
 }
 @media(max-width:520px){.asc-lite-context-hud{max-width:55%;bottom:31px}}
+
+.asc-chart-trend-details{margin:5px 12px}
+.asc-chart-trend-details>summary{cursor:pointer;color:#90bfcc;font-size:10px;
+  border:1px solid #274958;border-radius:6px;background:#091e2b;
+  padding:8px 11px;font-weight:800}
+.asc-chart-trend-details[open]>summary{border-color:#438c9d}
+.asc-chart-trend-details .asc-trend-panel{margin:7px 0}
