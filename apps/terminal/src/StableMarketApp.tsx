@@ -2,6 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import StableCandleChart from './components/StableCandleChart';
 import RadarView from './components/RadarView';
 import MexcWorkspace from './components/MexcWorkspace';
+import {MEXC_TIMEFRAMES,type MexcTimeframe} from './market/useMexcMarket';
 import {useExchangeCatalog} from './market/useExchangeCatalog';
 import {searchContracts,type FuturesExchange} from './market/exchangeCatalog';
 import {STABLE_TIMEFRAMES,useStableMarket,type StableTimeframe} from './market/useStableMarket';
@@ -27,6 +28,7 @@ import {StructureStatusRibbon,LevelChronologyPanel} from './components/Structure
 import {buildMarketLiquidity,buildDecisionResearch} from './market/liquidityDecisionResearch';
 import {LiquidityMapPanel,DecisionResearchPanel} from './components/LiquidityDecisionPanel';
 import {buildTrendStructure} from './market/trendStructureResearch';
+import {useExpandedTrendResearch} from './market/useExpandedTrendResearch';
 import TrendStructurePanel from './components/TrendStructurePanel';
 import FocusSessionStrip from './components/FocusSessionStrip';
 import FocusStudiesStrip from './components/FocusStudiesStrip';
@@ -86,6 +88,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
     symbol,bars:structure.closed1m??[],report:structure.report,liquidity:liquidityMap,
     now:Date.now(),freshAt:structure.updatedAt
   }),[symbol,structure.closed1m,structure.report,structure.updatedAt,liquidityMap]);
+  const extendedTrend=useExpandedTrendResearch(symbol,trendStructure);
   const earlyResearch=useMemo(()=>focusEarlyOnResearch(
     symbol,structure.closed1m??[],structure.report?.asOf??0,structure.updatedAt
   ),[symbol,structure.closed1m,structure.report?.asOf,structure.updatedAt]);
@@ -185,7 +188,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
           <FocusStudiesStrip symbol={symbol} candles={candles} timeframe={timeframe}
             cvd={cvdStream} oi={liveMetrics.oi}/>
         </section>
-        <FocusDecisionPanel trend={trendStructure} decision={researchDecision}
+        <FocusDecisionPanel trend={trendStructure} extended={extendedTrend} decision={researchDecision}
           liquidity={liquidityMap} narrative={chartNarrative} early={earlyResearch}/>
       </div>
       {error&&<p className="asc-focus-error" role="status">{error}</p>}
@@ -216,9 +219,9 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
       </button>
     </div>
     <details className="asc-chart-trend-details">
-      <summary>Структура по 6 TF · {trendStructure.alignment}
+      <summary>Структура 1m → 1D (13 TF) · CORE: {trendStructure.alignment}
         {' · '}подробные HH/HL, LH/LL (на графике — краткая сводка)</summary>
-      <TrendStructurePanel snapshot={trendStructure}/>
+      <TrendStructurePanel snapshot={trendStructure} extended={extendedTrend}/>
     </details>
     <StructureStatusRibbon feed={structure} decision={researchDecision}/>
     <div className={'asc-mp-layout'+(settings.participation&&expandedOverlays?' visible':'')}>
@@ -325,6 +328,8 @@ export default function StableMarketApp(){
   const[bybitSymbol,setBybitSymbol]=useState('BTCUSDT');
   const[mexcSymbol,setMexcSymbol]=useState('BTC_USDT');
   const[timeframe,setTimeframe]=useState<StableTimeframe>('15m');
+  const mexcTimeframe:MexcTimeframe=MEXC_TIMEFRAMES.some(tf=>tf===timeframe)?
+    timeframe as MexcTimeframe:'15m';
   const[search,setSearch]=useState('');
   const[inputError,setInputError]=useState('');
   const[visibleCount,setVisibleCount]=useState(80);
@@ -552,8 +557,9 @@ export default function StableMarketApp(){
         <div className="asc-lite-timeframe-bar">
           <div><strong>ТАЙМФРЕЙМ</strong><small>{exchange} / {symbol}</small></div>
           <div className="asc-lite-timeframes">
-            {STABLE_TIMEFRAMES.map(tf=><button key={tf} type="button"
-              className={tf===timeframe?'active':''} onClick={()=>setTimeframe(tf)}>{tf}</button>)}
+            {(exchange==='BYBIT'?STABLE_TIMEFRAMES:MEXC_TIMEFRAMES).map(tf=><button key={tf} type="button"
+              className={tf===(exchange==='BYBIT'?timeframe:mexcTimeframe)?'active':''}
+              onClick={()=>setTimeframe(tf)}>{tf}</button>)}
           </div>
         </div>
         {contract?
@@ -562,8 +568,8 @@ export default function StableMarketApp(){
               settings={settings} onToggle={toggleIndicator}
               onUpdate={updateIndicators} onReset={resetIndicators}
               focusMode={focusMode}/>:
-            <MexcWorkspace key={exchange+':'+symbol+':'+timeframe}
-              contract={contract} timeframe={timeframe} settings={settings}
+            <MexcWorkspace key={exchange+':'+symbol+':'+mexcTimeframe}
+              contract={contract} timeframe={mexcTimeframe} settings={settings}
               onViewMode={chartViewMode=>updateIndicators({chartViewMode})}/>)
           :<div className="asc-exchange-wait" role="status">
             <strong>{catalog.status==='loading'?'Загружаем фьючерсы '+exchange+'…':

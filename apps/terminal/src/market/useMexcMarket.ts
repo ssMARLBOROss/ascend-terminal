@@ -1,13 +1,14 @@
 import {useEffect,useState} from 'react';
 import type {Candle} from '@ascend/contracts';
-import type {StableTimeframe} from './useStableMarket';
+export const MEXC_TIMEFRAMES=['1m','3m','5m','15m','30m','1H','4H','1D'] as const;
+export type MexcTimeframe=(typeof MEXC_TIMEFRAMES)[number];
 
 /** MEXC Futures REST K-lines. Volumes are CONTRACT LOTS, not base coin volume. */
-const periods:Record<StableTimeframe,string>={
+const periods:Record<MexcTimeframe,string>={
   '1m':'Min1','3m':'Min1','5m':'Min5','15m':'Min15',
   '30m':'Min30','1H':'Min60','4H':'Hour4','1D':'Day1'
 };
-const duration:Record<StableTimeframe,number>={
+const duration:Record<MexcTimeframe,number>={
   '1m':60,'3m':60,'5m':300,'15m':900,'30m':1800,
   '1H':3600,'4H':14400,'1D':86400
 };
@@ -61,7 +62,7 @@ export function aggregateMexc3m(bars:Candle[],now:number):Candle[]{
   return result.slice(-320);
 }
 export async function getMexcKlines(fetcher:typeof fetch,symbol:string,
-  timeframe:StableTimeframe,now:number,signal?:AbortSignal):Promise<Candle[]>{
+  timeframe:MexcTimeframe,now:number,signal?:AbortSignal):Promise<Candle[]>{
   if(!/^[A-Z0-9]+_USDT$/.test(symbol))throw Error('Invalid MEXC symbol');
   const step=duration[timeframe],barsNeeded=timeframe==='3m'?990:350;
   const start=Math.floor(now/1000)-step*barsNeeded;
@@ -76,9 +77,9 @@ export async function getMexcKlines(fetcher:typeof fetch,symbol:string,
   return timeframe==='3m'?aggregateMexc3m(parsed,now):parsed.slice(-320);
 }
 
-export function useMexcMarket(symbol:string,timeframe:StableTimeframe){
+export function useMexcMarket(symbol:string,timeframe:MexcTimeframe){
   const[state,setState]=useState<{
-    symbol:string;timeframe:StableTimeframe;candles:Candle[];
+    symbol:string;timeframe:MexcTimeframe;candles:Candle[];
     status:'LOADING'|'POLLING'|'ERROR';error?:string;lastUpdate?:number;
   }>({symbol,timeframe,candles:[],status:'LOADING'});
   useEffect(()=>{

@@ -5,7 +5,8 @@ import type {Candle} from '@ascend/contracts';
  */
 export const TF_MILLISECONDS:Record<string,number>={
   '1m':60000,'3m':180000,'5m':300000,'10m':600000,'15m':900000,
-  '30m':1800000,'1H':3600000,'4H':14400000,'1D':86400000
+  '30m':1800000,'45m':2700000,'1H':3600000,'2H':7200000,
+  '4H':14400000,'6H':21600000,'12H':43200000,'1D':86400000
 };
 
 export function closedMarketCandles(candles:Candle[],timeframe:string,asOf=Date.now()):Candle[]{

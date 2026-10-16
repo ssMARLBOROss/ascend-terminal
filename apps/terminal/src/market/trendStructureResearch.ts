@@ -1,11 +1,12 @@
 import type {Candle} from '@ascend/contracts';
 import type {StructureDirection} from './ascendStructureResearch';
 import {aggregateClosed} from './liquidityDecisionResearch';
+import type {FullTimeframe} from './fullTimeframes';
 
 export const TREND_TFS=[
   ['30m',30],['15m',15],['10m',10],['5m',5],['3m',3],['1m',1]
 ] as const;
-export type TrendTf=(typeof TREND_TFS)[number][0];
+export type TrendTf=FullTimeframe;
 export type TrendState='LONG'|'SHORT'|'BALANCE'|'TRANSITION'|'NO DATA';
 export type SwingHigh='HH'|'LH'|'EQH'|'—';
 export type SwingLow='HL'|'LL'|'EQL'|'—';

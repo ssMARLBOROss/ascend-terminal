@@ -2,7 +2,7 @@ import {useMemo,useState} from 'react';
 import StableCandleChart from './StableCandleChart';
 import CloudflareMarketIndicators from './CloudflareMarketIndicators';
 import {useMexcMarket} from '../market/useMexcMarket';
-import type {StableTimeframe} from '../market/useStableMarket';
+import type {MexcTimeframe} from '../market/useMexcMarket';
 import type {FvgAppearance} from './fvgOverlay';
 import type {IndicatorSettings} from '../market/indicatorSettings';
 import type {FuturesContract} from '../market/exchangeCatalog';
@@ -17,7 +17,7 @@ function price(n:number|undefined){
   return n.toLocaleString('en-US',{maximumFractionDigits:n>=1000?2:n>=1?4:9});
 }
 export default function MexcWorkspace({contract,timeframe,settings,onViewMode}:{
-  contract:FuturesContract;timeframe:StableTimeframe;settings:IndicatorSettings;
+  contract:FuturesContract;timeframe:MexcTimeframe;settings:IndicatorSettings;
   onViewMode:(mode:IndicatorSettings['chartViewMode'])=>void;
 }){
   const market=useMexcMarket(contract.symbol,timeframe);

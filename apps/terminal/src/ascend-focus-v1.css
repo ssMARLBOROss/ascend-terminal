@@ -130,6 +130,24 @@
 .asc-focus-mtf-cell.ok>strong{color:#70d7a8}
 .asc-focus-mtf-cell.blocked>strong{color:#e58494}
 .asc-focus-mtf-cell small{font-size:9px;color:#8fabb9}
+.asc-focus-timeframe-ladder{padding:5px 7px;border:1px solid #254859;
+  background:#09232f;border-radius:5px;min-width:0}
+.asc-focus-timeframe-ladder>header{display:flex;justify-content:space-between;
+  gap:4px;align-items:center;margin-bottom:5px}
+.asc-focus-timeframe-ladder>header>b{font-size:9px;color:#c3dce8}
+.asc-focus-timeframe-ladder>header>small{font-size:8px;color:#789aa9}
+.asc-focus-timeframe-chips{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.asc-focus-tf-chip{display:flex;flex-direction:column;align-items:center;gap:1px;
+ padding:3px 0;border-radius:3px;background:#152b39;border:1px solid #365061;
+ min-width:0;color:#a6bac7}
+.asc-focus-tf-chip>b{font-size:9px;white-space:nowrap}
+.asc-focus-tf-chip>small{font-size:7px;white-space:nowrap;color:inherit}
+.asc-focus-tf-chip.trend-long{border-color:#307e65;color:#79ddaf}
+.asc-focus-tf-chip.trend-short{border-color:#914b59;color:#ec9fa9}
+.asc-focus-tf-chip.trend-balance{border-color:#817048;color:#e0c481}
+.asc-focus-tf-chip.trend-transition{border-color:#7b6150;color:#d7ad91}
+.asc-focus-timeframe-ladder>small{display:block;margin-top:4px;
+ font-size:8px;color:#81a2b2;white-space:normal}
 .asc-focus-on-levels{display:flex;gap:7px;align-items:center;justify-content:space-between;
  color:#9ab9c7;font-size:10px}
 .asc-focus-on-levels b{color:#e5f2f6}
