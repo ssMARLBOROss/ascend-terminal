@@ -29,6 +29,7 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
   const[side,setSide]=useState<'ALL'|'LONG'|'SHORT'>('ALL');
   const[rc,setRc]=useState<'ALL'|'RC30'|'RC70'>('ALL');
   const[onFocus,setOnFocus]=useState<RadarOnSide|'ALL'>('ALL');
+  const[radarMode,setRadarMode]=useState<'ON'|'EARLY'>('ON');
   const[onlyOn,setOnlyOn]=useState(true);
   const[now,setNow]=useState(()=>Date.now());
   useEffect(()=>{const id=window.setInterval(()=>setNow(Date.now()),15000);
@@ -44,10 +45,19 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
     if(onFocus!=='ALL'&&r.onSide!==onFocus)return false;
     if(onlyOn&&!['WATCH','SWEEP','SHIFTING','CHECK 1M'].includes(r.stage))return false;
     if(onlyOn&&r.onState!=='FROZEN')return false;
+    if(radarMode==='EARLY'&&(!r.early||!['EARLY WATCH','EARLY CANDIDATE','EARLY SKIP'].includes(r.early.status)))return false;
     return true;
-  }).sort((a,b)=>priority[a.stage]-priority[b.stage]||
-    (a.distancePct??Infinity)-(b.distancePct??Infinity)||
-    b.turnover24h-a.turnover24h),[feed.rows,search,group,filter,side,rc,onFocus,onlyOn]);
+  }).sort((a,b)=>{
+    if(radarMode==='EARLY'){
+      const score=(status?:string)=>status==='EARLY CANDIDATE'?0:
+        status==='EARLY WATCH'?1:status==='EARLY SKIP'?2:3;
+      const delta=score(a.early?.status)-score(b.early?.status);
+      if(delta)return delta;
+    }
+    return priority[a.stage]-priority[b.stage]||
+      (a.distancePct??Infinity)-(b.distancePct??Infinity)||
+      b.turnover24h-a.turnover24h;
+  }),[feed.rows,search,group,filter,side,rc,onFocus,onlyOn,radarMode]);
   const verified=feed.rows.filter(r=>r.integrity==='COMPLETE');
   const shifting=verified.filter(r=>r.stage==='SHIFTING').length;
   const check=verified.filter(r=>r.stage==='CHECK 1M').length;
@@ -55,7 +65,9 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
     ['WATCH','SWEEP','SHIFTING','CHECK 1M'].includes(r.stage)).length;
   const nearOnh=verified.filter(r=>r.onSide==='ONH'&&
     ['WATCH','SWEEP','SHIFTING','CHECK 1M'].includes(r.stage)).length;
-  const stale=feed.updatedAt!==undefined&&now-feed.updatedAt>180000;
+  const stale=feed.updatedAt===undefined||now-feed.updatedAt>180000;
+  const earlyReady=verified.filter(r=>r.early?.status==='EARLY CANDIDATE').length;
+  const earlyWatching=verified.filter(r=>r.early?.status==='EARLY WATCH').length;
   return <main className="asc-radar-page">
     <header className="asc-radar-hero">
       <div><small>ASCEND · SMART RADAR V1 · RESEARCH</small>
@@ -72,8 +84,19 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
       <div><small>ВЕРХНЯЯ ONH</small><b>{nearOnh}</b><span>Кандидаты возле ONH</span></div>
       <div><small>SHIFTING / 1M</small><b>{shifting} / {check}</b>
         <span>Структура ещё требует Core</span></div>
+      <div><small>EARLY · 5M</small><b>{stale?'—':earlyReady}</b>
+        <span>Наблюдение: {earlyWatching} · не ENTRY READY</span></div>
     </div>
     <section className="asc-radar-controls" aria-label="Фильтры радара">
+      <div className="asc-radar-mode-tabs" role="group" aria-label="Режим поиска ON-зон">
+        <button type="button" className={radarMode==='ON'?'active':''}
+          aria-pressed={radarMode==='ON'} onClick={()=>setRadarMode('ON')}>
+          ONH / ONL · ВСЕ СОБЫТИЯ</button>
+        <button type="button" className={radarMode==='EARLY'?'active early':''}
+          aria-pressed={radarMode==='EARLY'} onClick={()=>setRadarMode('EARLY')}>
+          EARLY ENTRY · ИССЛЕДОВАНИЕ</button>
+        <span>EARLY CANDIDATE означает «проверить 1m», не команду открыть ордер</span>
+      </div>
       <div className="asc-radar-on-tabs" role="group" aria-label="Выбор ночного уровня">
         <button type="button" className={onFocus==='ALL'?'active':''}
           aria-pressed={onFocus==='ALL'} onClick={()=>setOnFocus('ALL')}>
@@ -127,7 +150,7 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
       <div className="asc-radar-scroll"><table>
         <thead><tr><th>Монета</th><th>Цена</th><th>24ч</th><th>RSI 5m</th>
           <th>ON зона · расстояние</th><th>Vol/SMA20</th><th>Событие / Состояние</th>
-          <th>Время UTC</th><th>Открыть</th></tr></thead>
+          <th>Ранний сетап · риск</th><th>Время UTC</th><th>Открыть</th></tr></thead>
         <tbody>{rows.map(row=><tr key={row.symbol}>
           <td><b>{row.symbol.replace(/USDT$/,'')}</b>
             <small>USDT · {row.group} · оборот {compact(row.turnover24h)} USDT</small></td>
@@ -157,13 +180,32 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
             {row.direction!=='NEUTRAL'&&<small className={
               row.direction==='LONG'?'radar-long':'radar-short'}>
               {row.direction} · предварительно</small>}</td>
+          <td className="asc-radar-early-cell">
+            <span className={'asc-radar-early-badge early-'+
+              (stale?'none':(row.early?.status??'NONE')).toLowerCase().replace(/\W+/g,'-')}>
+              {stale?'ДАННЫЕ УСТАРЕЛИ':row.early?.status??'—'}</span>
+            {row.early&&row.early.status!=='NONE'&&!stale&&
+              <div className="asc-radar-early-plan">
+                <small>{row.early.reason}</small>
+                {row.early.indicativeEntry!==undefined&&
+                  <small>5m close {price(row.early.indicativeEntry)}
+                    {' · '}SL {row.early.structuralSl===undefined?'—':price(row.early.structuralSl)}
+                    {' · '}TP {row.early.target===undefined?'—':price(row.early.target)}
+                    {' · '}R:R {row.early.rr?.toFixed(2)??'—'}</small>}
+                {row.early.reactionAt&&<small>Реакция: {utc(row.early.reactionAt)}</small>}
+                <small>Только наблюдение · 1m trigger не проверен</small>
+              </div>}
+          </td>
           <td>{utc(row.eventAt??row.observedAt)}</td>
           <td><button type="button" className="asc-radar-open"
             onClick={()=>onOpen(row.symbol)}>График ↗</button></td>
         </tr>)}</tbody>
       </table></div>
       {!rows.length&&<p className="asc-radar-empty">
-        {feed.rows.length?'Активных ON-сетапов сейчас не найдено в этой выборке. Убери флажок «Только активные ON зоны», чтобы увидеть все проверенные пары.':'Ожидаем скан Bybit…'}
+        {feed.rows.length?
+          radarMode==='EARLY'?'В этой выборке нет свежих ранних ON-сетапов. Для обычных касаний верни режим ONH/ONL.':
+          'Активных ON-сетапов сейчас не найдено в этой выборке. Убери флажок «Только активные ON зоны», чтобы увидеть все проверенные пары.':
+          'Ожидаем скан Bybit…'}
       </p>}
     </section>
     <footer className="asc-radar-disclaimer">
@@ -175,7 +217,13 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
       Обязательная цепочка 30m → 15m → 10m → 5m → 3m → 1m,
       структурный SL, ближайшая ликвидность TP и R:R ≥ 1:2 проверяются
       отдельно при открытии монеты. Время событий — закрытие 5m, не точный тик.
-      RSI 30/70 не является причиной WATCH. Охват — только выбранные
+      Режим EARLY: после FROZEN ON sweep + 5m reclaim отдельная 5m
+      реакция с объёмом sweep ≥1,8× и R:R ≥1:2 до противоположного ON уровня
+      формирует только EARLY CANDIDATE для проверки 1m micro-BOS, но никогда
+      не даёт автоматическое разрешение на вход. Закрепление за ON уровнем
+      (acceptance) не получает выдуманного TP. Сетап истекает через 30 минут,
+      а реакция через 10 минут. RSI 30/70 не является причиной WATCH.
+      Охват — только выбранные
       20/40/80/120 ликвидных Bybit USDT-фьючерсов; BingX Spot здесь не сканируется.
     </footer>
   </main>;

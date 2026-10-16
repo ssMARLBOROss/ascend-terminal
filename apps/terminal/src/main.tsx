@@ -7,6 +7,7 @@ import './chart-focus.css';
 import './liquidity-decision.css';
 import './trend-structure.css';
 import './on-radar.css';
+import './early-on-radar.css';
 
 // Market-only stable shell. Legacy App and ASCEND Core remain intact but unmounted.
 createRoot(document.getElementById('root')!).render(
