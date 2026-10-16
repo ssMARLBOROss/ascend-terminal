@@ -6,7 +6,7 @@ import {pathToFileURL} from 'node:url';
 const out=resolve(tmpdir(),'ascend-expanded-trend-test.mjs');
 await build({entryPoints:['src/market/useExpandedTrendResearch.ts'],
   outfile:out,platform:'node',format:'esm',bundle:true,
-  packages:'external',logLevel:'silent'});
+  logLevel:'silent'});
 const {expandTrendStructure}=await import(pathToFileURL(out).href);
 const D=Date.UTC(2026,9,16,12),M=60000;
 const make=(step,count)=>{
