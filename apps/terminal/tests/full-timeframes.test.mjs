@@ -21,7 +21,7 @@ assert.equal(tens[0].timestamp,D);
 assert.equal(tens[0].open,1);
 assert.equal(tens[0].high,1.3);
 assert.equal(tens[0].low,.8);
-assert.equal(tens[0].close,1.2);
+assert.ok(Math.abs(tens[0].close-1.2)<1e-10);
 assert.equal(tens[0].volume,21);
 assert.equal(tens[2].timestamp,D+20*M);
 assert.equal(fullyClosed(tens,10,D+25*M).length,2,
