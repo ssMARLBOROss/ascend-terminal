@@ -425,6 +425,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
         ' · от OPEN '+(chartNarrative.session.changePct>0?'+':'')+
         chartNarrative.session.changePct.toFixed(2)+'%':
         'СЕССИЯ: нет непрерывной истории 1m'}</span>
+      <span>{chartNarrative?.impulse??'5m / 30 мин: ожидание свечей'}</span>
       <span>СЕТАП: {chartNarrative?.setup??'—'} · CORE: {chartNarrative?.status??'WAIT'}</span>
       <em>{chartNarrative?.warning??'Нет актуального структурного подтверждения'}</em>
       {chartNarrative?.ready&&<small>ENTRY / SL / TP на графике · R:R {chartNarrative.rr?.toFixed(2)}
