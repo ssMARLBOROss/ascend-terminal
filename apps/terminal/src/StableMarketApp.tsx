@@ -28,6 +28,10 @@ import {buildMarketLiquidity,buildDecisionResearch} from './market/liquidityDeci
 import {LiquidityMapPanel,DecisionResearchPanel} from './components/LiquidityDecisionPanel';
 import {buildTrendStructure} from './market/trendStructureResearch';
 import TrendStructurePanel from './components/TrendStructurePanel';
+import FocusSessionStrip from './components/FocusSessionStrip';
+import FocusStudiesStrip from './components/FocusStudiesStrip';
+import FocusDecisionPanel from './components/FocusDecisionPanel';
+import {focusEarlyOnResearch} from './market/focusEarlyResearch';
 import {buildChartNarrative} from './market/chartNarrativeResearch';
 import {loadIndicatorSettings,DEFAULT_INDICATORS,STORAGE_KEY,
   type IndicatorSettings,type IndicatorKey} from './market/indicatorSettings';
@@ -44,7 +48,7 @@ function fmtVolume(value?:number){
   return value.toLocaleString('ru-RU',{maximumFractionDigits:2});
 }
 
-function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus,dailyVwap,vwapStatus,liveMetrics,cvdStream,settings,onToggle,onUpdate,onReset}:{
+function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus,dailyVwap,vwapStatus,liveMetrics,cvdStream,settings,onToggle,onUpdate,onReset,focusMode}:{
   symbol:string;timeframe:StableTimeframe;
   previousDay?:PreviousDayLevels;previousDayStatus:'loading'|'ready'|'error';
   previousSessions?:PreviousSessionLevels;previousSessionsStatus:'loading'|'ready'|'error';
@@ -53,6 +57,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   cvdStream:ContinuousCvd;
   settings:IndicatorSettings;onToggle:(key:IndicatorKey)=>void;
   onUpdate:(patch:Partial<IndicatorSettings>)=>void;onReset:()=>void;
+  focusMode:boolean;
 }){
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
   const[focusRequest,setFocusRequest]=useState(0);
@@ -81,6 +86,9 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
     symbol,bars:structure.closed1m??[],report:structure.report,liquidity:liquidityMap,
     now:Date.now(),freshAt:structure.updatedAt
   }),[symbol,structure.closed1m,structure.report,structure.updatedAt,liquidityMap]);
+  const earlyResearch=useMemo(()=>focusEarlyOnResearch(
+    symbol,structure.closed1m??[],structure.report?.asOf??0,structure.updatedAt
+  ),[symbol,structure.closed1m,structure.report?.asOf,structure.updatedAt]);
   const chartNarrative=useMemo(()=>buildChartNarrative({
     symbol,bars:structure.closed1m??[],trend:trendStructure,decision:researchDecision,
     now:Date.now(),freshAt:structure.updatedAt
@@ -114,7 +122,29 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
     previousDay,previousSessions,fvgs:fvgResearch.zones
   });
 
-  return <main className="asc-lite-workspace">
+  const chartNode=<div className="asc-lite-chart-box">
+      <StableCandleChart candles={candles} timeframe={timeframe} previousDay={previousDay}
+        previousSessions={previousSessions} dailyVwap={dailyVwap}
+        orderbook={liquidity.status==='ready'?liquidity.snapshot:undefined}
+        showBook={!focusMode&&settings.book} showStops={!focusMode&&settings.stops}
+        tpo={liveMetrics.tpo.status==='ready'?liveMetrics.tpo.data:undefined}
+        showTpo={!focusMode&&settings.tpo&&expandedOverlays}
+        fvgZones={chartFvg} showFvg={!focusMode&&settings.fvg} fvgAppearance={chartFvgAppearance}
+        focusRequest={focusRequest} viewMode={settings.chartViewMode}
+        showVolume={focusMode||settings.volume} showVwap={focusMode||settings.vwap}
+        showSessions={settings.sessions} showSessionClock={!focusMode&&settings.sessionClock}
+        showDayLevels={settings.dayLevels} showSessionLevels={settings.sessionLevels}
+        showSma={!focusMode&&settings.sma}
+        overnightLevels={settings.overnightLevels&&structure.status==='ready'&&structure.report?.onh!==undefined&&structure.report?.onl!==undefined
+          ?{high:structure.report.onh,low:structure.report.onl,availableFrom:structure.report.dayStart+6*3600000}:undefined}
+        researchLiquidity={structure.status==='ready'?liquidityMap:undefined}
+        chartNarrative={chartNarrative} showChartNarrative={focusMode||showChartNarrative}/>
+      {candles.length<20&&<div className="asc-lite-loading" role="status">
+        <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
+        <span>{error??'График появится после получения истории Bybit REST'}</span>
+      </div>}
+        </div>;
+  return <main className={'asc-lite-workspace'+(focusMode?' asc-focus-workspace':'')}>
     <div className="asc-lite-toolbar">
       <div className="asc-lite-pair">
         <strong>{symbol}</strong>
@@ -143,6 +173,19 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         <small>{candles.length} свечей</small>
       </div>
     </div>
+    {focusMode?<div className="asc-focus-root">
+      <FocusSessionStrip narrative={chartNarrative}/>
+      <div className="asc-focus-stage">
+        <section className="asc-focus-chart-column" aria-label="Главный график и индикаторы">
+          <div className="asc-focus-chart-container">{chartNode}</div>
+          <FocusStudiesStrip symbol={symbol} candles={candles} timeframe={timeframe}
+            cvd={cvdStream} oi={liveMetrics.oi}/>
+        </section>
+        <FocusDecisionPanel trend={trendStructure} decision={researchDecision}
+          liquidity={liquidityMap} narrative={chartNarrative} early={earlyResearch}/>
+      </div>
+      {error&&<p className="asc-focus-error" role="status">{error}</p>}
+    </div>:<>
     {settings.stats&&<div className="asc-lite-stats">
       <div><small>ПОСЛЕДНЯЯ ЦЕНА</small><strong>{fmtPrice(displayPrice)}</strong></div>
       <div><small>O / ОТКРЫТИЕ СВЕЧИ</small><b>{fmtPrice(latest?.open)}</b></div>
@@ -177,28 +220,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
     <div className={'asc-mp-layout'+(settings.participation&&expandedOverlays?' visible':'')}>
 
       <div className="asc-mp-chart-column">
-        <div className="asc-lite-chart-box">
-      <StableCandleChart candles={candles} timeframe={timeframe} previousDay={previousDay}
-        previousSessions={previousSessions} dailyVwap={dailyVwap}
-        orderbook={liquidity.status==='ready'?liquidity.snapshot:undefined}
-        showBook={settings.book} showStops={settings.stops}
-        tpo={liveMetrics.tpo.status==='ready'?liveMetrics.tpo.data:undefined}
-        showTpo={settings.tpo&&expandedOverlays}
-        fvgZones={chartFvg} showFvg={settings.fvg} fvgAppearance={chartFvgAppearance}
-        focusRequest={focusRequest} viewMode={settings.chartViewMode}
-        showVolume={settings.volume} showVwap={settings.vwap}
-        showSessions={settings.sessions} showSessionClock={settings.sessionClock}
-        showDayLevels={settings.dayLevels} showSessionLevels={settings.sessionLevels}
-        showSma={settings.sma}
-        overnightLevels={settings.overnightLevels&&structure.status==='ready'&&structure.report?.onh!==undefined&&structure.report?.onl!==undefined
-          ?{high:structure.report.onh,low:structure.report.onl,availableFrom:structure.report.dayStart+6*3600000}:undefined}
-        researchLiquidity={structure.status==='ready'?liquidityMap:undefined}
-        chartNarrative={chartNarrative} showChartNarrative={showChartNarrative}/>
-      {candles.length<20&&<div className="asc-lite-loading" role="status">
-        <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
-        <span>{error??'График появится после получения истории Bybit REST'}</span>
-      </div>}
-        </div>
+        {chartNode}
         <LiquidityMapPanel data={liquidityMap} price={displayPrice}/>
         <LevelChronologyPanel feed={structure} previousDay={previousDay} lastPrice={displayPrice}
           extraLevels={liquidityMap.levels}/>
@@ -245,14 +267,15 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
       <span>{lastUpdate?'Последнее обновление: '+new Date(lastUpdate).toLocaleTimeString('ru-RU'):'Ожидание данных'}</span>
     </footer>
     {error&&candles.length>=20&&<p className="asc-lite-note" role="status">{error} · график продолжает показывать последние полученные свечи</p>}
+    </>}
   </main>;
 }
 
 
-function BybitDataWorkspace({symbol,timeframe,settings,onToggle,onUpdate,onReset}:{
+function BybitDataWorkspace({symbol,timeframe,settings,onToggle,onUpdate,onReset,focusMode}:{
   symbol:string;timeframe:StableTimeframe;settings:IndicatorSettings;
   onToggle:(key:IndicatorKey)=>void;onUpdate:(patch:Partial<IndicatorSettings>)=>void;
-  onReset:()=>void;
+  onReset:()=>void;focusMode:boolean;
 }){
   // Bybit-specific hooks run only when the selected exchange is Bybit.
   const previousDay=usePreviousDayLevels(symbol);
@@ -271,11 +294,19 @@ function BybitDataWorkspace({symbol,timeframe,settings,onToggle,onUpdate,onReset
     previousSessions={previousSessions.levels} previousSessionsStatus={previousSessions.status}
     dailyVwap={vwap.daily} vwapStatus={vwap.status} liveMetrics={liveMetrics}
     cvdStream={cvdStream} settings={settings} onToggle={onToggle}
-    onUpdate={onUpdate} onReset={onReset}/>;
+    onUpdate={onUpdate} onReset={onReset} focusMode={focusMode}/>;
 }
 
 export default function StableMarketApp(){
   const[page,setPage]=useState<'MARKET'|'RADAR'>('MARKET');
+  const[focusMode,setFocusMode]=useState<boolean>(()=>{
+    try{return window.localStorage.getItem('ascend.focus.mode.v1')!=='DETAIL'}
+    catch{return true}
+  });
+  useEffect(()=>{
+    try{window.localStorage.setItem('ascend.focus.mode.v1',focusMode?'FOCUS':'DETAIL')}
+    catch{/* private mode */}
+  },[focusMode]);
   const[settings,setSettings]=useState<IndicatorSettings>(loadIndicatorSettings);
   useEffect(()=>{
     try{window.localStorage.setItem(STORAGE_KEY,JSON.stringify(settings))}catch{/* private mode */}
@@ -350,7 +381,8 @@ export default function StableMarketApp(){
     setSearch('');setQuickOpen(false);setPage('MARKET');
     window.scrollTo({top:0,behavior:'smooth'});
   };
-  return <div className={'asc-lite-app'+(settings.coins?'':' asc-hide-coins')}>
+  return <div className={'asc-lite-app'+(settings.coins?'':' asc-hide-coins')+
+    (page==='MARKET'&&exchange==='BYBIT'&&focusMode?' asc-mode-focus':'')}>
     <header className="asc-lite-header">
       <div className="asc-lite-brand"><span className="asc-lite-logo">A</span>
         <div><strong>ASCEND</strong><small>MARKET · USDT FUTURES · TWO EXCHANGES</small></div>
@@ -365,7 +397,15 @@ export default function StableMarketApp(){
       <button type="button" className={page==='RADAR'?'active':''}
         aria-current={page==='RADAR'?'page':undefined}
         onClick={()=>setPage('RADAR')}>◉ РАДАР <small>20 / 40 МОНЕТ</small></button>
-      <span>Ситуации · аналитика · без автоматических ордеров</span>
+      <div className="asc-focus-switch" role="group" aria-label="Режим интерфейса ASCEND">
+        <button type="button" className={focusMode?'active':''}
+          aria-pressed={focusMode} disabled={page!=='MARKET'||exchange!=='BYBIT'}
+          onClick={()=>setFocusMode(true)}>◫ FOCUS · 1 ЭКРАН</button>
+        <button type="button" className={!focusMode?'active':''}
+          aria-pressed={!focusMode} disabled={page!=='MARKET'||exchange!=='BYBIT'}
+          onClick={()=>setFocusMode(false)}>≡ DETAIL · АНАЛИТИКА</button>
+      </div>
+      <span>Только исследования · автоордера отключены</span>
     </nav>
     {page==='RADAR'?<RadarView onOpen={openRadarPair}/>:<>
     <nav className="asc-exchange-switch" aria-label="Выбор фьючерсной биржи">
@@ -516,7 +556,8 @@ export default function StableMarketApp(){
           (exchange==='BYBIT'?
             <BybitDataWorkspace symbol={symbol} timeframe={timeframe}
               settings={settings} onToggle={toggleIndicator}
-              onUpdate={updateIndicators} onReset={resetIndicators}/>:
+              onUpdate={updateIndicators} onReset={resetIndicators}
+              focusMode={focusMode}/>:
             <MexcWorkspace key={exchange+':'+symbol+':'+timeframe}
               contract={contract} timeframe={timeframe} settings={settings}
               onViewMode={chartViewMode=>updateIndicators({chartViewMode})}/>)
