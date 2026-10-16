@@ -2,6 +2,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import StableCandleChart from './components/StableCandleChart';
 import RadarView from './components/RadarView';
 import MexcWorkspace from './components/MexcWorkspace';
+import {MEXC_TIMEFRAMES,type MexcTimeframe} from './market/useMexcMarket';
 import {useExchangeCatalog} from './market/useExchangeCatalog';
 import {searchContracts,type FuturesExchange} from './market/exchangeCatalog';
 import {STABLE_TIMEFRAMES,useStableMarket,type StableTimeframe} from './market/useStableMarket';
@@ -327,6 +328,8 @@ export default function StableMarketApp(){
   const[bybitSymbol,setBybitSymbol]=useState('BTCUSDT');
   const[mexcSymbol,setMexcSymbol]=useState('BTC_USDT');
   const[timeframe,setTimeframe]=useState<StableTimeframe>('15m');
+  const mexcTimeframe:MexcTimeframe=MEXC_TIMEFRAMES.some(tf=>tf===timeframe)?
+    timeframe as MexcTimeframe:'15m';
   const[search,setSearch]=useState('');
   const[inputError,setInputError]=useState('');
   const[visibleCount,setVisibleCount]=useState(80);
@@ -554,8 +557,9 @@ export default function StableMarketApp(){
         <div className="asc-lite-timeframe-bar">
           <div><strong>ТАЙМФРЕЙМ</strong><small>{exchange} / {symbol}</small></div>
           <div className="asc-lite-timeframes">
-            {STABLE_TIMEFRAMES.map(tf=><button key={tf} type="button"
-              className={tf===timeframe?'active':''} onClick={()=>setTimeframe(tf)}>{tf}</button>)}
+            {(exchange==='BYBIT'?STABLE_TIMEFRAMES:MEXC_TIMEFRAMES).map(tf=><button key={tf} type="button"
+              className={tf===(exchange==='BYBIT'?timeframe:mexcTimeframe)?'active':''}
+              onClick={()=>setTimeframe(tf)}>{tf}</button>)}
           </div>
         </div>
         {contract?
@@ -564,8 +568,8 @@ export default function StableMarketApp(){
               settings={settings} onToggle={toggleIndicator}
               onUpdate={updateIndicators} onReset={resetIndicators}
               focusMode={focusMode}/>:
-            <MexcWorkspace key={exchange+':'+symbol+':'+timeframe}
-              contract={contract} timeframe={timeframe} settings={settings}
+            <MexcWorkspace key={exchange+':'+symbol+':'+mexcTimeframe}
+              contract={contract} timeframe={mexcTimeframe} settings={settings}
               onViewMode={chartViewMode=>updateIndicators({chartViewMode})}/>)
           :<div className="asc-exchange-wait" role="status">
             <strong>{catalog.status==='loading'?'Загружаем фьючерсы '+exchange+'…':
