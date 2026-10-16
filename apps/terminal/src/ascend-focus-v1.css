@@ -58,6 +58,9 @@
 .asc-focus-current-price{display:inline-block;font-size:15px;color:#aaf1dd;margin-left:12px}
 .asc-mode-focus .asc-lite-pair strong{display:inline-block}
 .asc-mode-focus .asc-lite-pair span{font-size:8px;margin-top:1px;white-space:nowrap}
+.asc-focus-to-price{margin-left:auto;border:1px solid #467288;background:#12364a;
+  color:#b5e0f0;padding:5px 9px;border-radius:5px;font-size:10px;font-weight:850}
+.asc-focus-to-price:hover{background:#1c5670;color:#ecfbff}
 .asc-mode-focus .asc-lite-feed small,.asc-mode-focus .asc-lite-daily-levels small{
  display:none}
 .asc-mode-focus .asc-lite-vwap-ticker{font-size:10px}
