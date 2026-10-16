@@ -1,9 +1,10 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
+import {deriveTimeframe} from './fullTimeframes';
 import type {Candle} from '@ascend/contracts';
 
-// Deliberately use only native Bybit intervals in the stable shell.
-// Derived intervals (10m/45m) and their aggregation remain in the legacy research UI.
-export const STABLE_TIMEFRAMES=['1m','3m','5m','15m','30m','1H','4H','1D'] as const;
+// Non-native 10m/45m candles use complete, ordered native 5m/15m bars.
+export const STABLE_TIMEFRAMES=['1m','3m','5m','10m','15m','30m','45m',
+  '1H','2H','4H','6H','12H','1D'] as const;
 export type StableTimeframe=(typeof STABLE_TIMEFRAMES)[number];
 type FeedStatus='CONNECTING'|'LIVE'|'RECONNECTING';
 type StableMarket={
@@ -15,8 +16,8 @@ type StableMarket={
 };
 
 const intervals:Record<StableTimeframe,string>={
-  '1m':'1','3m':'3','5m':'5','15m':'15','30m':'30',
-  '1H':'60','4H':'240','1D':'D'
+  '1m':'1','3m':'3','5m':'5','10m':'5','15m':'15','30m':'30',
+  '45m':'15','1H':'60','2H':'120','4H':'240','6H':'360','12H':'720','1D':'D'
 };
 const MAX_CANDLES=320;
 
@@ -190,5 +191,10 @@ export function useStableMarket(symbol:string,timeframe:StableTimeframe):StableM
     };
   },[symbol,timeframe]);
 
-  return{candles,status,error,lastPrice,lastUpdate};
+  const derived=useMemo(()=>{
+    if(timeframe==='10m')return deriveTimeframe(candles,5,10);
+    if(timeframe==='45m')return deriveTimeframe(candles,15,45);
+    return candles;
+  },[candles,timeframe]);
+  return{candles:derived,status,error,lastPrice,lastUpdate};
 }
