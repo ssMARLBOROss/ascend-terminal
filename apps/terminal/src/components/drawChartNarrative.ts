@@ -37,9 +37,11 @@ export function drawChartNarrative(
       color:mark.kind==='ENTRY'?'#ebd987':mark.kind==='SL'?'#f58d98':'#77e2b1',
       dash:mark.kind==='ENTRY'?[]:[7,4]});
   }
-  const positioned=entries.map(mark=>({...mark,y:series.priceToCoordinate(mark.price)}))
-    .filter((m):m is Mark&{y:number}=>m.y!==null&&Number.isFinite(m.y)&&m.y>55&&m.y<h-55)
-    .sort((a,b)=>a.priority-b.priority);
+  const positioned=entries.flatMap(mark=>{
+    const coordinate=series.priceToCoordinate(mark.price);
+    const y=coordinate===null?NaN:Number(coordinate);
+    return Number.isFinite(y)&&y>55&&y<h-55?[{...mark,y}]:[];
+  }).sort((a,b)=>a.priority-b.priority);
   const occupied:number[]=[];
   for(const mark of positioned){
     // No duplicate text/labels when many lines crowd a narrow price range.
