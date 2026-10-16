@@ -28,6 +28,7 @@ import {buildMarketLiquidity,buildDecisionResearch} from './market/liquidityDeci
 import {LiquidityMapPanel,DecisionResearchPanel} from './components/LiquidityDecisionPanel';
 import {buildTrendStructure} from './market/trendStructureResearch';
 import TrendStructurePanel from './components/TrendStructurePanel';
+import {buildChartNarrative} from './market/chartNarrativeResearch';
 import {loadIndicatorSettings,DEFAULT_INDICATORS,STORAGE_KEY,
   type IndicatorSettings,type IndicatorKey} from './market/indicatorSettings';
 
@@ -57,6 +58,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   const[focusRequest,setFocusRequest]=useState(0);
   const[selectedFvgId,setSelectedFvgId]=useState<string>();
   const[expandedOverlays,setExpandedOverlays]=useState(false);
+  const[showChartNarrative,setShowChartNarrative]=useState(true);
   // Participation is a separate read-only consumer; hiding book rectangles
   // must not stop its selected-symbol snapshots when this panel is enabled.
   const liquidity=useOrderbookClusters(symbol,settings.book||settings.participation);
@@ -79,6 +81,10 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
     symbol,bars:structure.closed1m??[],report:structure.report,liquidity:liquidityMap,
     now:Date.now(),freshAt:structure.updatedAt
   }),[symbol,structure.closed1m,structure.report,structure.updatedAt,liquidityMap]);
+  const chartNarrative=useMemo(()=>buildChartNarrative({
+    symbol,bars:structure.closed1m??[],trend:trendStructure,decision:researchDecision,
+    now:Date.now(),freshAt:structure.updatedAt
+  }),[symbol,structure.closed1m,structure.updatedAt,trendStructure,researchDecision]);
   const latest=candles[candles.length-1];
   const displayPrice=lastPrice??latest?.close;
   const fvgAppearance=useMemo<FvgAppearance>(()=>({
@@ -153,6 +159,10 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
           liquidity.status==='error'?'НЕДОСТУПЕН':'ПОДКЛЮЧЕНИЕ'):'ВЫКЛЮЧЕН'}/>
     <div className="asc-chart-focus-controls">
       <span>Рабочий график · свечи, ликвидность, VWAP</span>
+      <button type="button" aria-pressed={showChartNarrative}
+        onClick={()=>setShowChartNarrative(visible=>!visible)}>
+        {showChartNarrative?'Пояснения · ВКЛ':'Пояснения · ВЫКЛ'}
+      </button>
       <button type="button" aria-pressed={expandedOverlays}
         onClick={()=>setExpandedOverlays(value=>!value)}>
         {expandedOverlays?'Свернуть дополнительные слои':'Раскрыть FVG / TPO / Participation'}
@@ -178,7 +188,8 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         showSma={settings.sma}
         overnightLevels={settings.overnightLevels&&structure.status==='ready'&&structure.report?.onh!==undefined&&structure.report?.onl!==undefined
           ?{high:structure.report.onh,low:structure.report.onl,availableFrom:structure.report.dayStart+6*3600000}:undefined}
-        researchLiquidity={structure.status==='ready'?liquidityMap:undefined}/>
+        researchLiquidity={structure.status==='ready'?liquidityMap:undefined}
+        chartNarrative={chartNarrative} showChartNarrative={showChartNarrative}/>
       {candles.length<20&&<div className="asc-lite-loading" role="status">
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
