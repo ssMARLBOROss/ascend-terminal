@@ -1,0 +1,19 @@
+name: ASCEND Full Timeframes Verify
+on:
+  push:
+    branches:
+      - feature/ascend-full-timeframes-20261016
+  pull_request:
+    branches:
+      - feature/stable-market-shell-v1-20261008
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install
+      - run: npm run build
