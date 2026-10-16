@@ -168,6 +168,9 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
           </span>
         </>:<small>{vwapStatus==='error'?'Нет полного VWAP · повтор загрузки':'Расчёт от 00:00…'}</small>}
       </div>
+      {focusMode&&<button type="button" className="asc-focus-to-price"
+        onClick={()=>setFocusRequest(v=>v+1)} aria-label="Вернуться к последней свече">
+        ↗ К ЦЕНЕ</button>}
       <div className="asc-lite-feed">
         <i className={status==='LIVE'?'is-live':'is-wait'}/>
         <b>{status==='LIVE'?'Поток LIVE':status==='RECONNECTING'?'Переподключение':'Подключение'}</b>
