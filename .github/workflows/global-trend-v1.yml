@@ -1,0 +1,29 @@
+name: ASCEND Global Trend V1 checks
+on:
+  pull_request:
+    paths:
+      - "global-trend-v1.js"
+      - "global-bias-ui-v1.js"
+      - "tests/global-trend-v1.test.cjs"
+      - ".github/workflows/global-trend-v1.yml"
+  push:
+    branches:
+      - "feature/global-trend-market-bias-v1-20261017"
+    paths:
+      - "global-trend-v1.js"
+      - "global-bias-ui-v1.js"
+      - "tests/global-trend-v1.test.cjs"
+      - ".github/workflows/global-trend-v1.yml"
+jobs:
+  node-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Node built-in tests
+        run: node --test tests/global-trend-v1.test.cjs
+      - name: Frontend JS syntax checks
+        run: |
+          node --check global-trend-v1.js
+          node --check global-bias-ui-v1.js
