@@ -61,7 +61,7 @@ export default function FocusDecisionPanel({trend,extended,decision,liquidity,na
               {check?check.state==='OK'?'✓ ГОТОВ':check.state==='NODATA'?'НЕТ ДАННЫХ':
                 check.state==='BLOCKED'?'БЛОК':'ЖДЁМ':
                 row.trend==='NO DATA'?'НЕТ ДАННЫХ':row.trend==='LONG'?'↑ ВВЕРХ':
-                row.trend==='SHORT'?'↓ ВНИЗ':'БАЛАНС'}
+                row.trend==='SHORT'?'↓ ВНИЗ':row.trend==='TRANSITION'?'ПЕРЕХОД':'БАЛАНС'}
             </strong>
           </div>;
         })}
