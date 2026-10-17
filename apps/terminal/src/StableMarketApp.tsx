@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import StableCandleChart from './components/StableCandleChart';
-import MarketBiasOverlay,{MarketStateStrip} from './components/MarketBiasOverlay';
+import {MarketStateStrip} from './components/MarketBiasOverlay';
 import {useGlobalTrendPreview} from './market/useGlobalTrendPreview';
 import RadarView from './components/RadarView';
 import MexcWorkspace from './components/MexcWorkspace';
@@ -128,7 +128,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
     previousDay,previousSessions,fvgs:fvgResearch.zones
   });
 
-  const chartNode=<div className="asc-lite-chart-box asc-global-bias-anchor">
+  const chartNode=<div className="asc-lite-chart-box">
       <StableCandleChart candles={candles} timeframe={timeframe} previousDay={previousDay}
         previousSessions={previousSessions} dailyVwap={dailyVwap}
         orderbook={liquidity.status==='ready'?liquidity.snapshot:undefined}
@@ -149,7 +149,6 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         <strong>{error?'Не удалось получить историю':'Загружаем реальные свечи…'}</strong>
         <span>{error??'График появится после получения истории Bybit REST'}</span>
       </div>}
-      <MarketBiasOverlay data={globalBias.snapshot} symbol={symbol}/>
         </div>;
   return <main className={'asc-lite-workspace'+(focusMode?' asc-focus-workspace':'')}>
     <div className="asc-lite-toolbar">

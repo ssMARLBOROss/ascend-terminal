@@ -199,3 +199,38 @@
  .asc-focus-studies{height:52px;min-height:52px}
  .asc-focus-decision{gap:4px;padding:5px 7px}
 }
+
+/* ASCEND: a single 13-TF confirmation matrix, no duplicated six-TF cards.
+   Six core states come from DecisionResearch, seven context rows are informational. */
+.asc-confirmation-13{padding:8px;min-width:0;max-width:100%}
+.asc-confirmation-13>header>b{font-size:11px}
+.asc-confirmation-progress{font-size:10px;color:#e2c777;border:1px solid #866f47;
+ border-radius:4px;padding:3px 6px;white-space:nowrap}
+.asc-confirmation-legend{display:flex;justify-content:space-between;gap:6px;
+ flex-wrap:wrap;margin-bottom:6px;color:#aac2d1}
+.asc-confirmation-legend small{font-size:9px}
+.asc-confirmation-13 .asc-focus-timeframe-chips{display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:5px}
+.asc-confirmation-13 .asc-confirmation-cell{min-height:61px;
+ align-items:stretch;gap:4px;padding:5px 6px}
+.asc-confirmation-cell-head{display:flex;justify-content:space-between;
+ align-items:center;gap:4px}
+.asc-confirmation-cell-head b{font-size:11px}
+.asc-confirmation-cell-head span{font-size:10px;color:#83a7b9}
+.asc-confirmation-cell.is-core{background:#122c3e;outline:1px solid rgba(110,184,218,.23)}
+.asc-confirmation-cell.is-context{background:#0b212e;opacity:.87}
+.asc-confirmation-cell.is-core .asc-confirmation-cell-head span{color:#66cce5}
+.asc-confirmation-13 .asc-confirmation-cell>small{font-size:9px;color:inherit}
+.asc-confirmation-status{font-size:9px;line-height:1.15;letter-spacing:.015em;white-space:nowrap}
+.asc-confirmation-cell.check-ok .asc-confirmation-status{color:#6fe2ac}
+.asc-confirmation-cell.check-wait .asc-confirmation-status{color:#ffcf70}
+.asc-confirmation-cell.check-blocked .asc-confirmation-status{color:#ff899a}
+.asc-confirmation-cell.check-nodata .asc-confirmation-status{color:#97a9b8}
+.asc-confirmation-13>.asc-confirmation-note{line-height:1.4;color:#b0cbdb;font-size:9px}
+@media(max-width:620px){
+ .asc-confirmation-13 .asc-focus-timeframe-chips{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+ .asc-confirmation-13 .asc-confirmation-cell{padding:5px 4px;min-height:61px}
+ .asc-confirmation-cell-head b{font-size:10px}
+ .asc-confirmation-13 .asc-confirmation-cell>small{font-size:8px}
+ .asc-confirmation-status{font-size:8px}
+}
