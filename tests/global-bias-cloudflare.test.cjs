@@ -66,3 +66,31 @@ test('UI renders on repeated chart mount',()=>{
  assert.match(nodes.ascGlobalBiasV1.innerHTML,/GLOBAL/);
  assert.match(nodes.ascGlobalBannerV1.innerHTML,/MARKET STATE/);
 });
+
+test('visible UI loads 1H and aggregates closed 15m into 30m without runtime errors',async()=>{
+ const nodes={};
+ const card={querySelector:()=>null,insertBefore:el=>{nodes[el.id]=el}};
+ nodes.chartShell={closest:()=>card,appendChild:el=>{nodes[el.id]=el}};
+ const document={hidden:false,readyState:'complete',body:{dataset:{view:'market'}},
+   head:{appendChild(){}},createElement:tag=>({tag,setAttribute(){},innerHTML:'',textContent:'',id:''}),
+   getElementById:id=>nodes[id]||null,addEventListener(){}};
+ const fakeWindow={ASCEND_GLOBAL_TREND_V1:E};
+ const state={symbol:'TIA_USDT',tf:{'30m':bars(1800,1),'15m':bars(900,1),'5m':bars(300,1)},breadth};
+ class Clock extends Date{static now(){return now*1000}}
+ const fetched=[];
+ const fetch=async url=>{
+   const u=new URL(url,'https://example.invalid');
+   const symbol=u.searchParams.get('symbol'),timeframe=u.searchParams.get('timeframe');
+   fetched.push([symbol,timeframe]);
+   const candles=timeframe==='1h'?bars(3600,1,90):bars(900,1,190);
+   return {ok:true,json:async()=>({symbol,candles})};
+ };
+ new Function('window','document','state','setInterval','setTimeout','fetch','AbortController','Date',view)(
+   fakeWindow,document,state,()=>0,()=>0,fetch,AbortController,Clock);
+ for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(fetched.length,6,'Should request 1h and native 15m for three leaders');
+ assert.equal(fakeWindow.ASCEND_GLOBAL_BIAS_LAST?.market?.state,'BULLISH');
+ assert.equal(fakeWindow.ASCEND_GLOBAL_BIAS_LAST?.alignment?.state,'ALIGNED');
+ assert.match(nodes.ascGlobalBiasV1.innerHTML,/BULLISH/);
+ assert.match(nodes.ascGlobalBannerV1.innerHTML,/MARKET STATE/);
+});
