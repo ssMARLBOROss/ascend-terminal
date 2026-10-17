@@ -1,0 +1,21 @@
+/* ASCEND GLOBAL BIAS preview: compact, chart-first, read-only. */
+.asc-global-state-strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:42px;padding:8px 12px;margin:6px 0;border:1px solid #24465c;border-radius:7px;background:#071826;color:#c7dcea;font-size:11px}
+.asc-global-state-strip strong{font-size:11px;letter-spacing:.06em;color:#eef5ff}
+.asc-global-state-strip span{font-weight:850}
+.asc-global-state-strip b{font-size:10px;letter-spacing:.04em}
+.asc-global-state-strip em{font-style:normal;color:#9db6c9;font-size:10px}
+.asc-global-state-strip small{color:#8faabe;font-size:9px}
+.asc-global-bias-anchor{position:relative;min-width:0}
+.asc-global-bias{position:absolute;right:60px;top:10px;z-index:29;width:221px;max-width:calc(100% - 75px);padding:10px;border:1px solid #2d586c;border-radius:8px;background:rgba(4,16,28,.95);box-shadow:0 8px 24px rgba(0,0,0,.45);color:#e0ecf4;pointer-events:none}
+.asc-global-bias-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;font-size:10px}
+.asc-global-bias-heading small{font-size:9px;color:#8daabd}
+.asc-global-bias-row{display:flex;gap:8px;justify-content:space-between;align-items:center;border-top:1px solid #234050;padding:6px 0}
+.asc-global-bias-row span{color:#adc2d3;font-size:10px;white-space:nowrap}
+.asc-global-bias-row span small{display:block;font-size:9px;color:#698ea4;margin-top:2px}
+.asc-global-bias-row b{font-size:11px;text-align:right;white-space:nowrap}
+.asc-global-bias p{font-size:9px;color:#91aec0;line-height:1.4;margin:6px 0 0}
+.asc-global-bias .up,.asc-global-state-strip .up{color:#4be0a8}
+.asc-global-bias .down,.asc-global-state-strip .down{color:#ff7b8d}
+.asc-global-bias .warn,.asc-global-state-strip .warn{color:#ffcc67}
+.asc-global-bias .neutral,.asc-global-state-strip .neutral{color:#98aec0}
+@media(max-width:780px){.asc-global-bias{right:42px;top:6px;width:180px;padding:7px}.asc-global-bias-row{padding:4px 0}.asc-global-bias-row b{font-size:10px}.asc-global-bias p{font-size:8px}.asc-global-state-strip{gap:6px}}
