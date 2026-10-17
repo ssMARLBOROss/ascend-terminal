@@ -1,0 +1,27 @@
+name: ASCEND Cloudflare MARKET BIAS CI
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'tests/global-bias-cloudflare.test.cjs'
+      - '.github/workflows/global-bias-cloudflare.yml'
+  push:
+    branches:
+      - feature/cloudflare-live-market-bias-20261017
+      - main
+    paths:
+      - 'index.html'
+      - 'tests/global-bias-cloudflare.test.cjs'
+      - '.github/workflows/global-bias-cloudflare.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Cloudflare market state and bias
+        run: node --test tests/global-bias-cloudflare.test.cjs
