@@ -26,11 +26,31 @@ export default function MarketBiasOverlay({data,symbol}:{
 export function MarketStateStrip({data,symbol}:{
  data:GlobalBiasSnapshot;symbol:string;
 }){
- return <div className="asc-global-state-strip" role="status">
-  <strong>MARKET STATE</strong>
-  <span className={tone(data.market)}>🌐 {data.market} <small>PROXY</small></span>
-  <span className={tone(data.coin)}>🪙 {symbol.replace('_','/')} · {data.coin}</span>
-  <b className={tone(data.alignment)}>{data.alignment}</b>
-  <em>{data.description}</em>
- </div>;
+ return <section className="asc-global-state-strip" aria-label="Краткая сводка направления рынка и монеты">
+  <div className="asc-bias-mini-title">
+    <strong>НАПРАВЛЕНИЕ</strong>
+    <small>BYBIT · PROXY</small>
+  </div>
+  <div className="asc-bias-mini-grid">
+    <div className="asc-bias-mini-item">
+      <small>🌐 РЫНОК</small>
+      <strong className={tone(data.market)}>{arrow(data.market)} {data.market}</strong>
+    </div>
+    <div className="asc-bias-mini-item">
+      <small>🪙 {symbol.replace('_','/')}</small>
+      <strong className={tone(data.coin)}>{arrow(data.coin)} {data.coin}</strong>
+    </div>
+    <div className="asc-bias-mini-item">
+      <small>СОГЛАСОВАНИЕ</small>
+      <strong className={tone(data.alignment)}>{data.alignment}</strong>
+    </div>
+  </div>
+  <details className="asc-bias-mini-details">
+    <summary>Почему? <span>Подробнее</span></summary>
+    <p>{data.description}</p>
+    <p>GLOBAL: BTC/ETH/SOL, 1H/30m · COIN: 30m/15m. Покрытие {Math.round(data.coverage*100)}%.
+      Фьючерсы Bybit — исследовательский прокси, не межбиржевой индекс и не сигнал входа.
+    </p>
+  </details>
+ </section>;
 }
