@@ -5907,7 +5907,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       const next={};for(const symbol of SYMBOLS)next[symbol]={};
       for(const item of results)if(item.status==='fulfilled'){
         const val=item.value;
-        if(val.timeframe==='15m')next[val.symbol]['30m']=aggregate30m(val.bars,now);
+        if(val.timeframe==='15m')next[val.symbol]['30m']=aggregate30m(val.bars,Date.now()/1000);
         else next[val.symbol][val.timeframe]=val.bars;
       }
       data=next;loadedAt=Date.now();render();
