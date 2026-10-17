@@ -5681,5 +5681,292 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 })(window);
 
 </script>
+<!-- ASCEND MARKET BIAS · CLOUDFLARE MAIN · CONTEXT ONLY -->
+<script id="ascGlobalTrendEngineV1">
+/* ASCEND GLOBAL TREND V1: read-only market context, NOT an entry signal.
+ * All input data must carry its actual venue and market provenance.
+ * With MEXC futures and reversal-radar breadth this is a PROXY, not a global spot index.
+ */
+(function (root, factory) {
+  const api=factory();
+  if (typeof module!=='undefined' && module.exports) module.exports=api;
+  root.ASCEND_GLOBAL_TREND_V1=api;
+})(typeof globalThis!=='undefined'?globalThis:this,function(){
+  'use strict';
+  const W=Object.freeze({BTC_USDT:.50,ETH_USDT:.30,SOL_USDT:.20});
+  const CONFIRM=2;
+  const TF=Object.freeze({'5m':300,'15m':900,'30m':1800,'1h':3600});
+  const finite=n=>typeof n==='number'&&Number.isFinite(n);
+  const sign=n=>n>0?1:n<0?-1:0;
+  const bound=(n,a,b)=>Math.max(a,Math.min(b,n));
+  function candles(raw,seconds,asOf) {
+    if (!Array.isArray(raw)||!finite(asOf)||!TF||!seconds) return [];
+    const byTime=new Map();
+    for(const value of raw){
+      const time=Number(value.time),open=Number(value.open),high=Number(value.high),
+            low=Number(value.low),close=Number(value.close),volume=Number(value.volume);
+      if(![time,open,high,low,close,volume].every(finite) ||
+         !Number.isInteger(time)||time%seconds!==0||time+seconds>asOf||
+         low<=0||volume<0||low>high||open<low||open>high||close<low||close>high)continue;
+      byTime.set(time,{time,open,high,low,close,volume});
+    }
+    const sorted=[...byTime.values()].sort((a,b)=>a.time-b.time);
+    // A gap breaks the reliable structural history. Never bridge missing bars.
+    let start=0;
+    for(let i=1;i<sorted.length;i++)if(sorted[i].time-sorted[i-1].time!==seconds)start=i;
+    return sorted.slice(start);
+  }
+  function structure(raw,seconds,asOf) {
+    const bars=candles(raw,seconds,asOf);
+    const last=bars.at(-1),age=last?asOf-(last.time+seconds):Infinity;
+    if(!last||bars.length<36||age>seconds*2+60)
+      return {status:'NO_DATA',reason:'Недостаточно свежих последовательных закрытых свечей',
+        bars:bars.length,ageSeconds:finite(age)?age:null};
+    const highs=[],lows=[];
+    for(let i=CONFIRM;i<bars.length-CONFIRM;i++){
+      const row=bars[i],neighbors=bars.slice(i-CONFIRM,i).concat(bars.slice(i+1,i+CONFIRM+1));
+      const knownAt=bars[i+CONFIRM].time+seconds;
+      if(knownAt>asOf)continue;
+      if(neighbors.every(x=>x.high<row.high))highs.push({price:row.high,at:row.time,knownAt});
+      if(neighbors.every(x=>x.low>row.low))lows.push({price:row.low,at:row.time,knownAt});
+    }
+    const h=highs.slice(-2),l=lows.slice(-2);
+    let shape='MIXED',dir=0;
+    if(h.length>=2&&l.length>=2){
+      if(h[1].price>h[0].price&&l[1].price>l[0].price){shape='HH/HL';dir=1}
+      if(h[1].price<h[0].price&&l[1].price<l[0].price){shape='LH/LL';dir=-1}
+    }
+    const prior=bars.slice(-7,-1),momentum=sign(last.close-prior[0].close);
+    const lastHigh=highs.at(-1),lastLow=lows.at(-1);
+    const confirmedBOS=lastHigh&&last.close>lastHigh.price&&
+      lastHigh.knownAt<=last.time?'UP':lastLow&&last.close<lastLow.price&&
+      lastLow.knownAt<=last.time?'DOWN':'NONE';
+    const phase=dir===1&&momentum<0?'CORRECTION':
+      dir===-1&&momentum>0?'CORRECTION':
+      dir===0?'BALANCE':'TREND';
+    return {status:'READY',dir,shape,phase,momentum,bos:confirmedBOS,close:last.close,
+      asOf:last.time+seconds,bars:bars.length,source:'CLOSED_OHLCV'};
+  }
+  function breadth(raw){
+    if(!raw||raw.source==='fallback'||raw.running===false)
+      return {status:'NO_DATA',reason:'Ширина рынка не подтверждена'};
+    const l=Number(raw.long),s=Number(raw.short),n=Number(raw.neutral),total=Number(raw.available);
+    if(![l,s,n,total].every(Number.isInteger)||Math.min(l,s,n)<0||
+       total<50||l+s+n!==total)
+      return {status:'NO_DATA',reason:'Недостаточная или несогласованная выборка'};
+    return {status:'READY',score:bound((l-s)/total*100,-100,100),total,
+      source:'REVERSAL_RADAR_PROXY',long:l,short:s,neutral:n};
+  }
+  function leaders(input,asOf) {
+    const bySymbol={},all=[];
+    let enough=true,disagreement=false;
+    for(const symbol of Object.keys(W)){
+      const frames=input?.[symbol]||{};
+      const h=structure(frames['1h'],3600,asOf),m=structure(frames['30m'],1800,asOf);
+      const valid=h.status==='READY'&&m.status==='READY';
+      if(!valid)enough=false;
+      const value=valid?(h.dir*.65+m.dir*.35)*100:null;
+      if(valid&&h.dir!==0&&m.dir!==0&&h.dir!==m.dir)disagreement=true;
+      bySymbol[symbol]={h1:h,m30:m,status:valid?'READY':'NO_DATA',score:value};
+      if(valid)all.push(value*W[symbol]);
+    }
+    const score=enough?all.reduce((a,b)=>a+b,0):null;
+    const m30=enough?Object.keys(W).reduce((sum,s)=>sum+W[s]*bySymbol[s].m30.dir,0):null;
+    const h1=enough?Object.keys(W).reduce((sum,s)=>sum+W[s]*bySymbol[s].h1.dir,0):null;
+    return {status:enough?'READY':'NO_DATA',score,m30,h1,disagreement,bySymbol,
+      source:'MEXC_FUTURES_SINGLE_VENUE'};
+  }
+  function coinState(frames,asOf) {
+    const context=structure(frames?.['30m'],1800,asOf),
+          local=structure(frames?.['15m'],900,asOf),
+          trigger=structure(frames?.['5m'],300,asOf);
+    if(context.status!=='READY'||local.status!=='READY')
+      return {status:'NO_DATA',label:'NO DATA',context,local,trigger};
+    let label='BALANCE';
+    if(context.dir!==0&&local.dir===context.dir)
+      label=context.dir>0?'BULLISH':'BEARISH';
+    else if(context.dir!==0&&local.dir===-context.dir)
+      label='CORRECTION';
+    else if(context.dir!==0&&local.phase==='CORRECTION')label='CORRECTION';
+    else if(context.dir===0&&local.dir!==0)label='SHIFTING';
+    return {status:'READY',label,context,local,trigger,
+      source:'MEXC_FUTURES_SELECTED_CONTRACT'};
+  }
+  function alignment(global,coin) {
+    if(global.state==='NO_DATA'||coin.status!=='READY')
+      return {state:'NO_DATA',text:'Ожидаем подтверждённые данные'};
+    if(['BALANCE','NO_DATA'].includes(global.state)||coin.label==='BALANCE')
+      return {state:'NEUTRAL',text:'Направление не согласовано'};
+    if(global.state==='SHIFTING'||coin.label==='CORRECTION'||coin.label==='SHIFTING')
+      return {state:'SHIFTING',text:'Рынок и монета находятся в переходной фазе'};
+    const equal=(global.state==='BULLISH'&&coin.label==='BULLISH')||
+      (global.state==='BEARISH'&&coin.label==='BEARISH');
+    return equal?{state:'ALIGNED',text:'Рынок и монета движутся вместе'}:
+      {state:'CONFLICT',text:'Монета движется против глобального контекста'};
+  }
+  function evaluate(input){
+    const asOf=Number(input?.asOf);
+    if(!finite(asOf))return {status:'NO_DATA',reason:'Нет времени оценки'};
+    const major=leaders(input.leaders,asOf),br=breadth(input.breadth);
+    const spot=input.spot;
+    const validSpot=spot&&finite(spot.score)&&Math.abs(spot.score)<=100&&
+      finite(spot.asOf)&&asOf-spot.asOf>=0&&asOf-spot.asOf<=900&&
+      spot.multiVenue===true&&spot.source==='SPOT_TRADE_CVD';
+    const available=(major.status==='READY'?.55:0)+(br.status==='READY'?.30:0)+(validSpot?.15:0);
+    const score=available>=.55&&major.status==='READY'?
+      bound((major.score*.55+
+        (br.status==='READY'?br.score*.30:0)+(validSpot?spot.score*.15:0))/available,-100,100):null;
+    const conflict=major.status==='READY'&&
+      ((major.m30*major.h1<0) || major.disagreement ||
+        (br.status==='READY'&&Math.abs(major.score)>25&&Math.abs(br.score)>25&&sign(major.score)!==sign(br.score)));
+    const state=score===null?'NO_DATA':conflict?'SHIFTING':
+      score>=35?'BULLISH':score<=-35?'BEARISH':'BALANCE';
+    const market={state,score,coverage:available,source:'SINGLE_VENUE_PROXY',
+      status:score===null?'NO_DATA':available<1?'PARTIAL':'PROXY',
+      reason:score===null?'Нужны свежие 1h и 30m свечи BTC, ETH, SOL':
+        available<1?'Спотовый CVD и/или breadth отсутствуют; не глобальный индекс':
+        'Данные одной фьючерсной биржи не равны всему рынку'};
+    const coin=coinState(input.coin,asOf);
+    return {asOf,market,leaders:major,breadth:br,spot:validSpot?spot:null,
+      coin,alignment:alignment(market,coin),isTradingSignal:false};
+  }
+  return Object.freeze({evaluate,structure,candles,breadth,coinState,alignment,VERSION:'1.0-proxy',isTradingSignal:false});
+});
+</script>
+<script id="ascGlobalBiasUiV1">
+/* ASCEND GLOBAL TREND V1 UI. Observation only, never modifies Core / orders. */
+(function(root){
+  'use strict';
+  const engine=root.ASCEND_GLOBAL_TREND_V1;
+  if(!engine)return;
+  const SYMBOLS=['BTC_USDT','ETH_USDT','SOL_USDT'];
+  const BRANCH='GLOBAL PROXY V1 · RESEARCH';
+  let data={},loadedAt=0,fetching=false,controller=null,lastSymbol='';
+  const by=id=>document.getElementById(id);
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const tone=s=>s==='BULLISH'||s==='ALIGNED'?'up':s==='BEARISH'||s==='CONFLICT'?'down':s==='SHIFTING'||s==='CORRECTION'?'warn':'neutral';
+  const sign=s=>s==='BULLISH'?'↑':s==='BEARISH'?'↓':s==='CORRECTION'?'↘':s==='SHIFTING'?'↔':'–';
+  function mount(){
+    const shell=by('chartShell'),chart=shell?.closest('.chart-card');
+    if(by('ascGlobalBiasV1'))return true;
+    if(!shell||!chart)return false;
+    const style=document.createElement('style');style.textContent=
+      '#ascGlobalBiasV1{position:absolute;top:9px;right:62px;z-index:24;width:226px;max-width:calc(100% - 85px);padding:9px 10px;border:1px solid #31516b;border-radius:9px;background:rgba(3,12,25,.94);box-shadow:0 12px 27px #0009;pointer-events:none;color:#e4f3ff;font:11px system-ui,sans-serif}'+
+      '#ascGlobalBiasV1 .ascgb-title{display:flex;justify-content:space-between;font-size:10px;font-weight:850;letter-spacing:.07em;color:#c7e6ef;margin-bottom:6px}'+
+      '#ascGlobalBiasV1 .ascgb-row{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:5px 0;border-top:1px solid #1b3447}'+
+      '#ascGlobalBiasV1 .ascgb-row span:first-child{color:#aac3d5;white-space:nowrap}'+
+      '#ascGlobalBiasV1 .ascgb-row b{font-size:10px;text-align:right}'+
+      '#ascGlobalBiasV1 .up{color:#47e2ac}#ascGlobalBiasV1 .down{color:#ff7188}#ascGlobalBiasV1 .warn{color:#ffd067}#ascGlobalBiasV1 .neutral{color:#9eb7c9}'+
+      '#ascGlobalBiasV1 .ascgb-note{font-size:9px;color:#acc0cc;line-height:1.35;margin-top:6px}'+
+      '#ascGlobalBannerV1{display:flex;flex-wrap:wrap;gap:9px;align-items:center;padding:8px 10px;border:1px solid #254963;border-radius:7px;background:#071522;margin-bottom:7px;color:#d8e8f2;font-size:11px}'+
+      '#ascGlobalBannerV1 b{color:#e1ecff}#ascGlobalBannerV1 strong{color:#ffd067}#ascGlobalBannerV1 em{font-style:normal;color:#8ca5b7;font-size:10px}'+
+      '@media(max-width:820px){#ascGlobalBiasV1{top:6px;right:44px;width:180px;padding:7px;font-size:10px}#ascGlobalBiasV1 .ascgb-row{padding:3px 0}#ascGlobalBiasV1 .ascgb-note{font-size:8px}#ascGlobalBannerV1{font-size:10px}}';
+    document.head.appendChild(style);
+    const box=document.createElement('aside');
+    box.id='ascGlobalBiasV1';box.setAttribute('aria-label','Контекст всего рынка и выбранной монеты');box.textContent='MARKET BIAS · загружаем данные';
+    shell.appendChild(box);
+    const banner=document.createElement('div');banner.id='ascGlobalBannerV1';banner.setAttribute('role','status');
+    banner.textContent=BRANCH+' · Подключаем BTC, ETH, SOL';
+    chart.insertBefore(banner,chart.querySelector('.chart-top')||chart.firstChild);
+    return true;
+  }
+  // Make complete 30m candles out of native MEXC 15m; /klines has no native 30m contract.
+  function aggregate30m(rows,asOf){
+    const grouped=new Map();
+    for(const raw of rows||[]){
+      const t=Number(raw.time),o=Number(raw.open),h=Number(raw.high),
+        l=Number(raw.low),c=Number(raw.close),v=Number(raw.volume);
+      if(![t,o,h,l,c,v].every(Number.isFinite)||t%900!==0||
+         t+900>asOf||h<l||l<=0||o<l||o>h||c<l||c>h||v<0)continue;
+      const start=Math.floor(t/1800)*1800;
+      if(!grouped.has(start))grouped.set(start,[]);
+      grouped.get(start).push({time:t,open:o,high:h,low:l,close:c,volume:v});
+    }
+    return [...grouped].sort((a,b)=>a[0]-b[0]).flatMap(([start,c])=>{
+      c.sort((a,b)=>a.time-b.time);
+      if(c.length!==2||c[0].time!==start||c[1].time!==start+900)return [];
+      return [{time:start,open:c[0].open,high:Math.max(c[0].high,c[1].high),
+        low:Math.min(c[0].low,c[1].low),close:c[1].close,
+        volume:c[0].volume+c[1].volume}];
+    });
+  }
+  async function fetchLeaders(){
+    if(fetching||document.hidden||document.body.dataset.view!=='market')return;
+    fetching=true;const ac=new AbortController();controller=ac;
+    const results=await Promise.allSettled(SYMBOLS.flatMap(symbol=>
+      ['1h','15m'].map(async timeframe=>{
+        const response=await fetch('/api/v2/klines?symbol='+encodeURIComponent(symbol)+
+          '&timeframe='+timeframe+'&limit=200',{cache:'no-store',signal:ac.signal});
+        if(!response.ok)throw Error('HTTP '+response.status);
+        const j=await response.json();
+        if(j.symbol!==symbol||!Array.isArray(j.candles))throw Error('Неверный источник');
+        return {symbol,timeframe,bars:j.candles};
+      })));
+    if(!ac.signal.aborted){
+      // Atomic refresh: failed requests become NO_DATA, not old/stale prices.
+      const next={};for(const symbol of SYMBOLS)next[symbol]={};
+      for(const item of results)if(item.status==='fulfilled'){
+        const val=item.value;
+        if(val.timeframe==='15m')next[val.symbol]['30m']=aggregate30m(val.bars,now);
+        else next[val.symbol][val.timeframe]=val.bars;
+      }
+      data=next;loadedAt=Date.now();render();
+    }
+    if(controller===ac)controller=null;
+    fetching=false;
+  }
+  function coinFrames(){
+    if(typeof state==='undefined'||!state.tf)return {};
+    const t=state.tf;
+    let bars30=t['30m']||[];
+    if(!bars30.length&&typeof qaAggregate==='function'&&Array.isArray(t['15m']))
+      bars30=qaAggregate(t['15m'],900,1800);
+    return {'30m':bars30,'15m':t['15m']||[],'5m':t['5m']||[]};
+  }
+  function render(){
+    if(!mount())return;
+    const box=by('ascGlobalBiasV1'),banner=by('ascGlobalBannerV1');
+    const market=typeof state!=='undefined'&&state.breadth?state.breadth:null;
+    const now=Date.now()/1000;
+    // No assumption that a single-venue market feed represents world spot prices.
+    const context=engine.evaluate({asOf:now,leaders:data,breadth:market,coin:coinFrames(),spot:null});
+    const m=context.market,c=context.coin,a=context.alignment;
+    const symbol=typeof state!=='undefined'?String(state.symbol||'').replace('_','/'):'—';
+    const freshness=loadedAt?Math.floor((Date.now()-loadedAt)/1000):null;
+    const fresh=loadedAt>0&&freshness<=300;
+    const usable=fresh&&m.state!=='NO_DATA';
+    const marketText=usable?m.state:'NO DATA';
+    const coinText=c.status==='READY'?c.label:'NO DATA';
+    const alignText=usable?a.state:'NO DATA';
+    const score=usable&&Number.isFinite(m.score)?((m.score>0?'+':'')+m.score.toFixed(0)):'—';
+    box.innerHTML='<div class="ascgb-title"><span>🌐 MARKET BIAS</span><span>V1</span></div>'+
+      '<div class="ascgb-row"><span>🌐 GLOBAL</span><b class="'+tone(marketText)+'">'+sign(marketText)+' '+marketText+'</b></div>'+
+      '<div class="ascgb-row"><span>🪙 '+esc(symbol)+'</span><b class="'+tone(coinText)+'">'+sign(coinText)+' '+esc(coinText)+'</b></div>'+
+      '<div class="ascgb-row"><span>ALIGNMENT</span><b class="'+tone(alignText)+'">'+esc(alignText)+'</b></div>'+
+      '<div class="ascgb-note">MEXC FUTURES + RADAR · PROXY, НЕ МЕЖБИРЖЕВОЙ ИНДЕКС<br>'+
+      '30m / 1h · счёт '+score+' · покрытие '+Math.round(m.coverage*100)+'%'+
+      (fresh?'':' · НЕТ СВЕЖЕГО СНИМКА')+'</div>';
+    const story=!usable?'Нет подтверждённых свежих данных BTC / ETH / SOL.':
+      alignText==='ALIGNED'?'Глобальный контекст и структура монеты совпадают.':
+      alignText==='CONFLICT'?'Монета движется против общего направления.':
+      alignText==='SHIFTING'?'Рынок или монета в переходной фазе; ждём структуру.':
+      'Рынок в балансе или подтверждения недостаточны.';
+    banner.innerHTML='<b>MARKET STATE</b><strong>'+esc(marketText)+
+      (usable?' · '+score:'')+'</strong><span>'+esc(symbol)+' · '+esc(coinText)+'</span>'+
+      '<span>ALIGNMENT · '+esc(alignText)+'</span><em>'+esc(story)+' · Не сигнал входа.</em>';
+    // Expose an immutable read-only snapshot to facilitate diagnostics and future tests.
+    root.ASCEND_GLOBAL_BIAS_LAST=Object.freeze({market:m,coin:c,alignment:a,loadedAt});
+  }
+  function start(){
+    if(!mount()){setTimeout(start,1200);return}
+    render();fetchLeaders();
+    setInterval(()=>{if(!document.hidden&&document.body.dataset.view==='market'){
+      if(Date.now()-loadedAt>100000)fetchLeaders();else render();
+    }},12000);
+    document.addEventListener('visibilitychange',()=>{if(document.hidden&&controller)controller.abort();else if(!document.hidden)fetchLeaders()});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})(window);
+</script>
 </body>
 </html>
