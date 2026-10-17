@@ -1,0 +1,22 @@
+/* EARLY ON is a research candidate, not executable ENTRY READY. */
+.asc-radar-mode-tabs{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.asc-radar-mode-tabs>button{border:1px solid #3e5b70;background:#0b2636;color:#9dbfd1;
+  padding:10px 13px;border-radius:7px;cursor:pointer;font-weight:850;font-size:11px}
+.asc-radar-mode-tabs>button.active{background:#164259;border-color:#62b5d0;color:#dbf3fa}
+.asc-radar-mode-tabs>button.early.active{background:#29412f;border-color:#57bf86;color:#bcf2d3}
+.asc-radar-mode-tabs>span{font-size:10px;color:#88a6b6}
+.asc-radar-page .asc-radar-summary{grid-template-columns:repeat(5,minmax(0,1fr))}
+.asc-radar-scroll table{min-width:1330px}
+.asc-radar-early-cell{min-width:190px;max-width:285px}
+.asc-radar-early-badge{display:inline-block;border:1px solid #355569;background:#112b3b;
+  color:#8daebf;border-radius:4px;padding:5px 7px;font-size:10px;font-weight:800}
+.asc-radar-early-badge.early-early-candidate{color:#7de4b1;background:#0d372d;border-color:#409c78}
+.asc-radar-early-badge.early-early-watch{color:#e1c880;background:#3a2f1c;border-color:#967647}
+.asc-radar-early-badge.early-early-skip{color:#ec94a0;background:#361b29;border-color:#a35a6c}
+.asc-radar-early-badge.early-expired{color:#9cabb5}
+.asc-radar-early-plan{margin-top:5px;font-size:10px;color:#94b5c3;line-height:1.4}
+.asc-radar-early-plan small{max-width:270px;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:1150px){.asc-radar-page .asc-radar-summary{
+  grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){.asc-radar-page .asc-radar-summary{
+  grid-template-columns:repeat(2,minmax(0,1fr))}}
