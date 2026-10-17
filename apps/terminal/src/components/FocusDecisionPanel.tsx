@@ -32,30 +32,47 @@ export default function FocusDecisionPanel({trend,extended,decision,liquidity,na
       <span>Сетап: <b>{direction??'—'}</b>
         {' · '}5m импульс: <b>{narrative.impulseDirection??'—'}</b></span>
     </div>
-    <div className="asc-focus-mtf" aria-label="Шесть проверок таймфреймов">
-      {decision.checks.map(c=>{
-        const row=trend.rows.find(r=>r.tf===c.tf);
-        return <div key={c.tf} className={'asc-focus-mtf-cell '+c.state.toLowerCase()}
-          title={c.why+' · '+(row?.reason??'Нет структурного контекста')}>
-          <b>{c.tf}</b>
-          <strong>{c.state}</strong>
-          <small>{row?.high??'—'} / {row?.low??'—'}</small>
-        </div>;
-      })}
-    </div>
-    <div className="asc-focus-timeframe-ladder" aria-label="Наблюдение: 13 таймфреймов от минуты до дня">
-      <header><b>ТРЕНД ПО 13 TF</b><small>RESEARCH · отдельный от CORE</small></header>
-      <div className="asc-focus-timeframe-chips">
-        {extended.rows.map(row=><span key={row.tf}
-          title={row.reason+' · '+(row.at?new Date(row.at).toISOString():'нет времени подтверждения')}
-          className={'asc-focus-tf-chip trend-'+row.trend.toLowerCase().replace(' ','-')}>
-          <b>{row.tf}</b>
-          <small>{row.high}/{row.low}</small>
-        </span>)}
+    <div className="asc-focus-timeframe-ladder asc-confirmation-13" aria-label="Единая панель структуры и подтверждения по 13 таймфреймам">
+      <header>
+        <b>ПОДТВЕРЖДЕНИЕ · 13 TF</b>
+        <span className="asc-confirmation-progress">
+          CORE {decision.checks.filter(c=>c.state==='OK').length}/6
+        </span>
+      </header>
+      <div className="asc-confirmation-legend">
+        <small>◆ 6 проверок входа</small><small>○ 7 таймфреймов контекста</small>
       </div>
+      <div className="asc-focus-timeframe-chips">
+        {extended.rows.map(row=>{
+          const check=decision.checks.find(c=>c.tf===row.tf);
+          const core=Boolean(check);
+          return <div key={row.tf}
+            className={'asc-focus-tf-chip asc-confirmation-cell'+(core?' is-core':' is-context')+
+              ' trend-'+row.trend.toLowerCase().replace(' ','-')+
+              (check?' check-'+check.state.toLowerCase():'')}
+            title={(core?'ОБЯЗАТЕЛЬНАЯ ПРОВЕРКА: '+check!.why:
+              'КОНТЕКСТ: не блокирует вход · '+row.reason)+
+              ' · '+(row.at?new Date(row.at).toISOString():'нет времени подтверждения')}>
+            <div className="asc-confirmation-cell-head">
+              <b>{row.tf}</b><span aria-label={core?'Входит в торговое ядро':'Контекст'}>{core?'◆':'○'}</span>
+            </div>
+            <small>{row.high}/{row.low}</small>
+            <strong className="asc-confirmation-status">
+              {check?check.state==='OK'?'✓ ГОТОВ':check.state==='NODATA'?'НЕТ ДАННЫХ':
+                check.state==='BLOCKED'?'БЛОК':'ЖДЁМ':
+                row.trend==='NO DATA'?'НЕТ ДАННЫХ':row.trend==='LONG'?'↑ ВВЕРХ':
+                row.trend==='SHORT'?'↓ ВНИЗ':'БАЛАНС'}
+            </strong>
+          </div>;
+        })}
+      </div>
+      <small className="asc-confirmation-note">
+        30m → 15m → 10m → 5m → 3m → 1m — обязательные проверки CORE.
+        Остальные 7 TF показывают рыночную структуру и не отменяют корректный вход.
+      </small>
       <small>{extended.status==='error'?'Нет истории Bybit: '+(extended.reason??'ошибка'):
-        extended.fresh?'30m/15m наблюдение: '+extended.observed30m15m:
-          'Ожидаем исторические свечи · без подстановки тренда'}</small>
+        extended.fresh?'Контекст 30m/15m: '+extended.observed30m15m:
+          'Ожидаем историю · отсутствие данных не означает подтверждение'}</small>
     </div>
     <div className="asc-focus-on-levels">
       <span>ONH <b>{fmt(onh?.price)}</b></span>
