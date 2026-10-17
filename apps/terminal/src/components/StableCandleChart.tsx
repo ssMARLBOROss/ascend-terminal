@@ -4,6 +4,7 @@ import {
   type IChartApi,type ISeriesApi,type UTCTimestamp
 } from 'lightweight-charts';
 import type {Candle} from '@ascend/contracts';
+import StructureChartOverlay from './StructureChartOverlay';
 import type {PreviousDayLevels} from '../market/usePreviousDayLevels';
 import type {PreviousSessionLevels} from '../market/usePreviousSessionLevels';
 import type {DailyVwap} from '../market/useDailyVwap';
@@ -415,6 +416,7 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
     <canvas className="asc-lite-fvg-canvas" ref={fvgOverlayRef} aria-hidden="true"/>
     <canvas className="asc-lite-research-wall-canvas" ref={researchWallOverlayRef} aria-hidden="true"/>
     <canvas className="asc-lite-context-canvas" ref={narrativeCanvasRef} aria-hidden="true"/>
+    <StructureChartOverlay chartRef={chartRef} priceRef={priceRef} hostRef={hostRef} candles={candles} timeframe={timeframe}/>
     {showChartNarrative&&<div className="asc-lite-context-hud" aria-label="Структура, тренд, сессия и сделка">
       <strong>STRUCTURE · TREND · SESSION · SL/TP</strong>
       <b className={chartNarrative?.trend==='LONG'?'up':chartNarrative?.trend==='SHORT'?'down':'wait'}>
