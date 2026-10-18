@@ -39,11 +39,11 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
   const feed=useRadarScanner(limit,revision,radarMode==='TF');
   const rows=useMemo(()=>feed.rows.filter(r=>{
     if(search&&!r.symbol.includes(search.trim().toUpperCase()))return false;
-    if(group!=='ALL'&&r.group!==group)return false;
+    if(radarMode!=='TF'&&group!=='ALL'&&r.group!==group)return false;
     if(radarMode!=='TF'&&filter!=='ALL'&&r.stage!==filter)return false;
     if(side!=='ALL'&&(radarMode==='TF'?r.tfAgreement?.direction:r.direction)!==side)return false;
-    if(rc==='RC30'&&(r.rsi===undefined||r.rsi>33))return false;
-    if(rc==='RC70'&&(r.rsi===undefined||r.rsi<67))return false;
+    if(radarMode!=='TF'&&rc==='RC30'&&(r.rsi===undefined||r.rsi>33))return false;
+    if(radarMode!=='TF'&&rc==='RC70'&&(r.rsi===undefined||r.rsi<67))return false;
     if(radarMode!=='TF'&&onFocus!=='ALL'&&r.onSide!==onFocus)return false;
     if(radarMode!=='TF'&&onlyOn&&!['WATCH','SWEEP','SHIFTING','CHECK 1M'].includes(r.stage))return false;
     if(radarMode!=='TF'&&onlyOn&&r.onState!=='FROZEN')return false;
@@ -103,7 +103,7 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
           'Наблюдение: '+earlyWatching+' · вход ещё не подтверждён'}</span></div>
     </div>
     <section className="asc-radar-controls" aria-label="Фильтры радара">
-      <div className="asc-radar-mode-tabs" role="group" aria-label="Режим поиска ON-зон">
+      <div className="asc-radar-mode-tabs" role="group" aria-label="Режим работы радара">
         <button type="button" className={radarMode==='ON'?'active':''}
           aria-pressed={radarMode==='ON'} onClick={()=>setRadarMode('ON')}>
           ONH / ONL · ВСЕ СОБЫТИЯ</button>
@@ -160,7 +160,6 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
           <option value={20}>20 монет</option><option value={40}>40 монет</option>
           <option value={80}>80 монет</option><option value={120}>120 монет</option></select></label>
         <button type="button" onClick={()=>setRevision(r=>r+1)}>↻ Обновить</button>
-      </div>
       </div>}
       {radarMode==='TF'&&<div className="asc-radar-tf-secondary">
         <label>Направление
