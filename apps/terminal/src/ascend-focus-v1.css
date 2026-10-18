@@ -249,3 +249,22 @@
  .asc-focus-studies .asc-focus-study{min-height:52px}
  .asc-focus-spread>div small{white-space:nowrap}
 }
+
+/* Execution planning venue is distinct from the chart's data exchange. */
+.asc-planned-venue-picker{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+ margin:4px 10px 8px;padding:8px 10px;border:1px solid #31586b;
+ border-radius:6px;background:#0a1f2e}
+.asc-planned-venue-picker label{font-size:11px;letter-spacing:.06em;
+ color:#bfe1ee;font-weight:800;white-space:nowrap}
+.asc-planned-venue-picker select{min-width:140px;max-width:100%;padding:7px 12px;
+ border:1px solid #3a8196;border-radius:5px;background:#123a4d;color:#e3f5fb;
+ font-size:12px;font-weight:800}
+.asc-planned-venue-picker select:focus-visible{outline:2px solid #72d9e5}
+.asc-planned-venue-picker small{flex:1;min-width:180px;color:#91afc0;font-size:10px}
+.asc-planned-decision-venue{display:flex;gap:4px;flex-direction:column;padding:6px 8px;
+ background:#0d2737;border:1px solid #2c5467;border-radius:5px}
+.asc-planned-decision-venue span{font-size:11px;color:#c3dfed}
+.asc-planned-decision-venue strong{color:#67d2e2}
+.asc-planned-decision-venue small{font-size:9px;color:#92acbd;line-height:1.45}
+@media(max-width:620px){.asc-planned-venue-picker{margin:4px 7px 7px;padding:6px}
+ .asc-planned-venue-picker select{min-width:125px}.asc-planned-venue-picker small{min-width:100%}}
