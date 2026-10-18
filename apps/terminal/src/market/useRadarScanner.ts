@@ -3,6 +3,7 @@ import {FIVE,observeRadarTicker,parseRadar5mRows,parseRadarTickers,
   selectRadarUniverse,groupMove,type RadarObservation,type RadarTicker
 } from './radarEngine';
 import {analyzeEarlyOnSetup} from './earlyOnResearch';
+import {calculateRadarAgreement} from './radarTfAgreement';
 
 export type RadarFeed={status:'loading'|'scanning'|'ready'|'error';
   rows:RadarObservation[];checked:number;total:number;updatedAt?:number;error?:string};
@@ -15,7 +16,7 @@ function initial(t:RadarTicker):RadarObservation{
     onSide:'NONE',onEvent:'NONE',onState:'NO DATA'};
 }
 /** Scans only chosen Bybit futures while the radar tab is mounted. */
-export function useRadarScanner(limit:number,revision:number){
+export function useRadarScanner(limit:number,revision:number,matchMode=false){
   const[state,setState]=useState<RadarFeed>(EMPTY);
   useEffect(()=>{
     const abort=new AbortController();
@@ -31,7 +32,8 @@ export function useRadarScanner(limit:number,revision:number){
         if(!response.ok)throw Error('Bybit tickers HTTP '+response.status);
         const tickers=parseRadarTickers(await response.json());
         if(!tickers.length)throw Error('Биржа не вернула доступные USDT-пары');
-        const chosen=selectRadarUniverse(tickers,limit);
+        // Extra TF scan is intentionally capped to 40 symbols to limit Bybit API load.
+        const chosen=selectRadarUniverse(tickers,matchMode?Math.min(limit,40):limit);
         const pending=chosen.map(initial);
         if(!abort.signal.aborted)setState({
           status:'scanning',rows:pending,checked:0,total:chosen.length});
@@ -54,11 +56,26 @@ export function useRadarScanner(limit:number,revision:number){
                 const bars=parseRadar5mRows(await res.json());
                 const observation=observeRadarTicker(ticker,bars,scanTime);
                 row={...observation,early:analyzeEarlyOnSetup(observation,bars,scanTime)};
+                if(matchMode){
+                  const native=await Promise.all((['15','60','240'] as const)
+                    .map(async interval=>{
+                      const params=new URLSearchParams({category:'linear',symbol:ticker.symbol,
+                        interval,limit:'200'});
+                      const resp=await fetch('/market-api/v5/market/kline?'+params,{
+                        cache:'no-store',signal:abort.signal});
+                      if(!resp.ok)throw Error('Нет истории '+interval+'м · '+resp.status);
+                      return parseRadar5mRows(await resp.json());
+                    }));
+                  row.tfAgreement=calculateRadarAgreement({
+                    bars5:bars,bars15:native[0],bars60:native[1],bars240:native[2],
+                    asOf:scanTime});
+                }
               }else row={...row,stage:'BUILDING',
                 reason:'Ожидание первого закрытого 5m бара нового UTC дня'};
             }catch{
               row={...row,stage:'NO DATA',
-                reason:'Свечи Bybit недоступны · не выдаём сигнал'};
+                reason:'Свечи Bybit недоступны · не выдаём сигнал',
+                ...(matchMode?{tfAgreement:calculateRadarAgreement({asOf:scanTime})}:{})};
             }
             if(abort.signal.aborted)return;
             pending[index]=row;
@@ -79,7 +96,7 @@ export function useRadarScanner(limit:number,revision:number){
       }finally{
         active=false;
         if(!abort.signal.aborted)
-          timer=window.setTimeout(()=>{void run()},120000);
+          timer=window.setTimeout(()=>{void run()},matchMode?180000:120000);
       }
     };
     const onVisible=()=>{
@@ -93,6 +110,6 @@ export function useRadarScanner(limit:number,revision:number){
       abort.abort();if(timer!==undefined)window.clearTimeout(timer);
       document.removeEventListener('visibilitychange',onVisible);
     };
-  },[limit,revision]);
+  },[limit,revision,matchMode]);
   return state;
 }
