@@ -156,7 +156,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
       <div className="asc-lite-pair">
         <strong>{symbol}</strong>
         {focusMode&&<b className="asc-focus-current-price">{fmtPrice(displayPrice)}</b>}
-        <span>BYBIT · USDT PERPETUAL · REAL DATA</span>
+        <span>BYBIT · БЕССРОЧНЫЙ ФЬЮЧЕРС USDT · РЕАЛЬНЫЕ ДАННЫЕ</span>
       </div>
       <div className="asc-lite-daily-levels" title="Максимум и минимум предыдущего закрытого дня · 00:00–00:00 UTC">
         {previousDay?<>
@@ -180,7 +180,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         ↗ К ЦЕНЕ</button>}
       <div className="asc-lite-feed">
         <i className={status==='LIVE'?'is-live':'is-wait'}/>
-        <b>{status==='LIVE'?'Поток LIVE':status==='RECONNECTING'?'Переподключение':'Подключение'}</b>
+        <b>{status==='LIVE'?'Поток активен':status==='RECONNECTING'?'Переподключение':'Подключение'}</b>
         <small>{candles.length} свечей</small>
       </div>
     </div>
@@ -275,7 +275,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
       </div>}
     </div>}
     <footer className="asc-lite-chart-footer">
-      <span>СВЕЧИ · ОБЪЁМ · VWAP UTC · СЕССИИ · ASCEND STABLE</span>
+      <span>СВЕЧИ · ОБЪЁМ · СРЕДНЯЯ ЦЕНА (VWAP) · СЕССИИ · ASCEND</span>
       <span>{lastUpdate?'Последнее обновление: '+new Date(lastUpdate).toLocaleTimeString('ru-RU'):'Ожидание данных'}</span>
     </footer>
     {error&&candles.length>=20&&<p className="asc-lite-note" role="status">{error} · график продолжает показывать последние полученные свечи</p>}
@@ -407,9 +407,9 @@ export default function StableMarketApp(){
     (page==='MARKET'&&exchange==='BYBIT'&&focusMode?' asc-mode-focus':'')}>
     <header className="asc-lite-header">
       <div className="asc-lite-brand"><span className="asc-lite-logo">A</span>
-        <div><strong>ASCEND</strong><small>MARKET · USDT FUTURES · TWO EXCHANGES</small></div>
+        <div><strong>ASCEND</strong><small>РЫНОК · ФЬЮЧЕРСЫ USDT · ДВЕ БИРЖИ</small></div>
       </div>
-      <div className="asc-lite-header-right"><span>РЫНОК / MARKET</span>
+      <div className="asc-lite-header-right"><span>РЫНОК</span>
         <b>BYBIT + MEXC</b></div>
     </header>
     <nav className="asc-app-pages" aria-label="Разделы ASCEND">
@@ -422,10 +422,10 @@ export default function StableMarketApp(){
       <div className="asc-focus-switch" role="group" aria-label="Режим интерфейса ASCEND">
         <button type="button" className={focusMode?'active':''}
           aria-pressed={focusMode} disabled={page!=='MARKET'||exchange!=='BYBIT'}
-          onClick={()=>setFocusMode(true)}>◫ FOCUS · 1 ЭКРАН</button>
+          onClick={()=>setFocusMode(true)}>◫ ОСНОВНОЙ · 1 ЭКРАН</button>
         <button type="button" className={!focusMode?'active':''}
           aria-pressed={!focusMode} disabled={page!=='MARKET'||exchange!=='BYBIT'}
-          onClick={()=>setFocusMode(false)}>≡ DETAIL · АНАЛИТИКА</button>
+          onClick={()=>setFocusMode(false)}>≡ ПОДРОБНО · АНАЛИТИКА</button>
       </div>
       <span>Только исследования · автоордера отключены</span>
     </nav>
@@ -434,7 +434,7 @@ export default function StableMarketApp(){
       {(['BYBIT','MEXC'] as FuturesExchange[]).map(venue=>
         <button type="button" key={venue} className={exchange===venue?'active':''}
           aria-pressed={exchange===venue} onClick={()=>changeExchange(venue)}>
-          {venue} <small>USDT FUTURES</small>
+          {venue} <small>ФЬЮЧЕРСЫ USDT</small>
         </button>)}
       <span>Источники данных бирж разделены · только публичные рыночные данные</span>
     </nav>
@@ -444,7 +444,7 @@ export default function StableMarketApp(){
         onChange={event=>setPlannedVenue(event.target.value as PlannedVenue)}>
         {PLANNED_VENUES.map(venue=><option key={venue} value={venue}>{venue}</option>)}
       </select>
-      <small>План · данные Bid/Ask без автоордеров · источник графика не меняется</small>
+      <small>План сделки · лучшие цены покупки и продажи · без автоордеров · график не меняется</small>
     </div>
     <div className="asc-quick-search" ref={quickRef} role="search"
       aria-label={'Поиск фьючерсов '+exchange}>
@@ -576,7 +576,7 @@ export default function StableMarketApp(){
       </aside>
       <section className="asc-lite-main">
         <div className="asc-lite-timeframe-bar">
-          <div><strong>ТАЙМФРЕЙМ</strong><small>{exchange} / {symbol}</small></div>
+          <div><strong>ПЕРИОД ГРАФИКА</strong><small>{exchange} / {symbol}</small></div>
           <div className="asc-lite-timeframes">
             {(exchange==='BYBIT'?STABLE_TIMEFRAMES:MEXC_TIMEFRAMES).map(tf=><button key={tf} type="button"
               className={tf===(exchange==='BYBIT'?timeframe:mexcTimeframe)?'active':''}
