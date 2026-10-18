@@ -5244,6 +5244,84 @@ function scan(raw,asOf){
 root.ASCEND_SMC_POI_RESEARCH_V1=Object.freeze({scan,prepare,atrAt,TYPES});
 })(typeof window!=='undefined'?window:globalThis);
 </script>
+<!-- ASCEND MULTI-TF FVG VISUAL RESEARCH V2: read-only closed-candle study -->
+<script>
+(function(root){
+'use strict';
+const seconds={'1m':60,'3m':180,'5m':300,'15m':900,'30m':1800};
+const numeric=x=>typeof x==='number'&&Number.isFinite(x);
+function contiguous(raw,tf,asOf){
+ const step=seconds[tf];if(!step||!Array.isArray(raw)||!numeric(asOf))return [];
+ const valid=raw.filter(x=>x&&numeric(x.time)&&x.time+step<=asOf&&
+   [x.open,x.high,x.low,x.close].every(v=>numeric(v)&&v>0)&&
+   x.low<=Math.min(x.open,x.close)&&x.high>=Math.max(x.open,x.close))
+   .sort((a,b)=>a.time-b.time);
+ const unique=[];for(const x of valid)if(!unique.length||unique.at(-1).time!==x.time)unique.push(x);
+ let i=unique.length-1;while(i>0&&unique[i].time-unique[i-1].time===step)i--;
+ return unique.slice(Math.max(i,unique.length-480));
+}
+function atrAt(bars,i,n){
+ if(i<n)return null;
+ let total=0;
+ for(let j=i-n+1;j<=i;j++){const b=bars[j],prev=bars[j-1];if(!prev)return null;
+  total+=Math.max(b.high-b.low,Math.abs(b.high-prev.close),Math.abs(b.low-prev.close));}
+ return total/n;
+}
+function scan(byTF,asOf,price,opt={}){
+ const options=Object.assign({tfs:['3m','5m','15m'],atr:14,fill:'wicks',
+  minPercent:.05,side:'both',onlyActive:true,sort:'nearest',max:4},opt);
+ const result=[],counts={};let available=0;
+ for(const tf of options.tfs){
+  const step=seconds[tf];if(!step)continue;
+  const b=contiguous(byTF?.[tf],tf,asOf);counts[tf]={candles:b.length,found:0};
+  if(b.length<Math.max(20,Number(options.atr)+3))continue;
+  available++;
+  for(let i=Math.max(16,Number(options.atr));i<b.length;i++){
+   const a=b[i-2],middle=b[i-1],c=b[i];
+   if(a.time+step!==middle.time||middle.time+step!==c.time)continue;
+   const bull=c.low>a.high,bear=c.high<a.low;
+   if(!bull&&!bear)continue;
+   const side=bull?'LONG':'SHORT';
+   if(options.side!=='both'&&options.side!==side)continue;
+   const lower=bull?a.high:c.high,upper=bull?c.low:a.low,size=upper-lower;
+   const sizePct=100*size/((upper+lower)/2),atr=atrAt(b,i,Number(options.atr));
+   if(!atr||atr<=0||sizePct<Number(options.minPercent)||size<=0)continue;
+   const z={type:'fvg',sourceTF:tf,side,lower,upper,sizePct,
+    sizeATR:size/atr,formedAt:c.time+step,firstTouchAt:null,filledAt:null,
+    status:'OPEN',fillFraction:0};
+   for(let j=i+1;j<b.length;j++){
+    const next=b[j],prev=b[j-1];if(next.time-prev.time!==step)break;
+    const test=options.fill==='closes'?next.close:(bull?next.low:next.high);
+    const touched=bull?test<=upper:test>=lower;
+    if(!touched)continue;
+    if(z.firstTouchAt===null){
+      const physicallyOverlap=next.high>=lower&&next.low<=upper;
+      if(physicallyOverlap)z.firstTouchAt=next.time+step;
+    }
+    const fraction=bull?(upper-test)/size:(test-lower)/size;
+    z.fillFraction=Math.max(z.fillFraction,Math.min(1,Math.max(0,fraction)));
+    if(z.fillFraction>=1){z.filledAt=next.time+step;break;}
+   }
+   z.status=z.fillFraction>=1?'FILLED':z.fillFraction>0?'PARTIAL':'OPEN';
+   counts[tf].found++;
+   if(!options.onlyActive||z.status!=='FILLED')result.push(z);
+  }
+ }
+ const p=numeric(price)&&price>0?price:0;
+ for(const z of result){
+  z.distancePct=p?100*Math.max(0,z.lower-p,p-z.upper)/p:Infinity;
+ }
+ result.sort(options.sort==='recent'?(a,b)=>b.formedAt-a.formedAt||a.distancePct-b.distancePct:
+  (a,b)=>a.distancePct-b.distancePct||b.formedAt-a.formedAt);
+ return {status:available?'RESEARCH':'NO DATA',asOf,available,counts,
+   zones:result.slice(0,Math.max(1,Math.min(40,Number(options.max)||4))),
+   allCount:result.length,reason:available?'':'Недостаточно непрерывных закрытых свечей'};
+}
+root.ASCEND_FVG_MTF_VISUAL_V2=Object.freeze({seconds,contiguous,scan,atrAt});
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<!-- ASCEND MULTI-TF FVG VISUAL RESEARCH V2 END -->
+
 <!-- ASCEND SMC LAYER MANAGER V1 — display-only, no trading-signal changes -->
 <style>
 body[data-asc-smc-ready="1"] #tfBar #ascendVwapToggle,
