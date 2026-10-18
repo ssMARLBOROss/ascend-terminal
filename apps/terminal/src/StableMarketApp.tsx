@@ -588,7 +588,7 @@ export default function StableMarketApp(){
             <BybitDataWorkspace symbol={symbol} timeframe={timeframe}
               settings={settings} onToggle={toggleIndicator}
               onUpdate={updateIndicators} onReset={resetIndicators}
-              focusMode={focusMode}/>:
+              focusMode={focusMode} plannedVenue={plannedVenue}/>:
             <MexcWorkspace key={exchange+':'+symbol+':'+mexcTimeframe}
               contract={contract} timeframe={mexcTimeframe} settings={settings}
               onViewMode={chartViewMode=>updateIndicators({chartViewMode})}/>)
