@@ -1,5 +1,6 @@
 import type {TrendStructureSnapshot,TrendState,TrendStructureRow} from '../market/trendStructureResearch';
 import type {ExpandedTrendSnapshot} from '../market/useExpandedTrendResearch';
+import {ruStatus} from '../market/ruInterface';
 
 const label:Record<TrendState,string>={
   LONG:'ВОСХОДЯЩИЙ',SHORT:'НИСХОДЯЩИЙ',BALANCE:'БАЛАНС',
@@ -18,7 +19,7 @@ function Row({row}:{row:TrendStructureRow}){
       <span className={row.low==='HL'?'up':row.low==='LL'?'down':''}>{sign(row.low)}</span>
     </div>
     <small>{row.reason}</small>
-    <footer>{row.at?'SWING '+time(row.at)+' UTC':'Нет двух подтверждённых пар экстремумов'}</footer>
+    <footer>{row.at?'ЭКСТРЕМУМ '+time(row.at)+' UTC':'Нет двух подтверждённых пар экстремумов'}</footer>
   </div>;
 }
 
@@ -31,13 +32,13 @@ export default function TrendStructurePanel({snapshot,extended}:{
   const heading=snapshot.alignment==='LONG'?'ВОСХОДЯЩИЙ ТРЕНД':
     snapshot.alignment==='SHORT'?'НИСХОДЯЩИЙ ТРЕНД':
     snapshot.alignment==='CONFLICT'?'КОНФЛИКТ 30m / 15m':'НАПРАВЛЕНИЕ НЕ ПОДТВЕРЖДЕНО';
-  const setup=snapshot.setupDirection??'НЕ СФОРМИРОВАНО';
+  const setup=snapshot.setupDirection?ruStatus(snapshot.setupDirection):'НЕ СФОРМИРОВАНО';
   return <section className="asc-trend-panel"
     aria-label="Структура тренда и направление рынка ASCEND">
     <header>
-      <div><strong>STRUCTURE · TREND · DIRECTION</strong>
+      <div><strong>СТРУКТУРА · ТРЕНД · НАПРАВЛЕНИЕ</strong>
         <small>1m → 1D · реальные закрытые свечи Bybit · HH/HL, LH/LL · UTC</small></div>
-      <span>RESEARCH / не ENTRY</span>
+      <span>ИССЛЕДОВАНИЕ · НЕ СИГНАЛ ВХОДА</span>
     </header>
     <div className="asc-trend-overview">
       <div>
@@ -45,7 +46,7 @@ export default function TrendStructurePanel({snapshot,extended}:{
         <strong className={'asc-trend-primary '+snapshot.alignment.toLowerCase()}>{heading}</strong>
       </div>
       <div>
-        <small>НАПРАВЛЕНИЕ СЕТАПА · SWEEP / RECLAIM</small>
+        <small>НАПРАВЛЕНИЕ СЦЕНАРИЯ · СНЯТИЕ / ВОЗВРАТ</small>
         <strong className="asc-trend-setup">{setup}</strong>
         {snapshot.setupConflict&&<em>КОНФЛИКТ С ПОДТВЕРЖДЁННЫМ ТРЕНДОМ</em>}
       </div>
@@ -57,7 +58,7 @@ export default function TrendStructurePanel({snapshot,extended}:{
       не разрешение на сделку. {extended.status==='error'?
         'Ошибка исторического источника: '+(extended.reason??'нет данных'):
         extended.fresh?'История обновлена · 30m/15m наблюдение: '+extended.observed30m15m:
-          'Исторический источник загружается или устарел; неопределённые TF = NO DATA'}
+          'Исторический источник загружается или устарел; неопределённые периоды = НЕТ ДАННЫХ'}
     </p>}
     <p className="asc-trend-note">Структура = последовательность подтверждённых максимумов
       и минимумов. Тренд = HH+HL вверх / LH+LL вниз.
