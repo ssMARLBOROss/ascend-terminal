@@ -72,3 +72,25 @@
  .asc-radar-tf-secondary>label{min-width:0;flex:1}
  .asc-radar-tf-result>strong{font-size:15px!important}
 }
+
+/* Lightweight multi-TF signal candidate cards; preserve original ONH table untouched. */
+.asc-radar-tf-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;padding:11px}
+.asc-radar-tf-card{display:flex;flex-direction:column;gap:11px;padding:13px;
+ background:#0b2432;border:1px solid #315970;border-radius:9px;min-width:0}
+.asc-radar-tf-card>header{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.asc-radar-tf-card>header strong{font-size:14px;color:#e3f5ff}
+.asc-radar-tf-card>header small{display:block;color:#92b1c5;font-size:10px;margin-top:4px}
+.asc-radar-tf-card>header>b{font-size:12px;white-space:nowrap;border-radius:5px;
+ border:1px solid #34536b;padding:6px 8px;background:#122b3a}
+.asc-radar-tf-card-match{padding:10px;background:#0d3040;border-radius:7px;
+ display:flex;flex-direction:column;gap:7px;min-width:0}
+.asc-radar-tf-card-match>b{font-size:18px;color:#e1f6fb;font-variant-numeric:tabular-nums}
+.asc-radar-tf-card-match>div{font-size:11px;line-height:1.45;color:#9bc3d4;overflow-wrap:anywhere}
+.asc-radar-tf-card-match>div>strong{color:#c3e5ef}
+.asc-radar-tf-card>footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:9px;align-items:center}
+.asc-radar-tf-card>footer>span{font-size:9px;color:#e4be74;max-width:190px}
+.asc-radar-tf-card>footer>button{font-size:11px;padding:8px 11px}
+@media(max-width:650px){
+ .asc-radar-tf-cards{grid-template-columns:1fr;padding:7px;gap:7px}
+ .asc-radar-tf-card{padding:10px;gap:7px}
+}
