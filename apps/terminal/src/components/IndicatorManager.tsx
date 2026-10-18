@@ -78,11 +78,11 @@ export default function IndicatorManager({
         <button type="button" className={settings.chartViewMode==='TIGHT'?'active':''}
           aria-pressed={settings.chartViewMode==='TIGHT'}
           title="Свечи крупно · только видимый ценовой диапазон"
-          onClick={()=>onUpdate({chartViewMode:'TIGHT'})}>TIGHT</button>
+          onClick={()=>onUpdate({chartViewMode:'TIGHT'})}>КРУПНО</button>
         <button type="button" className={settings.chartViewMode==='FULL'?'active':''}
           aria-pressed={settings.chartViewMode==='FULL'}
           title="Полный ценовой контекст и история"
-          onClick={()=>onUpdate({chartViewMode:'FULL'})}>FULL</button>
+          onClick={()=>onUpdate({chartViewMode:'FULL'})}>ПОЛНОСТЬЮ</button>
       </div>
       <button type="button" className="asc-indicator-focus"
         onClick={onFocus} title="Вернуться к последним свечам">⌖ <span>К цене</span></button>
@@ -91,7 +91,7 @@ export default function IndicatorManager({
     {open&&<section className="asc-indicator-menu" role="dialog"
       aria-modal="false" aria-label="Управление индикаторами ASCEND">
       <header className="asc-indicator-menu-head">
-        <div><strong>ИНДИКАТОРЫ</strong><small>Управление отображением, как в TradingView</small></div>
+        <div><strong>ИНДИКАТОРЫ</strong><small>Настройка видимых показателей графика</small></div>
         <button type="button" onClick={()=>setOpen(false)} aria-label="Закрыть меню индикаторов">✕</button>
       </header>
       <div className="asc-indicator-search">
@@ -150,7 +150,7 @@ export default function IndicatorManager({
                       onChange={e=>onUpdate({[key]:e.target.checked})}/>
                     <span>{label}</span>
                   </label>)}
-                <label>ATR length
+                <label>Период ATR
                   <select value={settings.fvgAtrLength}
                     onChange={e=>onUpdate({fvgAtrLength:Number(e.target.value)})}>
                     {[7,10,14,20,28].map(v=><option key={v} value={v}>{v}</option>)}
@@ -159,8 +159,8 @@ export default function IndicatorManager({
                 <label>Заполнение
                   <select value={settings.fvgFillMode}
                     onChange={e=>onUpdate({fvgFillMode:e.target.value as 'wick'|'close'})}>
-                    <option value="wick">По теням · Wick</option>
-                    <option value="close">По закрытиям · Close</option>
+                    <option value="wick">По теням свечей</option>
+                    <option value="close">По закрытиям свечей</option>
                   </select>
                 </label>
                 <label>Минимальный размер
@@ -191,7 +191,7 @@ export default function IndicatorManager({
                   </select>
                 </label>
                 <small>На графике {fvgVisible} FVG. Структурная подсветка пока неактивна:
-                  подтверждения от Structure Engine не подключены к этому экрану.</small>
+                  подтверждения от движка структуры ещё не подключены к этому экрану.</small>
               </div>}
             </div>)}
           </div>;
