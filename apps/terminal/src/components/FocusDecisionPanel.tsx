@@ -4,6 +4,7 @@ import type {ResearchDecision,MarketLiquidity} from '../market/liquidityDecision
 import type {ChartNarrative} from '../market/chartNarrativeResearch';
 import type {EarlyOnResearch} from '../market/earlyOnResearch';
 import type {PlannedVenue} from '../market/crossExchangeSpread';
+import {ruStatus,ruExplanation} from '../market/ruInterface';
 const fmt=(n?:number)=>n===undefined||!Number.isFinite(n)?'—':
   n.toLocaleString('en-US',{maximumFractionDigits:n>=1000?2:n>=1?4:7});
 const clock=(at?:number)=>at?new Date(at).toLocaleTimeString('ru-RU',{
@@ -21,9 +22,9 @@ export default function FocusDecisionPanel({trend,extended,decision,liquidity,na
   const onl=liquidity.levels.find(x=>x.id==='ONL'&&x.state==='FROZEN');
   return <aside className="asc-focus-decision" aria-label="ASCEND Focus — решение по сделке">
     <header className="asc-focus-decision-head">
-      <strong>ASCEND · DECISION</strong>
+      <strong>ASCEND · ТОРГОВОЕ РЕШЕНИЕ</strong>
       <span className={ready?'ready':decision.status==='SKIP'?'skip':'wait'}>
-        {ready?'ENTRY READY':decision.status}</span>
+        {ready?'ВХОД ПОДТВЕРЖДЁН':ruStatus(decision.status)}</span>
     </header>
     <div className="asc-focus-trend-summary">
       <small>СТРУКТУРА / ТРЕНД / НАПРАВЛЕНИЕ</small>
@@ -31,14 +32,14 @@ export default function FocusDecisionPanel({trend,extended,decision,liquidity,na
         {trend.alignment==='LONG'?'ТРЕНД ВВЕРХ':
           trend.alignment==='SHORT'?'ТРЕНД ВНИЗ':
           trend.alignment==='CONFLICT'?'КОНФЛИКТ 30m / 15m':'НЕ ПОДТВЕРЖДЁН'}</strong>
-      <span>Сетап: <b>{direction??'—'}</b>
-        {' · '}5m импульс: <b>{narrative.impulseDirection??'—'}</b></span>
+      <span>Сценарий: <b>{ruStatus(direction)}</b>
+        {' · '}5м импульс: <b>{ruStatus(narrative.impulseDirection)}</b></span>
     </div>
     <div className="asc-focus-timeframe-ladder asc-confirmation-13" aria-label="Единая панель структуры и подтверждения по 13 таймфреймам">
       <header>
-        <b>ПОДТВЕРЖДЕНИЕ · 13 TF</b>
+        <b>ПОДТВЕРЖДЕНИЕ · 13 ПЕРИОДОВ</b>
         <span className="asc-confirmation-progress">
-          CORE {decision.checks.filter(c=>c.state==='OK').length}/6
+          ЯДРО {decision.checks.filter(c=>c.state==='OK').length}/6
         </span>
       </header>
       <div className="asc-confirmation-legend">
@@ -54,7 +55,7 @@ export default function FocusDecisionPanel({trend,extended,decision,liquidity,na
               (check?' check-'+check.state.toLowerCase():'')}
             title={(core?'ОБЯЗАТЕЛЬНАЯ ПРОВЕРКА: '+check!.why:
               'КОНТЕКСТ: не блокирует вход · '+row.reason)+
-              ' · '+(row.at?new Date(row.at).toISOString():'нет времени подтверждения')}>
+              ' · '+(row.at?new Date(row.at).toLocaleString('ru-RU',{timeZone:'UTC'})+' UTC':'нет времени подтверждения')}>
             <div className="asc-confirmation-cell-head">
               <b>{row.tf}</b><span aria-label={core?'Входит в торговое ядро':'Контекст'}>{core?'◆':'○'}</span>
             </div>
@@ -69,8 +70,8 @@ export default function FocusDecisionPanel({trend,extended,decision,liquidity,na
         })}
       </div>
       <small className="asc-confirmation-note">
-        30m → 15m → 10m → 5m → 3m → 1m — обязательные проверки CORE.
-        Остальные 7 TF показывают рыночную структуру и не отменяют корректный вход.
+        30м → 15м → 10м → 5м → 3м → 1м — обязательные проверки торгового ядра.
+        Остальные 7 периодов показывают рыночную структуру и не отменяют корректный вход.
       </small>
       <small>{extended.status==='error'?'Нет истории Bybit: '+(extended.reason??'ошибка'):
         extended.fresh?'Контекст 30m/15m: '+extended.observed30m15m:
@@ -79,40 +80,40 @@ export default function FocusDecisionPanel({trend,extended,decision,liquidity,na
     <div className="asc-focus-on-levels">
       <span>ONH <b>{fmt(onh?.price)}</b></span>
       <span>ONL <b>{fmt(onl?.price)}</b></span>
-      <small>Только FROZEN</small>
+      <small>Только зафиксированные уровни</small>
     </div>
     <div className="asc-focus-early">
-      <small>EARLY ONH/ONL · ИССЛЕДОВАНИЕ</small>
+      <small>РАННИЙ ONH/ONL · ИССЛЕДОВАНИЕ</small>
       <strong className={early.status==='EARLY CANDIDATE'?'candidate':''}>
-        {early.status==='NONE'?'НЕТ РАННЕГО СЕТАПА':early.status}</strong>
-      <span>{early.direction!=='NEUTRAL'?early.direction+' · ':''}{early.reason}</span>
+        {early.status==='NONE'?'НЕТ РАННЕГО СЕТАПА':ruStatus(early.status)}</strong>
+      <span>{early.direction!=='NEUTRAL'?ruStatus(early.direction)+' · ':''}{ruExplanation(early.reason)}</span>
     </div>
     <div className="asc-planned-decision-venue">
       <span>БИРЖА ПЛАНА: <strong>{plannedVenue}</strong></span>
       <small>{plannedVenue==='BYBIT'
         ?'Уровни исследовательского плана рассчитываются по Bybit.'
         :'График и уровни пока Bybit. Перед сделкой на '+plannedVenue+
-        ' нужны её собственные котировки и пересчёт Entry / SL / TP.'}</small>
+        ' нужны её собственные котировки и пересчёт входа / стопа / цели.'}</small>
     </div>
     <div className="asc-focus-risk" aria-label="Параметры исследовательского торгового плана">
-      <div><small>ENTRY</small><b>{fmt(ready?decision.entry:
+      <div><small>ВХОД</small><b>{fmt(ready?decision.entry:
         early.status==='EARLY CANDIDATE'?early.indicativeEntry:undefined)}</b></div>
-      <div><small>SL</small><b>{fmt(ready?decision.sl:
+      <div><small>СТОП</small><b>{fmt(ready?decision.sl:
         early.status==='EARLY CANDIDATE'?early.structuralSl:undefined)}</b></div>
-      <div><small>TP</small><b>{fmt(ready?decision.tp:
+      <div><small>ЦЕЛЬ</small><b>{fmt(ready?decision.tp:
         early.status==='EARLY CANDIDATE'?early.target:undefined)}</b></div>
-      <div><small>R:R</small><b>{ready?decision.rr?.toFixed(2):
+      <div><small>РИСК/ДОХОД</small><b>{ready?decision.rr?.toFixed(2):
         early.status==='EARLY CANDIDATE'?early.rr?.toFixed(2):'—'}</b></div>
     </div>
     <div className="asc-focus-blocker" role="status">
-      <strong>{ready?'ПОДТВЕРЖДЕНО · RESEARCH':
-        decision.status==='SKIP'?'ПОЧЕМУ SKIP?':'ПОЧЕМУ WAIT?'}</strong>
+      <strong>{ready?'ПОДТВЕРЖДЕНО · ИССЛЕДОВАНИЕ':
+        decision.status==='SKIP'?'ПОЧЕМУ ПРОПУСК?':'ПОЧЕМУ ОЖИДАЕМ?'}</strong>
       <p>{ready?'Все обязательные проверки ядра выполнены. Автоматический ордер отключён.':
-        reason}</p>
+        ruExplanation(reason)}</p>
       {early.status==='EARLY CANDIDATE'&&<small>
-        EARLY CANDIDATE ≠ ENTRY READY · проверить 1m micro-BOS</small>}
+        РАННИЙ КАНДИДАТ ≠ ПОДТВЕРЖДЁННЫЙ ВХОД · проверить микропробой 1м</small>}
     </div>
     <footer>Закрытые свечи · {clock(decision.asOf)} UTC · без автоордеров.
-      Нажми DETAIL для журнала, FVG/TPO и подробной истории.</footer>
+      Открой «АНАЛИТИКА» для журнала, FVG/TPO и подробной истории.</footer>
   </aside>;
 }
