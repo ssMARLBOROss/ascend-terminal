@@ -2024,6 +2024,27 @@ function renderStructureEvidence(){
   }
 }
 
+// SMC view-only studies: render SMA/Volume from already validated CLOSED candles.
+let ascStudiesSignature='';
+function ascRefreshChartStudies(rows, averages, force=false){
+  if(!state.chartReady||!chart)return;
+  const r=rows||qaRows(currentRows(),state.timeframe);
+  if(!r.length)return;
+  const enabled=k=>!window.ASCEND_SMC_UI_V1||window.ASCEND_SMC_UI_V1.isEnabled(k);
+  const settings=['sma20','sma50','sma200','volume'].map(k=>enabled(k));
+  const key=[state.symbol,state.timeframe,r.length,r.at(-1)?.time,r.at(-1)?.close,...settings].join('|');
+  if(!force&&key===ascStudiesSignature)return;
+  const av=averages||[sma(r,20),sma(r,50),sma(r,200)];
+  [[sma20,av[0],settings[0]],[sma50,av[1],settings[1]],[sma200,av[2],settings[2]]].forEach(([series,values,on])=>{
+    series.setData(on?r.map((bar,i)=>Number.isFinite(values[i])?{time:Number(bar.time),value:values[i]}:null).filter(Boolean):[]);
+    series.applyOptions({visible:!!on});
+  });
+  vol.setData(settings[3]?r.map(x=>({time:Number(x.time),value:Math.max(0,Number(x.volume)||0),
+    color:Number(x.close)>=Number(x.open)?'rgba(21,182,146,.42)':'rgba(226,81,104,.4)'})):[]);
+  vol.applyOptions({visible:!!settings[3]});
+  ascStudiesSignature=key;
+}
+
 function renderChart(){
   renderSessionUI();
   renderTFHealth();
@@ -2038,8 +2059,8 @@ function renderChart(){
       high:Number(x.high),low:Number(x.low),close:Number(x.close)})));
     chartBarsSignature=barsKey;
   }
-  // Full SMA/VWAP/volume and trade-plan calculations remain available to Core
-  // and the non-chart panels; hidden chart series are never repopulated per tick.
+  // Presentation only: series stay in sync with confirmed closed candles.
+  ascRefreshChartStudies(r,[ss20,ss50,ss200]);
   state.vwap=vw;
   state.projection=projection(r);
   const chg=(Number(last.close)-Number(prev.close))/Math.max(Number(prev.close),1e-12)*100;
@@ -5273,7 +5294,8 @@ body[data-asc-smc-ready="1"] #tfBar #ascSessionHLPrevious{display:none!important
 var KEY='ascend_smc_layers_v1';
 var defaults={
  liquidity:true,structure:false,sessions:false,previousSessions:false,vwap:true,
- fvg:false,ifvg:false,ob:false,rb:false,stb:false,ote:false,
+ volume:true,sma20:true,sma50:true,sma200:true,
+ fvg:true,ifvg:false,ob:false,rb:false,stb:false,ote:false,
  confirmation:false,risk:true,orders:true,analytics:false,participation:false
 };
 var labels={
@@ -5282,6 +5304,10 @@ var labels={
  sessions:['Торговые сессии','High/Low и замороженные уровни'],
  previousSessions:['Предыдущие сессии','FROZEN High/Low прошлых сессий'],
  vwap:['VWAP','Средневзвешенная цена на графике'],
+ volume:['Объём под свечами','Volume · закрытые свечи'],
+ sma20:['SMA 20','Короткая средняя на цене'],
+ sma50:['SMA 50','Средняя на цене'],
+ sma200:['SMA 200','Старшая средняя на цене'],
  fvg:['FVG','Закрытые 3m свечи · малый/крупный'],
  ifvg:['IFVG','Пробой исходного FVG + инверсия · 5m'],
  ob:['Order Block','Последняя противоположная свеча + импульс · 5m'],
@@ -5325,6 +5351,7 @@ function updateVisual(){
  setShown(trade,enabled.orders);
  var risk=$('ascSmcRiskNote');if(risk)risk.hidden=!enabled.risk||!isOpen;
  // Retain original backend analysis, orders and Risk Engine in every mode.
+ if(typeof ascRefreshChartStudies==='function')ascRefreshChartStudies(null,null,true);
  if(typeof ascendLiquidityDraw==='function')ascendLiquidityDraw();
  if(root.ASCEND_RESEARCH_UI_V1&&enabled.fvg)root.ASCEND_RESEARCH_UI_V1.paint();
 }
@@ -5363,7 +5390,7 @@ function sync(){updateVisual();refreshUI()}
 function set(k,value){if(!Object.prototype.hasOwnProperty.call(defaults,k))return false;enabled[k]=!!value;persist();sync();return true}
 function preset(name){
  var vals=Object.assign({},defaults);
- if(name==='minimum'){vals.liquidity=true;vals.vwap=false;vals.structure=false;vals.sessions=false;vals.previousSessions=false;vals.risk=false;vals.orders=false;}
+ if(name==='minimum'){vals.liquidity=true;vals.vwap=false;vals.structure=false;vals.sessions=false;vals.previousSessions=false;vals.risk=false;vals.orders=false;vals.volume=false;vals.sma20=false;vals.sma50=false;vals.sma200=false;vals.fvg=false;}
  else if(name==='work'){vals.liquidity=true;vals.vwap=true;vals.structure=false;vals.sessions=true;vals.confirmation=true;vals.risk=true;vals.orders=true;}
  else if(name==='smc'){vals.liquidity=true;vals.structure=true;vals.sessions=true;vals.vwap=true;vals.fvg=true;vals.confirmation=true;vals.risk=true;vals.orders=true;}
  Object.keys(vals).forEach(function(k){enabled[k]=vals[k]});persist();sync();
@@ -5461,7 +5488,7 @@ function mount(){
   '<div class="asc-smc-presets"><button data-preset="minimum">Минимум</button>'+
   '<button data-preset="work">Рабочий</button><button data-preset="smc">SMC</button></div></div>'+
   '<div class="asc-smc-groups">'+
-  group('01 · ОСНОВНОЙ ГРАФИК',['liquidity','structure','sessions','previousSessions','vwap'],false)+
+  group('01 · ОСНОВНОЙ ГРАФИК',['liquidity','structure','sessions','previousSessions','vwap','volume','sma20','sma50','sma200'],false)+
   group('02 · SMART MONEY / POI',['fvg','ifvg','ob','rb','stb','ote'],true)+
   group('03 · СДЕЛКА И РИСК',['confirmation','risk','orders'],false)+
   group('04 · ИССЛЕДОВАНИЯ',['analytics','participation'],true)+'</div>'+
