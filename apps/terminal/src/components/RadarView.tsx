@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from 'react';
 import {useRadarScanner} from '../market/useRadarScanner';
+import {ruStatus,ruExplanation} from '../market/ruInterface';
 import {type RadarGroup,type RadarStage,type RadarOnSide,
   ON_HOT_DISTANCE_PCT} from '../market/radarEngine';
 
@@ -7,8 +8,8 @@ const priority:Record<RadarStage,number>={
   'CHECK 1M':0,SHIFTING:1,SWEEP:2,WATCH:3,BUILDING:4,SCANNING:5,'NO DATA':6
 };
 const label:Record<RadarStage,string>={
-  'CHECK 1M':'ПРОВЕРИТЬ 1M',SHIFTING:'SHIFTING',SWEEP:'SWEEP',
-  WATCH:'WATCH',BUILDING:'ONH/ONL LIVE',SCANNING:'SCANNING','NO DATA':'НЕТ ДАННЫХ'
+  'CHECK 1M':'ПРОВЕРИТЬ 1М',SHIFTING:'СМЕНА ФАЗЫ',SWEEP:'СНЯТИЕ',
+  WATCH:'НАБЛЮДЕНИЕ',BUILDING:'УРОВНИ ФОРМИРУЮТСЯ',SCANNING:'СКАНИРУЕМ','NO DATA':'НЕТ ДАННЫХ'
 };
 const price=(n:number)=>n.toLocaleString('en-US',{maximumFractionDigits:n>=1000?2:n>=1?4:9});
 const compact=(n:number)=>new Intl.NumberFormat('en-US',{
@@ -17,8 +18,8 @@ const utc=(at?:number)=>at?new Date(at).toLocaleTimeString('ru-RU',{
   timeZone:'UTC',hour:'2-digit',minute:'2-digit'})+' UTC':'—';
 function session(now:number){
   const h=(now%86400000)/3600000;
-  return [h<8?'ASIA':'',h>=7&&h<16?'LONDON':'',
-    h>=13&&h<22?'NEW YORK':''].filter(Boolean).join(' + ')||'ВНЕ ОКНА ASCEND';
+  return [h<8?'АЗИЯ':'',h>=7&&h<16?'ЛОНДОН':'',
+    h>=13&&h<22?'НЬЮ-ЙОРК':''].filter(Boolean).join(' + ')||'ВНЕ ОКНА ASCEND';
 }
 export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
   const[limit,setLimit]=useState(40);
@@ -70,22 +71,22 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
   const earlyWatching=verified.filter(r=>r.early?.status==='EARLY WATCH').length;
   return <main className="asc-radar-page">
     <header className="asc-radar-hero">
-      <div><small>ASCEND · SMART RADAR V1 · RESEARCH</small>
+      <div><small>ASCEND · УМНЫЙ РАДАР · ИССЛЕДОВАНИЕ</small>
         <h1>Радар зон ONH / ONL</h1>
-        <p>Ищем подход к ночной ликвидности, касание, sweep,
-          reclaim или acceptance. RSI — только дополнительный контекст.</p>
+        <p>Ищем подход к ночной ликвидности, касание, снятие уровня,
+          возврат за уровень или закрепление. RSI — только дополнительный контекст.</p>
       </div><div className="asc-radar-clock"><strong>{utc(now)}</strong>
-        <span>{session(now)}</span><small>BYBIT · USDT FUTURES</small></div>
+        <span>{session(now)}</span><small>BYBIT · ФЬЮЧЕРСЫ USDT</small></div>
     </header>
     <div className="asc-radar-summary">
       <div><small>МОНИТОРИНГ</small><b>{feed.rows.length}</b>
         <span>Проверено {feed.checked}/{feed.total}</span></div>
       <div><small>НИЖНЯЯ ONL</small><b>{nearOnl}</b><span>Кандидаты возле ONL</span></div>
       <div><small>ВЕРХНЯЯ ONH</small><b>{nearOnh}</b><span>Кандидаты возле ONH</span></div>
-      <div><small>SHIFTING / 1M</small><b>{shifting} / {check}</b>
-        <span>Структура ещё требует Core</span></div>
-      <div><small>EARLY · 5M</small><b>{stale?'—':earlyReady}</b>
-        <span>Наблюдение: {earlyWatching} · не ENTRY READY</span></div>
+      <div><small>СМЕНА ФАЗЫ / 1М</small><b>{shifting} / {check}</b>
+        <span>Торговое ядро пока не подтвердило структуру</span></div>
+      <div><small>РАННИЕ · 5М</small><b>{stale?'—':earlyReady}</b>
+        <span>Наблюдение: {earlyWatching} · вход ещё не подтверждён</span></div>
     </div>
     <section className="asc-radar-controls" aria-label="Фильтры радара">
       <div className="asc-radar-mode-tabs" role="group" aria-label="Режим поиска ON-зон">
@@ -94,8 +95,8 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
           ONH / ONL · ВСЕ СОБЫТИЯ</button>
         <button type="button" className={radarMode==='EARLY'?'active early':''}
           aria-pressed={radarMode==='EARLY'} onClick={()=>setRadarMode('EARLY')}>
-          EARLY ENTRY · ИССЛЕДОВАНИЕ</button>
-        <span>EARLY CANDIDATE означает «проверить 1m», не команду открыть ордер</span>
+          РАННИЙ ВХОД · ИССЛЕДОВАНИЕ</button>
+        <span>РАННИЙ КАНДИДАТ означает «проверить 1м», не команду открыть ордер</span>
       </div>
       <div className="asc-radar-on-tabs" role="group" aria-label="Выбор ночного уровня">
         <button type="button" className={onFocus==='ALL'?'active':''}
@@ -103,10 +104,10 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
           ◉ ОБЕ ON ЗОНЫ <small>ONH + ONL</small></button>
         <button type="button" className={onFocus==='ONL'?'active':''}
           aria-pressed={onFocus==='ONL'} onClick={()=>setOnFocus('ONL')}>
-          ↟ НИЖНЯЯ ONL <small>Sweep → LONG при reclaim / SHORT при acceptance</small></button>
+          ↟ НИЖНЯЯ ONL <small>Снятие → ЛОНГ при возврате / ШОРТ при закреплении</small></button>
         <button type="button" className={onFocus==='ONH'?'active':''}
           aria-pressed={onFocus==='ONH'} onClick={()=>setOnFocus('ONH')}>
-          ↡ ВЕРХНЯЯ ONH <small>Sweep → SHORT при reclaim / LONG при acceptance</small></button>
+          ↡ ВЕРХНЯЯ ONH <small>Снятие → ШОРТ при возврате / ЛОНГ при закреплении</small></button>
         <label className="asc-radar-only-on">
           <input type="checkbox" checked={onlyOn}
             onChange={e=>setOnlyOn(e.target.checked)}/> Только активные ON зоны
@@ -119,12 +120,12 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
           <option value="ALL">Все группы</option><option value="0.5–3%">0,5–3%</option>
           <option value="3–12%">3–12%</option><option value="12%+">12%+</option></select></label>
         <label>Статус<select value={filter} onChange={e=>setFilter(e.target.value as typeof filter)}>
-          <option value="ALL">Все статусы</option><option value="WATCH">WATCH</option>
-          <option value="SWEEP">SWEEP</option><option value="SHIFTING">SHIFTING</option>
+          <option value="ALL">Все статусы</option><option value="WATCH">НАБЛЮДЕНИЕ</option>
+          <option value="SWEEP">СНЯТИЕ</option><option value="SHIFTING">СМЕНА ФАЗЫ</option>
           <option value="CHECK 1M">Проверить 1m</option></select></label>
         <label>Сторона<select value={side} onChange={e=>setSide(e.target.value as typeof side)}>
-          <option value="ALL">LONG + SHORT</option><option value="LONG">LONG</option>
-          <option value="SHORT">SHORT</option></select></label>
+          <option value="ALL">ЛОНГ + ШОРТ</option><option value="LONG">ЛОНГ</option>
+          <option value="SHORT">ШОРТ</option></select></label>
         <label>RSI 5m · доп. фильтр<select value={rc} onChange={e=>setRc(e.target.value as typeof rc)}>
           <option value="ALL">Любой</option><option value="RC30">RC30 ≤33</option>
           <option value="RC70">RC70 ≥67</option></select></label>
@@ -149,7 +150,7 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
           последней закрытой 5m свечи · HOT ≤{ON_HOT_DISTANCE_PCT.toFixed(2)}%</span></div>
       <div className="asc-radar-scroll"><table>
         <thead><tr><th>Монета</th><th>Цена</th><th>24ч</th><th>RSI 5m</th>
-          <th>ON зона · расстояние</th><th>Vol/SMA20</th><th>Событие / Состояние</th>
+          <th>ON зона · расстояние</th><th>Объём / средний (20)</th><th>Событие / Состояние</th>
           <th>Ранний сетап · риск</th><th>Время UTC</th><th>Открыть</th></tr></thead>
         <tbody>{rows.map(row=><tr key={row.symbol}>
           <td><b>{row.symbol.replace(/USDT$/,'')}</b>
@@ -165,12 +166,12 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
               row.distancePct<=ON_HOT_DISTANCE_PCT?'radar-hot':''}>
               {row.distancePct===undefined?'—':row.distancePct.toFixed(2)+'%'}
             </strong>
-            <small>{row.onState} · уровень {row.levelPrice===undefined?'—':price(row.levelPrice)}</small>
+            <small>{ruStatus(row.onState)} · уровень {row.levelPrice===undefined?'—':price(row.levelPrice)}</small>
             <small>{row.onh===undefined?'ONH/ONL недоступны':
               'H '+price(row.onh)+' · L '+price(row.onl!)}</small></td>
           <td>{row.volumeRatio===undefined?'—':row.volumeRatio.toFixed(2)+'×'}</td>
           <td><span className={'asc-radar-on-event e-'+row.onEvent.toLowerCase()}>
-            {row.onEvent}</span>{' '}
+            {ruStatus(row.onEvent)}</span>{' '}
             <span className={'asc-radar-tag s-'+row.stage.replace(/\W/g,'-').toLowerCase()}>
             {label[row.stage]}</span>
             <small>{row.reason}</small>
@@ -179,21 +180,21 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
             {row.resolutionAt&&<small>Возврат / принятие: {utc(row.resolutionAt)}</small>}
             {row.direction!=='NEUTRAL'&&<small className={
               row.direction==='LONG'?'radar-long':'radar-short'}>
-              {row.direction} · предварительно</small>}</td>
+              {ruStatus(row.direction)} · предварительно</small>}</td>
           <td className="asc-radar-early-cell">
             <span className={'asc-radar-early-badge early-'+
               (stale?'none':(row.early?.status??'NONE')).toLowerCase().replace(/\W+/g,'-')}>
-              {stale?'ДАННЫЕ УСТАРЕЛИ':row.early?.status??'—'}</span>
+              {stale?'ДАННЫЕ УСТАРЕЛИ':ruStatus(row.early?.status)}</span>
             {row.early&&row.early.status!=='NONE'&&!stale&&
               <div className="asc-radar-early-plan">
-                <small>{row.early.reason}</small>
+                <small>{ruExplanation(row.early.reason)}</small>
                 {row.early.indicativeEntry!==undefined&&
-                  <small>5m close {price(row.early.indicativeEntry)}
+                  <small>Закрытие 5м {price(row.early.indicativeEntry)}
                     {' · '}SL {row.early.structuralSl===undefined?'—':price(row.early.structuralSl)}
                     {' · '}TP {row.early.target===undefined?'—':price(row.early.target)}
                     {' · '}R:R {row.early.rr?.toFixed(2)??'—'}</small>}
                 {row.early.reactionAt&&<small>Реакция: {utc(row.early.reactionAt)}</small>}
-                <small>Только наблюдение · 1m trigger не проверен</small>
+                <small>Только наблюдение · условие входа 1м не проверено</small>
               </div>}
           </td>
           <td>{utc(row.eventAt??row.observedAt)}</td>
@@ -209,11 +210,11 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
       </p>}
     </section>
     <footer className="asc-radar-disclaimer">
-      <b>READ ONLY · НЕ СИГНАЛ ВХОДА.</b> ONH/ONL — диапазон
+      <b>ТОЛЬКО ПРОСМОТР · НЕ СИГНАЛ ВХОДА.</b> ONH/ONL — диапазон
       00:00–06:00 UTC. До 06:00 уровни LIVE, после закрытия интервала FROZEN.
-      WATCH — подход не дальше 0,50% либо недавнее касание; SWEEP —
-      прокол уровня; RECLAIM — закрытие обратно; ACCEPTANCE — два 5m
-      закрытия за уровнем. SHIFTING и «Проверить 1m» — ещё НЕ ENTRY READY.
+      НАБЛЮДЕНИЕ — подход не дальше 0,50% либо недавнее касание; СНЯТИЕ —
+      прокол уровня; ВОЗВРАТ — закрытие обратно; ЗАКРЕПЛЕНИЕ — два закрытия 5м
+      за уровнем. «СМЕНА ФАЗЫ» и «Проверить 1м» ещё не разрешают вход.
       Обязательная цепочка 30m → 15m → 10m → 5m → 3m → 1m,
       структурный SL, ближайшая ликвидность TP и R:R ≥ 1:2 проверяются
       отдельно при открытии монеты. Время событий — закрытие 5m, не точный тик.

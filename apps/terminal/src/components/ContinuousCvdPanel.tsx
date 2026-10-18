@@ -71,10 +71,10 @@ export default function ContinuousCvdPanel({symbol,live,interval,onInterval}:{
   },[d,hovered]);
   const quality=d?.health==='LIVE'?'ONLINE · FROM CONNECTED SEGMENT':
     d?.health==='GAP'?'GAP · UNKNOWN MISSING TRADES':
-    live.status==='CONNECTING'?'CONNECTING':'STALE / NO DATA';
+    live.status==='CONNECTING'?'ПОДКЛЮЧЕНИЕ':'УСТАРЕЛО / НЕТ ДАННЫХ';
   return <section className="asc-cvd-panel" aria-label="ASCEND CVD Stream V1">
     <header className="asc-cvd-head">
-      <div><b>CVD · EXECUTED TRADES / {symbol}</b>
+      <div><b>CVD · СОВЕРШЁННЫЕ СДЕЛКИ / {symbol}</b>
         <small>Накопление по агрессору · Bybit publicTrade · только текущий непрерывный сегмент</small></div>
       <div className="asc-cvd-status">
         <strong className={live.status==='LIVE'?'online':live.status==='GAP'?'gap':''}>
@@ -83,11 +83,11 @@ export default function ContinuousCvdPanel({symbol,live,interval,onInterval}:{
       </div>
     </header>
     <div className="asc-cvd-stats">
-      <div><span>CVD · base asset</span><strong className={d&&d.volumeDelta>=0?'positive':'negative'}>
-        {d&&d.trades?fmt(d.volumeDelta):'NO DATA'}</strong></div>
-      <div><span>BUY / SELL</span><strong>{d&&d.trades?
+      <div><span>CVD · В МОНЕТАХ</span><strong className={d&&d.volumeDelta>=0?'positive':'negative'}>
+        {d&&d.trades?fmt(d.volumeDelta):'НЕТ ДАННЫХ'}</strong></div>
+      <div><span>ПОКУПКИ / ПРОДАЖИ</span><strong>{d&&d.trades?
         d.buyVolume.toFixed(3)+' / '+d.sellVolume.toFixed(3):'—'}</strong></div>
-      <div><span>Δ в USDT (notional)</span><strong>{d&&d.trades?fmt(d.notionalDelta,0):'NO DATA'}</strong></div>
+      <div><span>Разница объёма в USDT</span><strong>{d&&d.trades?fmt(d.notionalDelta,0):'НЕТ ДАННЫХ'}</strong></div>
       <div><span>Сделок получено</span><strong>{d?.trades??0}</strong></div>
     </div>
     <div className="asc-cvd-plot-controls">
@@ -107,13 +107,13 @@ export default function ContinuousCvdPanel({symbol,live,interval,onInterval}:{
       onHover={setHovered} interval={interval}/>
     <div className="asc-cvd-bar-meta">
       {point?<><span>{time(point.time)} UTC · {point.isClosed?'закрытый интервал':'текущий интервал'}</span>
-        <b>BUY {point.buyVolume.toFixed(3)} · SELL {point.sellVolume.toFixed(3)} ·
+        <b>ПОКУПКИ {point.buyVolume.toFixed(3)} · ПРОДАЖИ {point.sellVolume.toFixed(3)} ·
           Δ {fmt(point.delta)} · CVD {fmt(point.cumulative)}</b></>:
         <span>Нет исторической непрерывной линии до подключения WebSocket.</span>}
     </div>
     <div className="asc-cvd-interpretation">
-      <b>PRICE ↔ CVD · ПО ЗАКРЫТЫМ ИНТЕРВАЛАМ</b>
-      <span>{d?.health!=='LIVE'||!d.trades?'NO DATA':
+      <b>ЦЕНА ↔ CVD · ПО ЗАКРЫТЫМ ИНТЕРВАЛАМ</b>
+      <span>{d?.health!=='LIVE'||!d.trades?'НЕТ ДАННЫХ':
         d.signal==='PRICE_UP_DELTA_DOWN'?'Цена растёт, дельта ослабевает · возможное расхождение (не сигнал).':
         d.signal==='PRICE_DOWN_DELTA_UP'?'Цена снижается, дельта усиливается · возможное расхождение (не сигнал).':
         d.signal==='ALIGNED'?'Цена и изменение дельты не показывают этого типа расхождения.':

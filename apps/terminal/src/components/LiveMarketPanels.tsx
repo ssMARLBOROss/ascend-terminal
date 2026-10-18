@@ -12,7 +12,7 @@ function timestamp(t?:number){
 }
 function Status<T>({metric}:{metric:Metric<T>}){
   return <small className={'asc-live-status '+metric.status}>
-    {metric.status==='ready'?'● ONLINE · '+timestamp(metric.updatedAt):
+    {metric.status==='ready'?'● ОНЛАЙН · '+timestamp(metric.updatedAt):
       metric.status==='loading'?'○ ПОДКЛЮЧЕНИЕ':'! ДАННЫЕ НЕДОСТУПНЫ'}
   </small>;
 }
@@ -53,13 +53,13 @@ export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd,visibility
   return <section className="asc-live-metrics" aria-label="Онлайн-индикаторы TPO OI Long Short CVD">
     <div className="asc-live-metrics-head">
       <div><b>РЫНОК · ОНЛАЙН-ИНДИКАТОРЫ</b>
-        <small>{symbol} · BYBIT USDT PERPETUAL · ИССЛЕДОВАНИЕ БЕЗ ВХОДОВ</small>
+        <small>{symbol} · BYBIT · БЕССРОЧНЫЙ ФЬЮЧЕРС USDT · ИССЛЕДОВАНИЕ БЕЗ СДЕЛОК</small>
       </div>
       <span className="asc-live-context-only">БЕЗ ПРИВЯЗКИ К СЕССИЯМ</span>
     </div>
     <div className="asc-live-metrics-grid">
       {visibility.tpo&&<article className="asc-live-metric-card tpo">
-        <header><strong>TPO · MARKET PROFILE</strong><Status metric={tpo}/></header>
+        <header><strong>TPO · ПРОФИЛЬ РЫНКА</strong><Status metric={tpo}/></header>
         {tpo.status==='ready'&&tpo.data?<div className="asc-live-body">
           <div className="asc-live-main"><span>POC</span><b>{money(tpo.data.poc)}</b></div>
           <div className="asc-live-values">
@@ -74,7 +74,7 @@ export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd,visibility
         <footer>Приближённый профиль по касаниям ценовых корзин; не объём торгов.</footer>
       </article>}
       {visibility.oi&&<article className="asc-live-metric-card oi">
-        <header><strong>OPEN INTEREST · OI</strong><Status metric={oi}/></header>
+        <header><strong>ОТКРЫТЫЙ ИНТЕРЕС · OI</strong><Status metric={oi}/></header>
         {oi.status==='ready'&&oi.data?<div className="asc-live-body">
           <div className="asc-live-main"><span>Открытые позиции, {symbol.replace(/USDT$/,'')}</span>
             <b>{money(oi.data.value)}</b>
@@ -87,20 +87,20 @@ export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd,visibility
           <Sparkline values={oi.data.history} color="#55bfdc"/>
           <small>Последние точки OI Bybit · {timestamp(oi.data.timestamp)}</small>
         </div>:<Unavailable metric={oi}/>}
-        <footer>Рост OI не означает автоматически LONG; направление определяет цена.</footer>
+        <footer>Рост открытого интереса сам по себе не означает лонг; направление определяет цена.</footer>
       </article>}
       {visibility.longShort&&<article className="asc-live-metric-card ls">
-        <header><strong>NET LONG / SHORT · ACCOUNTS</strong><Status metric={longShort}/></header>
+        <header><strong>ЛОНГ / ШОРТ · ДОЛЯ УЧАСТНИКОВ</strong><Status metric={longShort}/></header>
         {longShort.status==='ready'&&longShort.data?<div className="asc-live-body">
           <div className="asc-live-ls-split">
-            <div><span>LONG</span><b>{longShort.data.longPercent.toFixed(1)}%</b></div>
-            <div><span>SHORT</span><b>{longShort.data.shortPercent.toFixed(1)}%</b></div>
+            <div><span>ЛОНГ</span><b>{longShort.data.longPercent.toFixed(1)}%</b></div>
+            <div><span>ШОРТ</span><b>{longShort.data.shortPercent.toFixed(1)}%</b></div>
           </div>
           <div className="asc-live-ls-bar">
             <div style={{width:longShort.data.longPercent+'%'}}/>
           </div>
           <div className="asc-live-values">
-            <span>Δ доли LONG</span>
+            <span>Изменение доли ЛОНГ</span>
             <b className={longShort.data.deltaLongPp>=0?'asc-live-up':'asc-live-down'}>
               {(longShort.data.deltaLongPp>0?'+':'')+longShort.data.deltaLongPp.toFixed(2)+' п.п.'}
             </b>
@@ -111,10 +111,10 @@ export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd,visibility
         <footer>Это количество long/short-аккаунтов, а не чистый объём позиций.</footer>
       </article>}
       {visibility.cvd&&<article className="asc-live-metric-card cvd">
-        <header><strong>CVD · BYBIT PUBLIC TRADES</strong>
+        <header><strong>CVD · ПУБЛИЧНЫЕ СДЕЛКИ BYBIT</strong>
           <small className={'asc-live-status '+(continuousCvd.status==='LIVE'?'ready':'error')}>
-            {continuousCvd.status==='LIVE'?'● LIVE · CONNECTED SEGMENT':
-              continuousCvd.status==='CONNECTING'?'○ CONNECTING':'! '+continuousCvd.status}
+            {continuousCvd.status==='LIVE'?'● ОНЛАЙН · С МОМЕНТА ПОДКЛЮЧЕНИЯ':
+              continuousCvd.status==='CONNECTING'?'○ ПОДКЛЮЧЕНИЕ':'! ПОТОК ПРЕРВАН'}
           </small>
         </header>
         {continuousCvd.data?.trades?<div className="asc-live-body">
@@ -122,8 +122,8 @@ export default function LiveMarketPanels({symbol,tpo,oi,longShort,cvd,visibility
             <b className={continuousCvd.data.volumeDelta>=0?'asc-live-up':'asc-live-down'}>
               {(continuousCvd.data.volumeDelta>0?'+':'')+money(continuousCvd.data.volumeDelta)}</b>
           </div>
-          <div className="asc-live-values"><span>BUY {money(continuousCvd.data.buyVolume)}</span>
-            <span>SELL {money(continuousCvd.data.sellVolume)}</span></div>
+          <div className="asc-live-values"><span>ПОКУПКИ {money(continuousCvd.data.buyVolume)}</span>
+            <span>ПРОДАЖИ {money(continuousCvd.data.sellVolume)}</span></div>
           <Sparkline values={continuousCvd.data.points.map(p=>p.cumulative)} color="#e8b76e" zero/>
           <small>{continuousCvd.data.trades.toLocaleString('ru-RU')} сделок ·
             {timestamp(continuousCvd.data.startedAt)}–{timestamp(continuousCvd.data.lastTradeAt)}</small>

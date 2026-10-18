@@ -4,6 +4,7 @@ import type {ContinuousCvd} from '../market/useContinuousCvd';
 import type {Metric,OpenInterest} from '../market/useLiveMarketMetrics';
 import {useCrossExchangeSpread} from '../market/useCrossExchangeSpread';
 import type {PlannedVenue} from '../market/crossExchangeSpread';
+import {ruStatus} from '../market/ruInterface';
 
 const fmt=(v?:number,digits=2)=>v===undefined||!Number.isFinite(v)?'—':
   v.toLocaleString('ru-RU',{maximumFractionDigits:digits});
@@ -32,31 +33,31 @@ export default function FocusStudiesStrip({symbol,candles,timeframe,cvd,oi,plann
     !!cvd.updatedAt&&Date.now()-cvd.updatedAt<20000;
   const oiOK=oi.symbol===symbol&&oi.status==='ready'&&!!oi.data&&
     !!oi.updatedAt&&Date.now()-oi.updatedAt<600000;
-  return <section className="asc-focus-studies" aria-label="Компактные RSI, CVD, Open Interest и межбиржевой спред">
+  return <section className="asc-focus-studies" aria-label="Компактные RSI, CVD, открытый интерес и межбиржевой спред">
     <div className="asc-focus-study" title="RSI14 на закрытых свечах выбранного таймфрейма">
       <div><strong>RSI 14 · {timeframe}</strong><b>{fmt(rsi,1)}</b>
-        <small>{rsi===undefined?'NO DATA':rsiZone(rsi)}</small></div>
+        <small>{rsi===undefined?'НЕТ ДАННЫХ':ruStatus(rsiZone(rsi))}</small></div>
       <MiniLine points={rsiPoints.map(p=>p.value)}/>
     </div>
     <div className="asc-focus-study" title="CVD Bybit: только непрерывный отрезок WebSocket">
       <div><strong>CVD · Bybit</strong><b>{cvdOK?fmt(cvd.data!.volumeDelta):'—'}</b>
-        <small>{cvdOK?'WS LIVE':cvd.status==='GAP'?'GAP':'NO DATA'}</small></div>
+        <small>{cvdOK?'ПОТОК ОНЛАЙН':cvd.status==='GAP'?'ПРОПУСК ДАННЫХ':'НЕТ ДАННЫХ'}</small></div>
       <MiniLine points={cvdOK?cvd.data!.points.map(p=>p.cumulative):[]}/>
     </div>
     <div className="asc-focus-study" title="Open Interest Bybit: изменение не означает направление">
-      <div><strong>OPEN INTEREST</strong><b>{oiOK?fmt(oi.data!.value,0):'—'}</b>
-        <small>{oiOK?'Δ '+fmt(oi.data!.deltaPercent)+'%':'NO DATA'}</small></div>
+      <div><strong>ОТКРЫТЫЙ ИНТЕРЕС</strong><b>{oiOK?fmt(oi.data!.value,0):'—'}</b>
+        <small>{oiOK?'Δ '+fmt(oi.data!.deltaPercent)+'%':'НЕТ ДАННЫХ'}</small></div>
       <MiniLine points={oiOK?oi.data!.history:[]}/>
     </div>
     <div className={'asc-focus-study asc-focus-spread '+
       (spread.status==='READY'&&spread.grossPct!==undefined&&spread.grossPct>0?
         'asc-focus-spread-positive':'')}
       title={spread.status==='READY'
-        ?'Buy '+spread.buyVenue+' Ask: '+fmt(spread.buyAsk,7)+
-          ' → Sell '+spread.sellVenue+' Bid: '+fmt(spread.sellBid,7)+
+        ?'Купить на '+spread.buyVenue+' по цене продажи (Ask): '+fmt(spread.buyAsk,7)+
+          ' → продать на '+spread.sellVenue+' по цене покупки (Bid): '+fmt(spread.sellBid,7)+
           ' | Внутренний спред '+plannedVenue+': '+fmt(spread.plannedInsidePct,4)+
           '%; '+spread.compareVenue+': '+fmt(spread.comparedInsidePct,4)+
-          '%. БЕЗ комиссий, глубины стакана, проскальзывания и funding.'
+          '%. БЕЗ комиссий, глубины стакана, проскальзывания и платежей по финансированию.'
         :spread.reason}>
       <div>
         <strong>СПРЕД · {plannedVenue} ↔ {spread.compareVenue}</strong>
@@ -65,10 +66,10 @@ export default function FocusStudiesStrip({symbol,candles,timeframe,cvd,oi,plann
         <small>{spread.status==='READY'
           ?spread.grossPct!==undefined&&spread.grossPct>0?
             spread.buyVenue+' → '+spread.sellVenue:
-            'Нет положит. разницы'
+            'Разницы для сделки нет'
           :'NO DATA'}</small>
       </div>
-      <span className="asc-spread-caption">Bid/Ask · брутто</span>
+      <span className="asc-spread-caption">Цены покупки/продажи · без комиссий</span>
     </div>
   </section>;
 }

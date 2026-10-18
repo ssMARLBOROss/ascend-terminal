@@ -4,12 +4,12 @@ import type {ParticipationJournal} from '../market/useMarketParticipation';
 import {downloadParticipationJournal} from '../market/useMarketParticipation';
 import type {FvgRecord} from '../market/fvgContextEngine';
 
-const fmt=(v:number|undefined|null,dp=2)=>v===undefined||v===null?'NO DATA':
+const fmt=(v:number|undefined|null,dp=2)=>v===undefined||v===null?'НЕТ ДАННЫХ':
   v.toLocaleString('en-US',{maximumFractionDigits:dp});
 const clock=(t:number|undefined|null)=>t?new Date(t).toLocaleTimeString('ru-RU',
   {timeZone:'UTC',hour:'2-digit',minute:'2-digit',second:'2-digit'}):'—';
 const scenarioLabels:Record<ParticipationSnapshot['context'],string>={
-  NO_DATA:'NO DATA',OBSERVING:'НАБЛЮДЕНИЕ',BALANCE:'ЦЕНОВОЙ БАЛАНС',
+  NO_DATA:'НЕТ ДАННЫХ',OBSERVING:'НАБЛЮДЕНИЕ',BALANCE:'ЦЕНОВОЙ БАЛАНС',
   OUTSIDE_VALUE:'ЦЕНА ВНЕ VALUE AREA',
   CONTINUATION_CANDIDATE:'ВОЗМОЖНОЕ ПРОДОЛЖЕНИЕ',
   ABSORPTION_CANDIDATE:'ВОЗМОЖНОЕ ПОГЛОЩЕНИЕ',
@@ -19,8 +19,8 @@ const MetricRow=({label,metric,dp=2,suffix=''}:{
   label:string;metric:ParticipationField;dp?:number;suffix?:string
 })=><div className="asc-mp-metric-row">
   <span>{label}<small>{metric.source} · {metric.quality}</small></span>
-  <div><strong>{metric.status==='READY'?fmt(metric.value,dp)+suffix:'NO DATA'}</strong>
-    <small>{metric.status} · {clock(metric.timestamp)} UTC</small></div>
+  <div><strong>{metric.status==='READY'?fmt(metric.value,dp)+suffix:'НЕТ ДАННЫХ'}</strong>
+    <small>{metric.status==='READY'?'ГОТОВО':'ОЖИДАНИЕ'} · {clock(metric.timestamp)} UTC</small></div>
 </div>;
 
 export default function MarketParticipationPanel({symbol,snapshot,journal,fvgs}:{
@@ -32,7 +32,7 @@ export default function MarketParticipationPanel({symbol,snapshot,journal,fvgs}:
     .filter(x=>x.status!=='READY').length;
   return <aside className="asc-mp-panel" aria-label="Market Participation">
     <header className="asc-mp-head">
-      <div><strong>MARKET PARTICIPATION</strong>
+      <div><strong>УЧАСТИЕ В РЫНКЕ</strong>
         <small>ASCEND V1 · {symbol} · BYBIT</small></div>
       <button type="button" onClick={()=>setExpanded(x=>!x)}
         aria-expanded={expanded} aria-label="Свернуть или раскрыть Market Participation">
@@ -40,7 +40,7 @@ export default function MarketParticipationPanel({symbol,snapshot,journal,fvgs}:
     </header>
     {expanded&&<>
       <div className={'asc-mp-scenario '+snapshot.context.toLowerCase()}>
-        <small>НАБЛЮДАЕМЫЙ КОНТЕКСТ · НЕ CORE ENTRY</small>
+        <small>НАБЛЮДЕНИЕ · НЕ РЕШЕНИЕ О ВХОДЕ</small>
         <strong>{scenarioLabels[snapshot.context]}</strong>
         <p>{snapshot.explanation}</p>
         <span>{clock(snapshot.observedAt)} UTC ·
@@ -60,7 +60,7 @@ export default function MarketParticipationPanel({symbol,snapshot,journal,fvgs}:
         <div className="asc-mp-window">{snapshot.delta.source==='BYBIT_WS_PUBLIC_TRADES'?
         'CVD CONNECTED SEGMENT':'TRADE SAMPLE'}: {snapshot.cvdWindow?
           clock(snapshot.cvdWindow.from)+'–'+clock(snapshot.cvdWindow.to)+' UTC · '+
-          snapshot.cvdWindow.trades+' сделок':'NO DATA'}</div>
+          snapshot.cvdWindow.trades+' сделок':'НЕТ ДАННЫХ'}</div>
         <MetricRow label="Open Interest" metric={snapshot.oi}/>
         <MetricRow label="Δ OI vs предыдущий 5m" metric={snapshot.oiDelta} suffix="%"/>
       </section>
@@ -72,11 +72,11 @@ export default function MarketParticipationPanel({symbol,snapshot,journal,fvgs}:
       </section>
       <section className="asc-mp-section">
         <h4>FVG и Structure Engine</h4>
-        <p>{latest?'FVG '+latest.timeframe+' · '+(latest.side==='bull'?'BULLISH':'BEARISH')+
+        <p>{latest?'FVG '+latest.timeframe+' · '+(latest.side==='bull'?'РОСТ':'ПАДЕНИЕ')+
           ' · '+latest.status+' · FILL '+latest.maxFillPct.toFixed(0)+'%':'Нет активной FVG среди загруженных таймфреймов.'}</p>
-        <div className="asc-mp-core"><span>STRUCTURE ENGINE</span><strong>NOT CONNECTED</strong></div>
-        <div className="asc-mp-core"><span>CORE DECISION</span><strong>NOT CONNECTED</strong></div>
-        <p>Ни WATCH, ни MSS, ни ENTRY не создаются модулем на основании дельты или OI.</p>
+        <div className="asc-mp-core"><span>ДВИЖОК СТРУКТУРЫ</span><strong>НЕ ПОДКЛЮЧЁН</strong></div>
+        <div className="asc-mp-core"><span>РЕШЕНИЕ ТОРГОВОГО ЯДРА</span><strong>НЕ ПОДКЛЮЧЕНО</strong></div>
+        <p>Наблюдение и решение о входе не формируются этим модулем по одной дельте или открытому интересу.</p>
       </section>
       <section className="asc-mp-section">
         <div className="asc-mp-journal-head">
@@ -160,11 +160,11 @@ export function ParticipationMicroCharts({journal}:{journal:ParticipationJournal
     <div className="asc-mp-mini-grid">
       <div><strong>OI · 5m значения</strong>
         <TimedLine data={oi} times={times} color="#55bfdc" selected={selected} onSelect={setHover}/>
-        <small>{items[selected]?.oi.status==='READY'?fmt(items[selected]?.oi.value):'NO DATA'} ·
+        <small>{items[selected]?.oi.status==='READY'?fmt(items[selected]?.oi.value):'НЕТ ДАННЫХ'} ·
           источник {clock(items[selected]?.oi.timestamp)} UTC</small></div>
       <div><strong>CVD · накопление с подключения WebSocket</strong>
         <TimedLine data={delta} times={times} color="#e8b76e" selected={selected} onSelect={setHover}/>
-        <small>{items[selected]?.delta.status==='READY'?fmt(items[selected]?.delta.value,3):'NO DATA'} ·
+        <small>{items[selected]?.delta.status==='READY'?fmt(items[selected]?.delta.value,3):'НЕТ ДАННЫХ'} ·
           {items[selected]?.cvdWindow?' выборка '+clock(items[selected].cvdWindow!.from)+'–'+clock(items[selected].cvdWindow!.to):' нет выборки'}</small></div>
     </div>
     <p>Линии имеют общую шкалу времени наблюдения; сами интервалы источников различаются.

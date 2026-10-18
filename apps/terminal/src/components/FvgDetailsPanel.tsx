@@ -17,8 +17,8 @@ const classes:Record<FvgRecord['sizeClass'],string>={
 };
 const labels:Record<string,string>={
   CREATED:'CREATED',ACTIVE:'ACTIVE',APPROACH:'APPROACH',RETEST:'RETEST',
-  FILL_25:'FILL 25%',FILL_50:'FILL 50%',FILL_75:'FILL 75%',
-  FILLED:'FILLED 100%',PARTIAL:'PARTIAL',EXIT:'EXIT',INVALID:'INVALID'
+  FILL_25:'ЗАПОЛНЕНО 25%',FILL_50:'ЗАПОЛНЕНО 50%',FILL_75:'ЗАПОЛНЕНО 75%',
+  FILLED:'ЗАПОЛНЕНО 100%',PARTIAL:'ЧАСТИЧНО',EXIT:'ВЫХОД',INVALID:'НЕДЕЙСТВИТЕЛЬНО'
 };
 const STRUCTURE_ROWS=[
   ['sweep','ONH/ONL Sweep'],['resolution','Reclaim / Acceptance'],
@@ -41,7 +41,7 @@ export default function FvgDetailsPanel({symbol,records,journal,selectedId,
   const events:FvgEvent[]=selected?.events??[];
   return <section className="asc-fvg-details" aria-label="FVG Context Engine V1 — исследовательская панель">
     <header className="asc-fvg-details-head">
-      <div><strong>ASCEND / FVG CONTEXT ENGINE V1</strong>
+      <div><strong>ASCEND · АНАЛИЗ ЗОН FVG · V1</strong>
         <small>Многотаймфреймные FVG · данные Bybit · без торговых решений</small></div>
       <button type="button" onClick={()=>exportFvgJournal(symbol,journal)}
         disabled={journal.length===0} title="Экспорт сохранённой в браузере истории FVG">
@@ -69,15 +69,15 @@ export default function FvgDetailsPanel({symbol,records,journal,selectedId,
         }).slice(0,48).map(z=><button type="button" key={z.id}
           className={'asc-fvg-list-item '+(z.id===selected.id?'selected ':'')+z.side}
           onClick={()=>onSelect(z.id)}>
-          <span><b>{z.side==='bull'?'▲ BULL':'▼ BEAR'}</b>
+          <span><b>{z.side==='bull'?'▲ РОСТ':'▼ ПАДЕНИЕ'}</b>
             <b>{z.timeframe}</b><small>{classes[z.sizeClass]}</small></span>
           <span><strong>{money(z.low)} – {money(z.high)}</strong>
-            <small>{z.status} · FILL {Math.round(z.maxFillPct)}%</small></span>
+            <small>{z.status} · ЗАПОЛНЕНО {Math.round(z.maxFillPct)}%</small></span>
         </button>)}
       </div>
       <div className="asc-fvg-detail-main">
         <div className="asc-fvg-selected">
-          <div className="asc-fvg-selected-title"><strong>{selected.side==='bull'?'BULLISH FVG':'BEARISH FVG'}</strong>
+          <div className="asc-fvg-selected-title"><strong>{selected.side==='bull'?'FVG ДЛЯ РОСТА':'FVG ДЛЯ ПАДЕНИЯ'}</strong>
             <span>{selected.timeframe} · {selected.status}</span></div>
           <div className="asc-fvg-fields">
             <div><small>ID</small><b title={selected.id}>{selected.id.slice(-33)}</b></div>
@@ -104,7 +104,7 @@ export default function FvgDetailsPanel({symbol,records,journal,selectedId,
               selected.context.volumeRatio.toFixed(2)+'×'}</b></div>
           </div>
           <div className="asc-fvg-observations">
-            <strong>НАБЛЮДЕНИЯ ИЗ LEGACY LEVEL ENGINE · НЕ ПОДТВЕРЖДЕНИЯ CORE</strong>
+            <strong>НАБЛЮДЕНИЯ СТАРОГО ДВИЖКА УРОВНЕЙ · НЕ ПОДТВЕРЖДЕНИЕ ВХОДА</strong>
             {selected.context.observations?.length?
               selected.context.observations.map((e,i)=><span key={i}>
                 {date(e.at,tz)} · {e.level??'LEVEL'} {e.type}
@@ -116,7 +116,7 @@ export default function FvgDetailsPanel({symbol,records,journal,selectedId,
             </span>)}</div>
         </div>
         <div className="asc-fvg-confirmations">
-          <strong>ПОДТВЕРЖДЕНИЯ CORE · ОТДЕЛЬНО ОТ ЗОНЫ</strong>
+          <strong>ПОДТВЕРЖДЕНИЯ ТОРГОВОГО ЯДРА · ОТДЕЛЬНО ОТ ЗОНЫ</strong>
           {STRUCTURE_ROWS.map(([key,label])=>{
             const step=structure?.steps[key];
             return <div key={key} title={step?.detail??'Исследовательская история 1m загружается'}>
@@ -127,7 +127,7 @@ export default function FvgDetailsPanel({symbol,records,journal,selectedId,
           })}
           <div><span>Ретест FVG</span><b className={selected.firstTouchAt?'confirmed':'unknown'}>
             {selected.firstTouchAt?'ДА · НАБЛЮДАЛСЯ':'НЕТ'}</b></div>
-          <div><span>Session Window · при формировании выбранного FVG</span><b>{selected.context.session==='OUTSIDE_WINDOWS'?'ВНЕ ОКНА':'АКТИВНА'}</b></div>
+          <div><span>Торговая сессия · в момент образования FVG</span><b>{selected.context.session==='OUTSIDE_WINDOWS'?'ВНЕ ОКНА':'АКТИВНА'}</b></div>
           <p>Состояния Structure Research относятся к текущим UTC-суткам и выбранной паре,
             а не к конкретной FVG из исторического списка. Ретест выбранной FVG показывается
             отдельно. Подтверждения не отправляются в торговый бот.</p>
@@ -144,7 +144,7 @@ export default function FvgDetailsPanel({symbol,records,journal,selectedId,
       </div>
     </div>:<p className="asc-fvg-warning">Дожидаемся закрытых свечей выбранных таймфреймов.</p>}
     <div className="asc-fvg-stats">
-      <strong>ИССЛЕДОВАНИЕ · ПО ATR-КЛАССАМ (БЕЗ WIN RATE)</strong>
+      <strong>ИССЛЕДОВАНИЕ · ПО РАЗМЕРУ ATR (БЕЗ СТАТИСТИКИ ПОБЕД)</strong>
       <div className="asc-fvg-stats-grid">{(Object.entries(stats) as
         [FvgRecord['sizeClass'],{total:number;retested:number;filled:number}][])
         .map(([label,s])=><div key={label}>

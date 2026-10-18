@@ -50,17 +50,17 @@ export default function MarketStudiesRow({symbol,candles,timeframe,cvd,oi,
       {(showRsi||showSma)&&<CloudflareMarketIndicators candles={candles} timeframe={timeframe}
         showRsi={showRsi} showSma={showSma}/>}
       {showCvd&&<section className="asc-market-study-card" aria-label="CVD">
-        <header><strong>CVD · сделки Bybit</strong><small>{cvdReady?'LIVE':'NO DATA'}</small></header>
+        <header><strong>CVD · сделки Bybit</strong><small>{cvdReady?'ПОТОК АКТИВЕН':'НЕТ ДАННЫХ'}</small></header>
         <b className={cvdReady&&cvd.data!.volumeDelta>=0?'positive':'negative'}>
           {cvdReady?number(cvd.data!.volumeDelta,3):'—'}</b>
-        <span>Buy − Sell · только текущая сессия WebSocket</span>
+        <span>Покупки − продажи · только непрерывный отрезок потока</span>
         <Spark values={cvdReady?cvd.data!.points.map(p=>p.cumulative):[]} color="#e6b971"/>
         <footer>{cvdReady?number(cvd.data!.trades,0)+' сделок · '+clock(cvd.data!.lastTradeAt)+' UTC':
           cvd.status==='GAP'?'Разрыв данных · требуется новый сегмент':
           'Ожидаем непрерывный поток сделок'}</footer>
       </section>}
       {showOi&&<section className="asc-market-study-card" aria-label="OI">
-        <header><strong>OPEN INTEREST · Bybit</strong><small>{oiReady?'ДАННЫЕ':'NO DATA'}</small></header>
+        <header><strong>ОТКРЫТЫЙ ИНТЕРЕС · Bybit</strong><small>{oiReady?'ДАННЫЕ':'НЕТ ДАННЫХ'}</small></header>
         <b>{oiReady?number(oi.data!.value,0):'—'}</b>
         <span>Изменение OI: {oiReady?number(oi.data!.deltaPercent)+'%':'—'}</span>
         <Spark values={oiReady?oi.data!.history:[]} color="#69bbdc"/>

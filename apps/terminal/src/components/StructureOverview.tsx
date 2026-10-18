@@ -23,8 +23,8 @@ export function StructureStatusRibbon({feed,decision}:{feed:Feed;decision?:Resea
     feed.report!.phase==='ENTRY READY'?'CONFIRMED':feed.report!.phase):undefined;
   const progress=phase?ORDER.indexOf(phase):-1;
   return <section className="asc-chart-structure-ribbon" aria-label="Статус Structure Engine">
-    <header><strong>STRUCTURE ENGINE</strong>
-      <small>{available?'RESEARCH · '+clock(feed.report?.asOf)+' UTC · '+
+    <header><strong>ДВИЖОК СТРУКТУРЫ</strong>
+      <small>{available?'ИССЛЕДОВАНИЕ · '+clock(feed.report?.asOf)+' UTC · '+
         (decision?.status??'WAIT'):
         feed.status==='error'?'НЕТ ДАННЫХ · '+(feed.reason??'Ошибка потока'):
           stale&&feed.status==='ready'?'ДАННЫЕ УСТАРЕЛИ':'ОЖИДАНИЕ ПОЛНОЙ 1m ИСТОРИИ'}</small>

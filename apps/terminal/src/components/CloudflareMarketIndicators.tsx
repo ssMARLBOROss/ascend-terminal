@@ -62,9 +62,9 @@ export default function CloudflareMarketIndicators({candles,timeframe,showRsi,sh
         <b>{fmt(value)}</b>
         <span>{last&&value?percent(last.close,value):'Нет полной истории'}</span>
       </div>)}
-      <div><small>VOLUME / SMA20</small><b>{vol===undefined?'—':vol.toFixed(2)+'×'}</b>
+      <div><small>ОБЪЁМ / СРЕДНИЙ ЗА 20</small><b>{vol===undefined?'—':vol.toFixed(2)+'×'}</b>
         <span>Объём закрытой свечи</span></div>
     </div>}
-    <footer>RSI и SMA отображают контекст выбранной биржи. Не являются сигналом ENTRY READY.</footer>
+    <footer>RSI и SMA отображают контекст выбранной биржи. Не являются подтверждением входа.</footer>
   </section>;
 }

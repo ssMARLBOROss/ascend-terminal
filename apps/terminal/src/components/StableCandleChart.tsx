@@ -17,6 +17,7 @@ import SessionClock from './SessionClock';
 import {drawSessionBands} from './drawSessionBands';
 import {drawResearchWalls} from './drawResearchWalls';
 import {drawChartNarrative} from './drawChartNarrative';
+import {ruStatus,ruExplanation} from '../market/ruInterface';
 import type {ChartNarrative} from '../market/chartNarrativeResearch';
 import type {MarketLiquidity} from '../market/liquidityDecisionResearch';
 import {initialChartRange,tightCandlestickRange,TIGHT_FOCUS_BARS,type ChartViewMode} from './chartViewport';
@@ -418,9 +419,9 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
     <canvas className="asc-lite-context-canvas" ref={narrativeCanvasRef} aria-hidden="true"/>
     <StructureChartOverlay chartRef={chartRef} priceRef={priceRef} hostRef={hostRef} candles={candles} timeframe={timeframe}/>
     {showChartNarrative&&<div className="asc-lite-context-hud" aria-label="Структура, тренд, сессия и сделка">
-      <strong>STRUCTURE · TREND · SESSION · SL/TP</strong>
+      <strong>СТРУКТУРА · ТРЕНД · СЕССИЯ · СТОП / ЦЕЛЬ</strong>
       <b className={chartNarrative?.trend==='LONG'?'up':chartNarrative?.trend==='SHORT'?'down':'wait'}>
-        {chartNarrative?.headline??'ОЖИДАЕМ ДАННЫЕ'}</b>
+        {ruExplanation(chartNarrative?.headline)}</b>
       <span>{chartNarrative?.session?
         chartNarrative.session.name.toUpperCase()+' · '+chartNarrative.session.phase+
         (chartNarrative.session.overlap?' · '+chartNarrative.session.overlap:'')+
@@ -428,11 +429,11 @@ export default function StableCandleChart({candles,timeframe,previousDay,previou
         chartNarrative.session.changePct.toFixed(2)+'%':
         'СЕССИЯ: нет непрерывной истории 1m'}</span>
       <span>{chartNarrative?.impulse??'5m / 30 мин: ожидание свечей'}</span>
-      <span>СЕТАП: {chartNarrative?.setup??'—'} · CORE: {chartNarrative?.status??'WAIT'}</span>
+      <span>СЦЕНАРИЙ: {ruExplanation(chartNarrative?.setup)} · РЕШЕНИЕ: {ruStatus(chartNarrative?.status)}</span>
       <em>{chartNarrative?.warning??'Нет актуального структурного подтверждения'}</em>
-      {chartNarrative?.ready&&<small>ENTRY / SL / TP на графике · R:R {chartNarrative.rr?.toFixed(2)}
-        {' · '}RESEARCH, не исполненный ордер</small>}
-      {!chartNarrative?.ready&&<small>SL / TP появятся только после полного ENTRY READY</small>}
+      {chartNarrative?.ready&&<small>ВХОД / СТОП / ЦЕЛЬ на графике · РИСК/ДОХОД {chartNarrative.rr?.toFixed(2)}
+        {' · '}ИССЛЕДОВАНИЕ, не исполненный ордер</small>}
+      {!chartNarrative?.ready&&<small>СТОП / ЦЕЛЬ появятся только после полного подтверждения входа</small>}
     </div>}
     {showSessionClock&&<SessionClock embedded/>}
     {showSessions&&timeframe==='1D'&&<span className="asc-session-daily-note">Сессионные зоны по часам показаны на таймфреймах до 4H</span>}
