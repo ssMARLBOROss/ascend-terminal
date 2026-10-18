@@ -5365,6 +5365,16 @@ body[data-asc-smc-ready="1"] #tfBar #ascSessionHLPrevious{display:none!important
 @media(max-width:750px){.asc-smc-risk-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:420px){.asc-smc-risk-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.asc-smc-groups{grid-template-columns:1fr}.asc-smc-presets{margin-left:0;flex-wrap:wrap}.asc-smc-head{align-items:start}#ascSmcLayersBtn{margin-left:0}}
+
+#ascSmcFvgSettings{margin-top:10px;border:1px solid #29485d;background:#091b2a;border-radius:8px;padding:10px}
+#ascSmcFvgSettings summary{font-size:11px;color:#d9edf9;font-weight:800;cursor:pointer}
+.asc-fvg-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.asc-fvg-grid label{display:grid;gap:5px;font-size:10px;color:#a8c4d5;min-width:0}
+.asc-fvg-grid select,.asc-fvg-grid input[type=range]{width:100%;min-width:0;border:1px solid #345670;background:#071523;color:#e4f2f9;border-radius:5px;padding:6px}
+.asc-fvg-tfs,.asc-fvg-flags{display:flex;flex-wrap:wrap;gap:9px;margin-top:9px}
+.asc-fvg-tfs label,.asc-fvg-flags label{display:flex;align-items:center;gap:5px;font-size:10px;color:#acc6d4}
+#ascSmcFvgSummary{margin-top:8px;font-size:10px;line-height:1.55;color:#b9d6e5}
+@media(max-width:600px){.asc-fvg-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <script>
 (function(root){
@@ -5401,6 +5411,90 @@ var labels={
 var saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(_){}
 var enabled=Object.assign({},defaults);
 Object.keys(defaults).forEach(function(k){if(typeof saved[k]==='boolean')enabled[k]=saved[k]});
+var FVG_KEY='ascend_fvg_mtf_layers_v2';
+var fvgDefaults={tfs:['3m','5m','15m'],side:'both',atr:14,fill:'wicks',
+ minPercent:.05,sort:'nearest',max:4,opacity:42,half:true,onlyActive:true,
+ showAtr:true,showDepth:true,showCreation:true,showRetest:true,afterMss:true};
+var fvgConfig=Object.assign({},fvgDefaults);
+try{
+ const prior=JSON.parse(localStorage.getItem(FVG_KEY)||'{}');
+ if(prior&&typeof prior==='object'){
+  Object.keys(fvgDefaults).forEach(function(k){
+    if(k==='tfs'&&Array.isArray(prior[k])){
+      fvgConfig[k]=prior[k].filter(tf=>['1m','3m','5m','15m','30m'].includes(tf));
+    }else if(typeof prior[k]===typeof fvgDefaults[k])fvgConfig[k]=prior[k];
+  });
+ }
+}catch(_){}
+var fvgCacheKey='',fvgCache=null;
+function persistFvg(){try{localStorage.setItem(FVG_KEY,JSON.stringify(fvgConfig))}catch(_){} fvgCacheKey=''}
+function formatFvgTime(at){
+ if(!Number.isFinite(at))return '—';
+ try{return new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Kyiv',day:'2-digit',month:'2-digit',
+  hour:'2-digit',minute:'2-digit'}).format(new Date(at*1000));}catch(_){return '—'}
+}
+function fvgConfigMarkup(){
+ const tf=['1m','3m','5m','15m','30m'];
+ const choices=(key,items)=>'<label>'+key+'<select data-fvg-field="'+items[0]+'">'+items.slice(1).map(function(x){return '<option value="'+x[0]+'">'+x[1]+'</option>'}).join('')+'</select></label>';
+ return '<details id="ascSmcFvgSettings"><summary>⚙ FVG · настройки зон и таймфреймов</summary>'+
+  '<div class="asc-fvg-tfs">'+tf.map(function(x){return '<label><input type="checkbox" data-fvg-tf="'+x+'">'+x+'</label>'}).join('')+'</div>'+
+  '<div class="asc-fvg-grid">'+
+  choices('Направление',['side',['both','Оба'],['LONG','Бычьи'],['SHORT','Медвежьи']])+
+  choices('ATR · период',['atr',['7','7'],['10','10'],['14','14'],['20','20'],['28','28']])+
+  choices('Заполнение',['fill',['wicks','По теням'],['closes','По закрытиям']])+
+  choices('Мин. размер',['minPercent',['0','Любой'],['0.02','0,02%'],['0.05','0,05%'],['0.10','0,10%']])+
+  choices('Порядок',['sort',['nearest','Ближайшие'],['recent','Последние']])+
+  choices('Максимум FVG',['max',['2','2'],['4','4'],['6','6'],['8','8'],['12','12'],['16','16'],['24','24'],['40','40']])+
+  '<label>Прозрачность · <b id="ascSmcFvgOpacity">42%</b><input data-fvg-field="opacity" type="range" min="0" max="90" step="1"></label></div>'+
+  '<div class="asc-fvg-flags">'+
+  [['half','Линия 50%'],['showAtr','Размер через ATR'],['showDepth','Глубина заполнения'],
+   ['showCreation','Время создания'],['showRetest','Первый ретест'],
+   ['onlyActive','Только активные'],['afterMss','После MSS (при наличии данных)']]
+   .map(function(x){return '<label><input type="checkbox" data-fvg-flag="'+x[0]+'">'+x[1]+'</label>'}).join('')+
+  '</div><div id="ascSmcFvgSummary" role="status">Ожидаем закрытые свечи.</div>'+
+  '<p style="font-size:9px;color:#94adbc">Только исследование; подсветка MSS не включается без проверенного события от Structure Engine.</p></details>';
+}
+function syncFvgControls(){
+ const panel=$('ascSmcFvgSettings');if(!panel)return;
+ panel.querySelectorAll('[data-fvg-tf]').forEach(function(el){el.checked=fvgConfig.tfs.includes(el.dataset.fvgTf)});
+ panel.querySelectorAll('[data-fvg-field]').forEach(function(el){el.value=String(fvgConfig[el.dataset.fvgField])});
+ panel.querySelectorAll('[data-fvg-flag]').forEach(function(el){el.checked=!!fvgConfig[el.dataset.fvgFlag]});
+ const opacity=$('ascSmcFvgOpacity');if(opacity)opacity.textContent=fvgConfig.opacity+'%';
+}
+function readMultiFvg(){
+ if(!root.ASCEND_FVG_MTF_VISUAL_V2||typeof state==='undefined'||!state.tf||
+   typeof qaRows!=='function'||typeof qaAggregate!=='function')
+   return {status:'NO DATA',reason:'данные ещё не получены',zones:[],allCount:0};
+ const minutes=qaRows(state.tf['1m']||[],'1m'),last=minutes.at(-1),asOf=last?.time+60;
+ if(!Number.isFinite(asOf))return {status:'NO DATA',reason:'нет закрытых 1m свечей',zones:[],allCount:0};
+ const byTF={};
+ for(const tf of fvgConfig.tfs){
+   if(tf==='3m')byTF[tf]=qaAggregate(minutes,60,180);
+   else byTF[tf]=tf==='1m'?minutes:qaRows(state.tf[tf]||[],tf);
+ }
+ const px=Number(state.ticker?.last)||Number(last.close);
+ const inputKey=[state.symbol,asOf,px,JSON.stringify(fvgConfig),
+  ...fvgConfig.tfs.map(tf=>[tf,byTF[tf]?.length,byTF[tf]?.at(-1)?.time].join(':'))].join('|');
+ if(inputKey!==fvgCacheKey){
+  fvgCache=root.ASCEND_FVG_MTF_VISUAL_V2.scan(byTF,asOf,px,fvgConfig);
+  fvgCacheKey=inputKey;
+ }
+ return fvgCache;
+}
+function refreshMultiFvgSummary(report){
+ const el=$('ascSmcFvgSummary');if(!el)return;
+ if(report.status!=='RESEARCH'){el.textContent='FVG · NO DATA · '+(report.reason||'нет данных');return}
+ const count=report.zones.length;
+ const shown=report.zones.slice(0,Math.min(count,4)).map(z=>
+  z.sourceTF+' '+(z.side==='LONG'?'↑':'↓')+' '+z.lower.toPrecision(6)+'–'+z.upper.toPrecision(6)+
+  (fvgConfig.showAtr?' · '+z.sizeATR.toFixed(2)+' ATR':'')+
+  (fvgConfig.showDepth?' · заполнено '+Math.round(z.fillFraction*100)+'%':'')+
+  (fvgConfig.showCreation?' · создано '+formatFvgTime(z.formedAt):'')+
+  (fvgConfig.showRetest?' · ретест '+formatFvgTime(z.firstTouchAt):''));
+ el.textContent='Активные / выбранные FVG: '+count+' (найдено '+report.allCount+') · '+
+  (shown.length?shown.join('  |  '):'зон по фильтрам нет')+
+  (fvgConfig.afterMss?' · MSS: данные не подключены к FVG слою':'');
+}
 var elements={},isOpen=false;
 function $(id){return document.getElementById(id)}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(enabled))}catch(_){}}
@@ -5422,6 +5516,7 @@ function updateVisual(){
  setShown($('ascResearchParticipation'),enabled.participation);
  setShown($('ascResearchIntegrity'),enabled.participation);
  setShown($('ascResearchFvg'),enabled.fvg);
+ setShown($('ascSmcFvgSettings'),enabled.fvg);
  setShown($('ascResearchPoi'),['ifvg','ob','rb','stb','ote'].some(k=>enabled[k]));
  setShown($('ascResearchPanel'),enabled.fvg||enabled.analytics||enabled.participation||['ifvg','ob','rb','stb','ote'].some(k=>enabled[k]));
  setShown($('ascConfirmationV2Panel'),enabled.confirmation);
@@ -5448,6 +5543,7 @@ function statusOf(k){
  return 'Видимый аналитический слой · на решение ENTRY READY не влияет';
 }
 function refreshUI(){
+ syncFvgControls();
  var n=Object.values(enabled).filter(Boolean).length;
  var launch=$('ascSmcLayersBtn');
  if(launch){launch.textContent='☷ Слои · '+n;launch.setAttribute('aria-expanded',String(isOpen));}
@@ -5569,7 +5665,7 @@ function mount(){
   group('01 · ОСНОВНОЙ ГРАФИК',['liquidity','structure','sessions','previousSessions','vwap','volume','sma20','sma50','sma200'],false)+
   group('02 · SMART MONEY / POI',['fvg','ifvg','ob','rb','stb','ote'],true)+
   group('03 · СДЕЛКА И РИСК',['confirmation','risk','orders'],false)+
-  group('04 · ИССЛЕДОВАНИЯ',['analytics','participation'],true)+'</div>'+
+  group('04 · ИССЛЕДОВАНИЯ',['analytics','participation'],true)+'</div>'+ fvgConfigMarkup()+
   '<div id="ascSmcResearchNote" hidden role="status"></div>'+
   '<div class="asc-smc-foot">Включение зон показывает данные только при наличии проверенного источника. SMC-исследования не отменяют Structure Engine. Настройки сохраняются в этом браузере.</div>';
  bar.insertAdjacentElement('afterend',panel);
@@ -5610,6 +5706,21 @@ function mount(){
   var b=e.target.closest('[data-layer]');if(b){set(b.dataset.layer,!enabled[b.dataset.layer]);return}
   var p=e.target.closest('[data-preset]');if(p)preset(p.dataset.preset);
  });
+ panel.addEventListener('change',function(e){
+  const el=e.target;if(!el)return;
+  if(el.hasAttribute('data-fvg-tf')){
+   const tf=el.dataset.fvgTf;fvgConfig.tfs=el.checked?[...new Set([...fvgConfig.tfs,tf])]:fvgConfig.tfs.filter(x=>x!==tf);
+  }else if(el.hasAttribute('data-fvg-flag')){
+   fvgConfig[el.dataset.fvgFlag]=el.checked;
+  }else if(el.hasAttribute('data-fvg-field')){
+   const k=el.dataset.fvgField;fvgConfig[k]=['atr','max','minPercent','opacity'].includes(k)?Number(el.value):el.value;
+  }else return;
+  persistFvg();sync();
+ });
+ panel.addEventListener('input',function(e){if(e.target?.dataset?.fvgField==='opacity'){
+   fvgConfig.opacity=Number(e.target.value);persistFvg();const op=$('ascSmcFvgOpacity');if(op)op.textContent=fvgConfig.opacity+'%';
+   if(typeof ascendLiquidityDraw==='function')ascendLiquidityDraw();
+ }});
  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isOpen){isOpen=false;panel.hidden=true;sync()}});
  // Old structure switch also disabled computation; migrate it to always-on
  // computation and let this panel control visibility of the annotations only.
