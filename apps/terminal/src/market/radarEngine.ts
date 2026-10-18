@@ -1,5 +1,6 @@
 import type {Candle} from '@ascend/contracts';
 import type {EarlyOnResearch} from './earlyOnResearch';
+import type {RadarAgreement} from './radarTfAgreement';
 
 export type RadarGroup='0.5–3%'|'3–12%'|'12%+'|'<0.5%';
 export type RadarStage='BUILDING'|'SCANNING'|'WATCH'|'SWEEP'|'SHIFTING'|'CHECK 1M'|'NO DATA';
@@ -22,6 +23,7 @@ export type RadarObservation={
   eventAt?:number;observedAt?:number;volumeRatio?:number;
   integrity:'COMPLETE'|'INCOMPLETE';
   early?:EarlyOnResearch;
+  tfAgreement?:RadarAgreement;
 };
 export const FIVE=300000, DAY=86400000;
 

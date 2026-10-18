@@ -30,25 +30,35 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
   const[side,setSide]=useState<'ALL'|'LONG'|'SHORT'>('ALL');
   const[rc,setRc]=useState<'ALL'|'RC30'|'RC70'>('ALL');
   const[onFocus,setOnFocus]=useState<RadarOnSide|'ALL'>('ALL');
-  const[radarMode,setRadarMode]=useState<'ON'|'EARLY'>('ON');
+  const[radarMode,setRadarMode]=useState<'ON'|'EARLY'|'TF'>('ON');
+  const[minMatch,setMinMatch]=useState<4|5|6>(4);
   const[onlyOn,setOnlyOn]=useState(true);
   const[now,setNow]=useState(()=>Date.now());
   useEffect(()=>{const id=window.setInterval(()=>setNow(Date.now()),15000);
     return()=>window.clearInterval(id)},[]);
-  const feed=useRadarScanner(limit,revision);
+  const feed=useRadarScanner(limit,revision,radarMode==='TF');
   const rows=useMemo(()=>feed.rows.filter(r=>{
     if(search&&!r.symbol.includes(search.trim().toUpperCase()))return false;
-    if(group!=='ALL'&&r.group!==group)return false;
-    if(filter!=='ALL'&&r.stage!==filter)return false;
-    if(side!=='ALL'&&r.direction!==side)return false;
-    if(rc==='RC30'&&(r.rsi===undefined||r.rsi>33))return false;
-    if(rc==='RC70'&&(r.rsi===undefined||r.rsi<67))return false;
-    if(onFocus!=='ALL'&&r.onSide!==onFocus)return false;
-    if(onlyOn&&!['WATCH','SWEEP','SHIFTING','CHECK 1M'].includes(r.stage))return false;
-    if(onlyOn&&r.onState!=='FROZEN')return false;
+    if(radarMode!=='TF'&&group!=='ALL'&&r.group!==group)return false;
+    if(radarMode!=='TF'&&filter!=='ALL'&&r.stage!==filter)return false;
+    if(side!=='ALL'&&(radarMode==='TF'?r.tfAgreement?.direction:r.direction)!==side)return false;
+    if(radarMode!=='TF'&&rc==='RC30'&&(r.rsi===undefined||r.rsi>33))return false;
+    if(radarMode!=='TF'&&rc==='RC70'&&(r.rsi===undefined||r.rsi<67))return false;
+    if(radarMode!=='TF'&&onFocus!=='ALL'&&r.onSide!==onFocus)return false;
+    if(radarMode!=='TF'&&onlyOn&&!['WATCH','SWEEP','SHIFTING','CHECK 1M'].includes(r.stage))return false;
+    if(radarMode!=='TF'&&onlyOn&&r.onState!=='FROZEN')return false;
     if(radarMode==='EARLY'&&(!r.early||!['EARLY WATCH','EARLY CANDIDATE','EARLY SKIP'].includes(r.early.status)))return false;
+    if(radarMode==='TF'&&(
+      r.tfAgreement?.status!=='READY'||
+      r.tfAgreement.count<minMatch||
+      r.tfAgreement.direction==='NEUTRAL'))return false;
     return true;
   }).sort((a,b)=>{
+    if(radarMode==='TF'){
+      const delta=(b.tfAgreement?.count??0)-(a.tfAgreement?.count??0);
+      if(delta)return delta;
+      return b.turnover24h-a.turnover24h;
+    }
     if(radarMode==='EARLY'){
       const score=(status?:string)=>status==='EARLY CANDIDATE'?0:
         status==='EARLY WATCH'?1:status==='EARLY SKIP'?2:3;
@@ -58,7 +68,7 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
     return priority[a.stage]-priority[b.stage]||
       (a.distancePct??Infinity)-(b.distancePct??Infinity)||
       b.turnover24h-a.turnover24h;
-  }),[feed.rows,search,group,filter,side,rc,onFocus,onlyOn,radarMode]);
+  }),[feed.rows,search,group,filter,side,rc,onFocus,onlyOn,radarMode,minMatch]);
   const verified=feed.rows.filter(r=>r.integrity==='COMPLETE');
   const shifting=verified.filter(r=>r.stage==='SHIFTING').length;
   const check=verified.filter(r=>r.stage==='CHECK 1M').length;
@@ -67,6 +77,8 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
   const nearOnh=verified.filter(r=>r.onSide==='ONH'&&
     ['WATCH','SWEEP','SHIFTING','CHECK 1M'].includes(r.stage)).length;
   const stale=feed.updatedAt===undefined||now-feed.updatedAt>180000;
+  const matching=feed.rows.filter(r=>r.tfAgreement?.status==='READY'&&
+    r.tfAgreement.count>=minMatch&&r.tfAgreement.direction!=='NEUTRAL').length;
   const earlyReady=verified.filter(r=>r.early?.status==='EARLY CANDIDATE').length;
   const earlyWatching=verified.filter(r=>r.early?.status==='EARLY WATCH').length;
   return <main className="asc-radar-page">
@@ -85,20 +97,35 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
       <div><small>ВЕРХНЯЯ ONH</small><b>{nearOnh}</b><span>Кандидаты возле ONH</span></div>
       <div><small>СМЕНА ФАЗЫ / 1М</small><b>{shifting} / {check}</b>
         <span>Торговое ядро пока не подтвердило структуру</span></div>
-      <div><small>РАННИЕ · 5М</small><b>{stale?'—':earlyReady}</b>
-        <span>Наблюдение: {earlyWatching} · вход ещё не подтверждён</span></div>
+      <div><small>{radarMode==='TF'?'СОВПАДЕНИЕ ТФ': 'РАННИЕ · 5М'}</small><b>
+        {stale?'—':radarMode==='TF'?matching:earlyReady}</b>
+        <span>{radarMode==='TF'?minMatch+'/6 · кандидаты, не сделки':
+          'Наблюдение: '+earlyWatching+' · вход ещё не подтверждён'}</span></div>
     </div>
     <section className="asc-radar-controls" aria-label="Фильтры радара">
-      <div className="asc-radar-mode-tabs" role="group" aria-label="Режим поиска ON-зон">
+      <div className="asc-radar-mode-tabs" role="group" aria-label="Режим работы радара">
         <button type="button" className={radarMode==='ON'?'active':''}
           aria-pressed={radarMode==='ON'} onClick={()=>setRadarMode('ON')}>
           ONH / ONL · ВСЕ СОБЫТИЯ</button>
         <button type="button" className={radarMode==='EARLY'?'active early':''}
           aria-pressed={radarMode==='EARLY'} onClick={()=>setRadarMode('EARLY')}>
           РАННИЙ ВХОД · ИССЛЕДОВАНИЕ</button>
-        <span>РАННИЙ КАНДИДАТ означает «проверить 1м», не команду открыть ордер</span>
+        <button type="button" className={radarMode==='TF'?'active tf-agreement':''}
+          aria-pressed={radarMode==='TF'} onClick={()=>setRadarMode('TF')}>
+          СОВПАДЕНИЕ ТФ · 4–6</button>
+        <span>{radarMode==='TF'?
+          'Структурное совпадение не означает подтверждённую сделку':
+          'РАННИЙ КАНДИДАТ означает «проверить 1м», не команду открыть ордер'}</span>
       </div>
-      <div className="asc-radar-on-tabs" role="group" aria-label="Выбор ночного уровня">
+      {radarMode==='TF'&&<div className="asc-radar-tf-controls" role="group"
+        aria-label="Минимальное число совпадающих таймфреймов">
+        <strong>СОВПАДЕНИЕ НАПРАВЛЕНИЯ</strong>
+        {([4,5,6] as const).map(n=><button type="button" key={n}
+          aria-pressed={minMatch===n} className={minMatch===n?'active':''}
+          onClick={()=>setMinMatch(n)}>{n} из 6</button>)}
+        <small>5м · 10м · 15м · 30м · 1ч · 4ч · проверяем до 40 монет за скан</small>
+      </div>}
+      {radarMode!=='TF'&&<div className="asc-radar-on-tabs" role="group" aria-label="Выбор ночного уровня">
         <button type="button" className={onFocus==='ALL'?'active':''}
           aria-pressed={onFocus==='ALL'} onClick={()=>setOnFocus('ALL')}>
           ◉ ОБЕ ON ЗОНЫ <small>ONH + ONL</small></button>
@@ -112,8 +139,8 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
           <input type="checkbox" checked={onlyOn}
             onChange={e=>setOnlyOn(e.target.checked)}/> Только активные ON зоны
         </label>
-      </div>
-      <div className="asc-radar-filter-grid">
+      </div>}
+      {radarMode!=='TF'&&<div className="asc-radar-filter-grid">
         <label>Монета<input type="search" value={search}
           onChange={e=>setSearch(e.target.value)} placeholder="BTC, SOL…"/></label>
         <label>Ход 24ч<select value={group} onChange={e=>setGroup(e.target.value as typeof group)}>
@@ -133,22 +160,57 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
           <option value={20}>20 монет</option><option value={40}>40 монет</option>
           <option value={80}>80 монет</option><option value={120}>120 монет</option></select></label>
         <button type="button" onClick={()=>setRevision(r=>r+1)}>↻ Обновить</button>
-      </div>
+      </div>}
+      {radarMode==='TF'&&<div className="asc-radar-tf-secondary">
+        <label>Направление
+          <select value={side} onChange={e=>setSide(e.target.value as typeof side)}>
+            <option value="ALL">ЛОНГ и ШОРТ</option>
+            <option value="LONG">ЛОНГ</option>
+            <option value="SHORT">ШОРТ</option>
+          </select>
+        </label>
+        <label>Монета<input type="search" value={search}
+          onChange={e=>setSearch(e.target.value)} placeholder="BTC, SOL…"/></label>
+        <button type="button" onClick={()=>setRevision(r=>r+1)}>↻ Обновить</button>
+      </div>}
       <div className="asc-radar-updated" role="status">
         <span className={feed.status==='error'||stale?'error':feed.status==='ready'?'live':'loading'}>●</span>
         {feed.status==='error'?'Ошибка: '+feed.error:
           feed.status==='scanning'?'Сканируем '+feed.checked+'/'+feed.total:
           feed.status==='loading'?'Подключение к Bybit…':
           stale?'Данные устарели · обнови радар':'Полный скан '+utc(feed.updatedAt)}
-        <small>Примерно раз в 2 минуты · 5m свечи · выбранная выборка,
+        <small>Режим ТФ: примерно раз в 3 минуты · закрытые свечи · не весь рынок. Остальные режимы: раз в 2 минуты ·
           не весь фьючерсный рынок</small>
       </div>
     </section>
     <section className="asc-radar-results" aria-label="Результаты сканирования">
-      <div className="asc-radar-results-header"><strong>ONH / ONL · КАНДИДАТЫ</strong>
-        <span>{rows.length} активных из {feed.rows.length} выбранных · расстояние от
-          последней закрытой 5m свечи · HOT ≤{ON_HOT_DISTANCE_PCT.toFixed(2)}%</span></div>
-      <div className="asc-radar-scroll"><table>
+      <div className="asc-radar-results-header"><strong>
+        {radarMode==='TF'?'КАНДИДАТЫ · СОВПАДЕНИЕ 4–6 ТФ':'ONH / ONL · КАНДИДАТЫ'}</strong>
+        <span>{radarMode==='TF'
+          ?rows.length+' совпадений из '+feed.rows.length+
+            ' проверяемых · минимум '+minMatch+'/6 · не подтверждённый вход'
+          :rows.length+' активных из '+feed.rows.length+
+            ' выбранных · расстояние от закрытой 5м свечи · HOT ≤'+
+            ON_HOT_DISTANCE_PCT.toFixed(2)+'%'}</span></div>
+      {radarMode==='TF'?<div className="asc-radar-tf-cards" aria-label="Монеты с совпадением направления на четырёх или более таймфреймах">
+        {rows.map(row=><article className="asc-radar-tf-card" key={row.symbol}>
+          <header>
+            <div><strong>{row.symbol.replace(/USDT$/,'')} / USDT</strong>
+              <small>{price(row.price)} · изменение 24ч: {row.change24h>0?'+':''}{row.change24h.toFixed(2)}%</small>
+            </div>
+            <b className={row.tfAgreement?.direction==='LONG'?'radar-long':'radar-short'}>
+              {row.tfAgreement?.direction==='LONG'?'↑ ЛОНГ':'↓ ШОРТ'}</b>
+          </header>
+          <div className="asc-radar-tf-card-match">
+            <b>{row.tfAgreement?.count} из 6</b>
+            <div><strong>Совпало:</strong> {row.tfAgreement?.matched.join(' · ')||'—'}</div>
+          </div>
+          <footer><span>СТРУКТУРНЫЙ КАНДИДАТ · ВХОД НЕ ПРОВЕРЕН</span>
+            <button type="button" className="asc-radar-open"
+              onClick={()=>onOpen(row.symbol)}>Открыть график ↗</button>
+          </footer>
+        </article>)}
+      </div>:<div className="asc-radar-scroll"><table>
         <thead><tr><th>Монета</th><th>Цена</th><th>24ч</th><th>RSI 5m</th>
           <th>ON зона · расстояние</th><th>Объём / средний (20)</th><th>Событие / Состояние</th>
           <th>Ранний сетап · риск</th><th>Время UTC</th><th>Открыть</th></tr></thead>
@@ -201,10 +263,13 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
           <td><button type="button" className="asc-radar-open"
             onClick={()=>onOpen(row.symbol)}>График ↗</button></td>
         </tr>)}</tbody>
-      </table></div>
+      </table></div>}
       {!rows.length&&<p className="asc-radar-empty">
         {feed.rows.length?
           radarMode==='EARLY'?'В этой выборке нет свежих ранних ON-сетапов. Для обычных касаний верни режим ONH/ONL.':
+          radarMode==='TF'?
+          'В выбранных монетах пока нет подтверждённого совпадения на '+minMatch+
+          ' из 6 периодов. Попробуй 4 из 6 или дождись завершения скана.':
           'Активных ON-сетапов сейчас не найдено в этой выборке. Убери флажок «Только активные ON зоны», чтобы увидеть все проверенные пары.':
           'Ожидаем скан Bybit…'}
       </p>}
@@ -215,6 +280,9 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
       НАБЛЮДЕНИЕ — подход не дальше 0,50% либо недавнее касание; СНЯТИЕ —
       прокол уровня; ВОЗВРАТ — закрытие обратно; ЗАКРЕПЛЕНИЕ — два закрытия 5м
       за уровнем. «СМЕНА ФАЗЫ» и «Проверить 1м» ещё не разрешают вход.
+      Совпадение ТФ: 4/6, 5/6 или 6/6 означает одинаковую направленную
+      структуру на 5м, 10м, 15м, 30м, 1ч и 4ч. При отсутствии истории результат
+      не выдумывается. Совпадение НЕ является подтверждением входа.
       Обязательная цепочка 30m → 15m → 10m → 5m → 3m → 1m,
       структурный SL, ближайшая ликвидность TP и R:R ≥ 1:2 проверяются
       отдельно при открытии монеты. Время событий — закрытие 5m, не точный тик.
