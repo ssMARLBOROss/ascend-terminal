@@ -3,13 +3,15 @@ import type {ExpandedTrendSnapshot} from '../market/useExpandedTrendResearch';
 import type {ResearchDecision,MarketLiquidity} from '../market/liquidityDecisionResearch';
 import type {ChartNarrative} from '../market/chartNarrativeResearch';
 import type {EarlyOnResearch} from '../market/earlyOnResearch';
+import type {PlannedVenue} from '../market/crossExchangeSpread';
 const fmt=(n?:number)=>n===undefined||!Number.isFinite(n)?'—':
   n.toLocaleString('en-US',{maximumFractionDigits:n>=1000?2:n>=1?4:7});
 const clock=(at?:number)=>at?new Date(at).toLocaleTimeString('ru-RU',{
   timeZone:'UTC',hour:'2-digit',minute:'2-digit'}):'—';
-export default function FocusDecisionPanel({trend,extended,decision,liquidity,narrative,early}:{
+export default function FocusDecisionPanel({trend,extended,decision,liquidity,narrative,early,plannedVenue}:{
   trend:TrendStructureSnapshot;extended:ExpandedTrendSnapshot;decision:ResearchDecision;
   liquidity:MarketLiquidity;narrative:ChartNarrative;early:EarlyOnResearch;
+  plannedVenue:PlannedVenue;
 }){
   const reason=narrative.valid?narrative.warning:
     decision.reasons[0]??'Ожидаем свежие подтверждения по закрытым 1m свечам';
@@ -84,6 +86,13 @@ export default function FocusDecisionPanel({trend,extended,decision,liquidity,na
       <strong className={early.status==='EARLY CANDIDATE'?'candidate':''}>
         {early.status==='NONE'?'НЕТ РАННЕГО СЕТАПА':early.status}</strong>
       <span>{early.direction!=='NEUTRAL'?early.direction+' · ':''}{early.reason}</span>
+    </div>
+    <div className="asc-planned-decision-venue">
+      <span>БИРЖА ПЛАНА: <strong>{plannedVenue}</strong></span>
+      <small>{plannedVenue==='BYBIT'
+        ?'Уровни исследовательского плана рассчитываются по Bybit.'
+        :'График и уровни пока Bybit. Перед сделкой на '+plannedVenue+
+        ' нужны её собственные котировки и пересчёт Entry / SL / TP.'}</small>
     </div>
     <div className="asc-focus-risk" aria-label="Параметры исследовательского торгового плана">
       <div><small>ENTRY</small><b>{fmt(ready?decision.entry:
