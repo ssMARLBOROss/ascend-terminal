@@ -192,10 +192,27 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
           :rows.length+' активных из '+feed.rows.length+
             ' выбранных · расстояние от закрытой 5м свечи · HOT ≤'+
             ON_HOT_DISTANCE_PCT.toFixed(2)+'%'}</span></div>
-      <div className="asc-radar-scroll"><table>
+      {radarMode==='TF'?<div className="asc-radar-tf-cards" aria-label="Монеты с совпадением направления на четырёх или более таймфреймах">
+        {rows.map(row=><article className="asc-radar-tf-card" key={row.symbol}>
+          <header>
+            <div><strong>{row.symbol.replace(/USDT$/,'')} / USDT</strong>
+              <small>{price(row.price)} · изменение 24ч: {row.change24h>0?'+':''}{row.change24h.toFixed(2)}%</small>
+            </div>
+            <b className={row.tfAgreement?.direction==='LONG'?'radar-long':'radar-short'}>
+              {row.tfAgreement?.direction==='LONG'?'↑ ЛОНГ':'↓ ШОРТ'}</b>
+          </header>
+          <div className="asc-radar-tf-card-match">
+            <b>{row.tfAgreement?.count} из 6</b>
+            <div><strong>Совпало:</strong> {row.tfAgreement?.matched.join(' · ')||'—'}</div>
+          </div>
+          <footer><span>СТРУКТУРНЫЙ КАНДИДАТ · ВХОД НЕ ПРОВЕРЕН</span>
+            <button type="button" className="asc-radar-open"
+              onClick={()=>onOpen(row.symbol)}>Открыть график ↗</button>
+          </footer>
+        </article>)}
+      </div>:<div className="asc-radar-scroll"><table>
         <thead><tr><th>Монета</th><th>Цена</th><th>24ч</th><th>RSI 5m</th>
           <th>ON зона · расстояние</th><th>Объём / средний (20)</th><th>Событие / Состояние</th>
-          {radarMode==='TF'&&<th>Совпадение ТФ</th>}
           <th>Ранний сетап · риск</th><th>Время UTC</th><th>Открыть</th></tr></thead>
         <tbody>{rows.map(row=><tr key={row.symbol}>
           <td><b>{row.symbol.replace(/USDT$/,'')}</b>
@@ -226,14 +243,6 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
             {row.direction!=='NEUTRAL'&&<small className={
               row.direction==='LONG'?'radar-long':'radar-short'}>
               {ruStatus(row.direction)} · предварительно</small>}</td>
-          {radarMode==='TF'&&<td className="asc-radar-tf-result">
-            <b className={row.tfAgreement?.direction==='LONG'?'radar-long':'radar-short'}>
-              {row.tfAgreement?.direction==='LONG'?'↑ ЛОНГ':
-                row.tfAgreement?.direction==='SHORT'?'↓ ШОРТ':'—'}</b>
-            <strong>{row.tfAgreement?.count??0} / 6</strong>
-            <small>{row.tfAgreement?.matched.join(' · ')||'Нет подтверждений'}</small>
-            <small>КАНДИДАТ · ВХОД НЕ ПРОВЕРЕН</small>
-          </td>}
           <td className="asc-radar-early-cell">
             <span className={'asc-radar-early-badge early-'+
               (stale?'none':(row.early?.status??'NONE')).toLowerCase().replace(/\W+/g,'-')}>
@@ -254,7 +263,7 @@ export default function RadarView({onOpen}:{onOpen:(symbol:string)=>void}){
           <td><button type="button" className="asc-radar-open"
             onClick={()=>onOpen(row.symbol)}>График ↗</button></td>
         </tr>)}</tbody>
-      </table></div>
+      </table></div>}
       {!rows.length&&<p className="asc-radar-empty">
         {feed.rows.length?
           radarMode==='EARLY'?'В этой выборке нет свежих ранних ON-сетапов. Для обычных касаний верни режим ONH/ONL.':
