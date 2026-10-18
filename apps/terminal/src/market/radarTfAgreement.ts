@@ -67,8 +67,8 @@ export function calculateRadarAgreement(args:{
  const shorts=rows.filter(r=>r.trend==='SHORT').length;
  const direction=longs>=4?'LONG':shorts>=4?'SHORT':'NEUTRAL';
  const count=Math.max(longs,shorts);
- const matched=rows.filter(r=>r.trend===direction&&direction!=='NEUTRAL')
-  .map(r=>r.tf);
+ const matched:RadarAgreementTF[]=direction==='NEUTRAL'?[]:
+  rows.filter(r=>r.trend===direction).map(r=>r.tf as RadarAgreementTF);
  return {status:'READY',count,direction,rows,matched,asOf,
   reason:direction==='NEUTRAL'?'Меньше 4 совпадающих направлений':
     count+' из 6 периодов подтверждают '+(direction==='LONG'?'рост':'падение')+
