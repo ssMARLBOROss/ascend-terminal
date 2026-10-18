@@ -234,3 +234,18 @@
  .asc-confirmation-13 .asc-confirmation-cell>small{font-size:8px}
  .asc-confirmation-status{font-size:8px}
 }
+
+/* Read-only fourth FOCUS study: actual bid/ask cross-venue gross spread. */
+.asc-focus-studies{grid-template-columns:repeat(4,minmax(0,1fr))}
+.asc-focus-spread{color:#b5d2e2}
+.asc-focus-spread-positive{border-color:#286e67;background:#0b2b2f}
+.asc-focus-spread>div{flex:1;min-width:0}
+.asc-focus-spread .asc-spread-caption{align-self:flex-end;color:#6f91a4;
+ font-size:8px;white-space:nowrap}
+.asc-focus-spread b{font-variant-numeric:tabular-nums}
+@media(max-width:680px){
+ .asc-focus-studies{height:auto!important;min-height:0!important;display:grid;
+   grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+ .asc-focus-studies .asc-focus-study{min-height:52px}
+ .asc-focus-spread>div small{white-space:nowrap}
+}
