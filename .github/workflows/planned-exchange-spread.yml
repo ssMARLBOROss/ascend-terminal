@@ -31,6 +31,5 @@ jobs:
           grep -q 'location /okx-market-api/' apps/terminal/nginx.conf
       - name: Build React terminal
         run: |
-          cd apps/terminal
-          npm ci
-          npm run build
+          npm install --no-audit --no-fund
+          npm run build --workspace @ascend/terminal
