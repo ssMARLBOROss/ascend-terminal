@@ -422,7 +422,7 @@ export default function StableMarketApp(){
       <div className="asc-focus-switch" role="group" aria-label="Режим интерфейса ASCEND">
         <button type="button" className={focusMode?'active':''}
           aria-pressed={focusMode} disabled={page!=='MARKET'||exchange!=='BYBIT'}
-          onClick={()=>setFocusMode(true)}>◫ ОСНОВНОЙ · 1 ЭКРАН</button>
+          onClick={()=>setFocusMode(true)}>◫ ФОКУС · 1 ЭКРАН</button>
         <button type="button" className={!focusMode?'active':''}
           aria-pressed={!focusMode} disabled={page!=='MARKET'||exchange!=='BYBIT'}
           onClick={()=>setFocusMode(false)}>≡ ПОДРОБНО · АНАЛИТИКА</button>
@@ -430,22 +430,14 @@ export default function StableMarketApp(){
       <span>Только исследования · автоордера отключены</span>
     </nav>
     {page==='RADAR'?<RadarView onOpen={openRadarPair}/>:<>
-    <nav className="asc-exchange-switch" aria-label="Выбор фьючерсной биржи">
+    <nav className="asc-exchange-switch" aria-label="Источник свечного графика">
       {(['BYBIT','MEXC'] as FuturesExchange[]).map(venue=>
         <button type="button" key={venue} className={exchange===venue?'active':''}
           aria-pressed={exchange===venue} onClick={()=>changeExchange(venue)}>
           {venue} <small>ФЬЮЧЕРСЫ USDT</small>
         </button>)}
-      <span>Источники данных бирж разделены · только публичные рыночные данные</span>
+      <span>ИСТОЧНИК ГРАФИКА · биржи не смешиваются</span>
     </nav>
-    <div className="asc-planned-venue-picker" role="group" aria-label="Выбор биржи планируемой сделки">
-      <label htmlFor="asc-planned-venue">БИРЖА СДЕЛКИ</label>
-      <select id="asc-planned-venue" value={plannedVenue}
-        onChange={event=>setPlannedVenue(event.target.value as PlannedVenue)}>
-        {PLANNED_VENUES.map(venue=><option key={venue} value={venue}>{venue}</option>)}
-      </select>
-      <small>План сделки · лучшие цены покупки и продажи · без автоордеров · график не меняется</small>
-    </div>
     <div className="asc-quick-search" ref={quickRef} role="search"
       aria-label={'Поиск фьючерсов '+exchange}>
       <div className="asc-quick-search-title">
@@ -528,6 +520,20 @@ export default function StableMarketApp(){
         </div>}
       </div>}
     </div>
+    <section className="asc-planned-venue-picker" aria-labelledby="asc-planned-venue-title">
+      <div className="asc-planned-venue-head">
+        <strong id="asc-planned-venue-title">БИРЖА ДЛЯ СДЕЛКИ</strong>
+        <span title="Не меняет источник данных свечного графика">ⓘ</span>
+      </div>
+      <div className="asc-planned-venue-options" role="group" aria-label="На какой бирже планируется сделка">
+        {PLANNED_VENUES.map(venue=><button type="button" key={venue}
+          className={'asc-planned-venue-option'+(plannedVenue===venue?' active':'')}
+          aria-pressed={plannedVenue===venue}
+          onClick={()=>setPlannedVenue(venue)}>{venue}</button>)}
+      </div>
+      <small className="asc-planned-venue-note">Выбранная биржа — для плана сделки и сравнения цен.
+        График не переключается · автоматические ордера отключены.</small>
+    </section>
     <div className="asc-lite-layout">
       <aside className="asc-lite-sidebar">
         <div className="asc-lite-side-heading"><strong>USDT ФЬЮЧЕРСЫ</strong>

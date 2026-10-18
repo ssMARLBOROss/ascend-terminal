@@ -20,12 +20,13 @@ export default function FocusDecisionPanel({trend,extended,decision,liquidity,na
   const direction=decision.direction??trend.setupDirection;
   const onh=liquidity.levels.find(x=>x.id==='ONH'&&x.state==='FROZEN');
   const onl=liquidity.levels.find(x=>x.id==='ONL'&&x.state==='FROZEN');
-  return <aside className="asc-focus-decision" aria-label="ASCEND Focus — решение по сделке">
+  return <aside className="asc-focus-decision" aria-label="ASCEND — решение по сделке">
     <header className="asc-focus-decision-head">
       <strong>ASCEND · ТОРГОВОЕ РЕШЕНИЕ</strong>
       <span className={ready?'ready':decision.status==='SKIP'?'skip':'wait'}>
         {ready?'ВХОД ПОДТВЕРЖДЁН':ruStatus(decision.status)}</span>
     </header>
+    <div className="asc-focus-decision-lead">
     <div className="asc-focus-trend-summary">
       <small>СТРУКТУРА / ТРЕНД / НАПРАВЛЕНИЕ</small>
       <strong className={trend.alignment.toLowerCase()}>
@@ -34,6 +35,14 @@ export default function FocusDecisionPanel({trend,extended,decision,liquidity,na
           trend.alignment==='CONFLICT'?'КОНФЛИКТ 30m / 15m':'НЕ ПОДТВЕРЖДЁН'}</strong>
       <span>Сценарий: <b>{ruStatus(direction)}</b>
         {' · '}5м импульс: <b>{ruStatus(narrative.impulseDirection)}</b></span>
+    </div>
+    <div className="asc-planned-decision-venue">
+      <span>БИРЖА ДЛЯ СДЕЛКИ: <strong>{plannedVenue}</strong></span>
+      <small>{plannedVenue==='BYBIT'
+        ?'Уровни исследовательского плана рассчитываются по Bybit.'
+        :'График и уровни пока Bybit. Перед сделкой на '+plannedVenue+
+        ' нужны её собственные котировки и пересчёт входа / стопа / цели.'}</small>
+    </div>
     </div>
     <div className="asc-focus-timeframe-ladder asc-confirmation-13" aria-label="Единая панель структуры и подтверждения по 13 таймфреймам">
       <header>
@@ -74,7 +83,7 @@ export default function FocusDecisionPanel({trend,extended,decision,liquidity,na
         Остальные 7 периодов показывают рыночную структуру и не отменяют корректный вход.
       </small>
       <small>{extended.status==='error'?'Нет истории Bybit: '+(extended.reason??'ошибка'):
-        extended.fresh?'Контекст 30m/15m: '+extended.observed30m15m:
+        extended.fresh?'Контекст 30м/15м: '+extended.observed30m15m:
           'Ожидаем историю · отсутствие данных не означает подтверждение'}</small>
     </div>
     <div className="asc-focus-on-levels">
@@ -87,13 +96,6 @@ export default function FocusDecisionPanel({trend,extended,decision,liquidity,na
       <strong className={early.status==='EARLY CANDIDATE'?'candidate':''}>
         {early.status==='NONE'?'НЕТ РАННЕГО СЕТАПА':ruStatus(early.status)}</strong>
       <span>{early.direction!=='NEUTRAL'?ruStatus(early.direction)+' · ':''}{ruExplanation(early.reason)}</span>
-    </div>
-    <div className="asc-planned-decision-venue">
-      <span>БИРЖА ПЛАНА: <strong>{plannedVenue}</strong></span>
-      <small>{plannedVenue==='BYBIT'
-        ?'Уровни исследовательского плана рассчитываются по Bybit.'
-        :'График и уровни пока Bybit. Перед сделкой на '+plannedVenue+
-        ' нужны её собственные котировки и пересчёт входа / стопа / цели.'}</small>
     </div>
     <div className="asc-focus-risk" aria-label="Параметры исследовательского торгового плана">
       <div><small>ВХОД</small><b>{fmt(ready?decision.entry:

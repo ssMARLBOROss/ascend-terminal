@@ -12,7 +12,7 @@ export default function FocusSessionStrip({narrative}:{narrative:ChartNarrative}
     return()=>window.clearInterval(id)},[]);
   const minute=new Date(now).getUTCHours()*60+new Date(now).getUTCMinutes();
   return <div className="asc-focus-session-strip" aria-label="Карта торговых сессий UTC">
-    <strong>СЕССИИ · {hhmm(now)} UTC</strong>
+    <strong>ТОРГОВЫЕ СЕССИИ · {hhmm(now)} UTC</strong>
     {SESSION_WINDOWS.map(s=>{
       const active=minute>=s.from*60&&minute<s.to*60;
       const overlap=active&&SESSION_WINDOWS.some(other=>other.id!==s.id&&
@@ -22,7 +22,7 @@ export default function FocusSessionStrip({narrative}:{narrative:ChartNarrative}
       </span>;
     })}
     <small>{narrative.valid&&narrative.session?
-      narrative.session.name+' от OPEN '+(narrative.session.changePct>=0?'+':'')+
-      narrative.session.changePct.toFixed(2)+'%':'Сессионная цена: нет полной истории 1m'}</small>
+      narrative.session.name+' от открытия '+(narrative.session.changePct>=0?'+':'')+
+      narrative.session.changePct.toFixed(2)+'%':'Сессионная цена: нет полной истории 1м'}</small>
   </div>;
 }

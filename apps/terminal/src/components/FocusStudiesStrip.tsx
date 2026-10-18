@@ -44,7 +44,7 @@ export default function FocusStudiesStrip({symbol,candles,timeframe,cvd,oi,plann
         <small>{cvdOK?'ПОТОК ОНЛАЙН':cvd.status==='GAP'?'ПРОПУСК ДАННЫХ':'НЕТ ДАННЫХ'}</small></div>
       <MiniLine points={cvdOK?cvd.data!.points.map(p=>p.cumulative):[]}/>
     </div>
-    <div className="asc-focus-study" title="Open Interest Bybit: изменение не означает направление">
+    <div className="asc-focus-study" title="Открытый интерес Bybit: изменение само по себе не означает направление">
       <div><strong>ОТКРЫТЫЙ ИНТЕРЕС</strong><b>{oiOK?fmt(oi.data!.value,0):'—'}</b>
         <small>{oiOK?'Δ '+fmt(oi.data!.deltaPercent)+'%':'НЕТ ДАННЫХ'}</small></div>
       <MiniLine points={oiOK?oi.data!.history:[]}/>
@@ -65,11 +65,22 @@ export default function FocusStudiesStrip({symbol,candles,timeframe,cvd,oi,plann
           ?(spread.grossPct>0?'+':'')+fmt(spread.grossPct,4)+'%':'—'}</b>
         <small>{spread.status==='READY'
           ?spread.grossPct!==undefined&&spread.grossPct>0?
-            spread.buyVenue+' → '+spread.sellVenue:
-            'Разницы для сделки нет'
-          :'NO DATA'}</small>
+            'КУПИТЬ '+spread.buyVenue+' → ПРОДАТЬ '+spread.sellVenue:
+            'Положительной разницы нет'
+          :'НЕТ ДАННЫХ'}</small>
+        {spread.status==='READY'&&
+          <div className="asc-focus-spread-prices" aria-label="Цены для сравнения">
+            <span>Покупка ({spread.buyVenue}, Ask)
+              <b>{fmt(spread.buyAsk,7)}</b></span>
+            <span>Продажа ({spread.sellVenue}, Bid)
+              <b>{fmt(spread.sellBid,7)}</b></span>
+          </div>}
       </div>
-      <span className="asc-spread-caption">Цены покупки/продажи · без комиссий</span>
+      <span className="asc-spread-caption">
+        {spread.status==='READY'&&spread.grossUsdtPerCoin!==undefined?
+          (spread.grossUsdtPerCoin>0?'+':'')+fmt(spread.grossUsdtPerCoin,6)+' USDT / монету · ':
+          ''}Без комиссий и проскальзывания
+      </span>
     </div>
   </section>;
 }

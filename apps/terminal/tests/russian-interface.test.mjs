@@ -20,9 +20,9 @@ test('Russian is the default language and trading identifiers stay machine-reada
  assert.match(ruExplanation('WAIT after SWEEP / RECLAIM'),/ОЖИДАНИЕ after СНЯТИЕ ЛИКВИДНОСТИ/);
 });
 test('visible Russian labels exist on the main page, decision, and market context',()=>{
- assert.match(file('StableMarketApp.tsx'),/ОСНОВНОЙ · 1 ЭКРАН/);
+ assert.match(file('StableMarketApp.tsx'),/ФОКУС · 1 ЭКРАН/);
  assert.match(file('StableMarketApp.tsx'),/ПОДРОБНО · АНАЛИТИКА/);
- assert.match(file('StableMarketApp.tsx'),/БИРЖА СДЕЛКИ/);
+ assert.match(file('StableMarketApp.tsx'),/БИРЖА ДЛЯ СДЕЛКИ/);
  assert.match(file('components/MarketBiasOverlay.tsx'),/ruStatus\(data.market\)/);
  assert.match(file('components/MarketBiasOverlay.tsx'),/ruStatus\(data.coin\)/);
  assert.match(file('components/MarketBiasOverlay.tsx'),/ruStatus\(data.alignment\)/);
