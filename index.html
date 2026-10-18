@@ -5767,25 +5767,54 @@ function paintZone(ctx,priceToY,w,h,z,label){
  ctx.fillText(label+' · LAB',x+5,Math.max(11,top-4),Math.max(25,width-10));
  ctx.restore();
 }
+function paintFvgV2(ctx,priceToY,w,h,z){
+ const y1=priceToY(z.lower),y2=priceToY(z.upper);
+ if(!Number.isFinite(y1)||!Number.isFinite(y2))return false;
+ const top=Math.max(3,Math.min(y1,y2)),height=Math.max(3,Math.abs(y1-y2));
+ if(top>=h||top+height<=0)return false;
+ const x=Math.max(6,Math.min(w-125,w*.63)),width=Math.max(25,w-76-x);
+ const up=z.side==='LONG',opacity=Math.max(0,Math.min(90,Number(fvgConfig.opacity)))/100;
+ const alpha=(1-opacity)*.20;
+ const color=up?'#67dcb7':'#e991a3';
+ ctx.save();
+ ctx.fillStyle=up?'rgba(44,192,147,'+alpha+')':'rgba(219,87,116,'+alpha+')';
+ ctx.strokeStyle=up?'rgba(100,214,174,.6)':'rgba(237,147,161,.6)';
+ ctx.lineWidth=1;ctx.setLineDash([4,4]);
+ ctx.fillRect(x,top,width,height);ctx.strokeRect(x,top,width,height);
+ ctx.setLineDash([]);
+ if(fvgConfig.half){
+  const mid=priceToY((z.lower+z.upper)/2);
+  if(Number.isFinite(mid)){ctx.strokeStyle=up?'rgba(126,221,185,.55)':'rgba(244,165,180,.55)';
+   ctx.beginPath();ctx.moveTo(x,mid);ctx.lineTo(x+width,mid);ctx.stroke();}
+ }
+ const label=z.sourceTF+' FVG '+(up?'↑':'↓')+
+   (fvgConfig.showDepth?' '+Math.round(z.fillFraction*100)+'%':'');
+ ctx.font='700 9px system-ui';ctx.fillStyle=color;
+ ctx.fillText(label,x+3,Math.max(12,top-4),Math.max(24,width-6));
+ ctx.restore();return true;
+}
 function draw(ctx,priceToY,w,h){
  if(typeof state==='undefined'||!state.tf||typeof qaRows!=='function')return;
- let slots=0; // At most three sparse overlays on the main candle view.
- if(enabled.fvg&&root.ASCEND_FVG_RESEARCH_V1&&typeof qaAggregate==='function'){
-  const q=qaRows(state.tf['1m']||[],'1m'),last=q.at(-1),asOf=last?.time+60;
-  if(Number.isFinite(asOf)){
-   const r=root.ASCEND_FVG_RESEARCH_V1.observe(qaAggregate(q,60,180),asOf);
-   if(r.nearestActive){paintZone(ctx,priceToY,w,h,r.nearestActive,'FVG '+r.nearestActive.cls);slots++}
+ let slots=0,maxVisible=Math.max(1,Math.min(40,Number(fvgConfig.max)||4));
+ if(enabled.fvg){
+  const report=readMultiFvg();
+  if(isOpen)refreshMultiFvgSummary(report);
+  if(report.status==='RESEARCH')for(const z of report.zones){
+   if(slots>=maxVisible)break;
+   if(paintFvgV2(ctx,priceToY,w,h,z))slots++;
   }
  }
- if(['ifvg','ob','rb','stb','ote'].some(k=>enabled[k])){
+ // Secondary SMC POI overlays only when individually requested.
+ if(['ifvg','ob','rb','stb','ote'].some(k=>enabled[k])&&slots<maxVisible){
   const report=readPoi();updatePoiSummary(report);
   if(report.status==='RESEARCH')for(const z of report.zones){
    if(!enabled[z.type])continue;
    paintZone(ctx,priceToY,w,h,z,z.type.toUpperCase());
-   if(++slots>=3)break;
+   if(++slots>=maxVisible)break;
   }
  }
 }
+
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 root.ASCEND_SMC_UI_V1=Object.freeze({
  isEnabled:function(k){return !!enabled[k]},set:set,preset:preset,sync:sync,draw:draw,
