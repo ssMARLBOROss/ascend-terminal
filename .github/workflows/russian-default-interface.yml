@@ -1,0 +1,27 @@
+name: ASCEND Russian Default Interface
+on:
+  push:
+    branches:
+      - feature/russian-default-ui-v1-20261018
+  pull_request:
+    paths:
+      - 'apps/terminal/src/**'
+      - 'apps/terminal/tests/russian-interface.test.mjs'
+      - 'apps/terminal/index.html'
+      - '.github/workflows/russian-default-interface.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Russian UI and stable technical statuses
+        run: node --experimental-strip-types apps/terminal/tests/russian-interface.test.mjs
+      - name: Build full terminal
+        run: |
+          npm install --no-audit --no-fund
+          npm run build --workspace @ascend/terminal
