@@ -7,6 +7,7 @@ import MexcWorkspace from './components/MexcWorkspace';
 import {MEXC_TIMEFRAMES,type MexcTimeframe} from './market/useMexcMarket';
 import {useExchangeCatalog} from './market/useExchangeCatalog';
 import {searchContracts,type FuturesExchange} from './market/exchangeCatalog';
+import {PLANNED_VENUES,type PlannedVenue} from './market/crossExchangeSpread';
 import {STABLE_TIMEFRAMES,useStableMarket,type StableTimeframe} from './market/useStableMarket';
 import {usePreviousDayLevels,type PreviousDayLevels} from './market/usePreviousDayLevels';
 import {usePreviousSessionLevels,type PreviousSessionLevels} from './market/usePreviousSessionLevels';
@@ -52,7 +53,7 @@ function fmtVolume(value?:number){
   return value.toLocaleString('ru-RU',{maximumFractionDigits:2});
 }
 
-function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus,dailyVwap,vwapStatus,liveMetrics,cvdStream,settings,onToggle,onUpdate,onReset,focusMode}:{
+function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessions,previousSessionsStatus,dailyVwap,vwapStatus,liveMetrics,cvdStream,settings,onToggle,onUpdate,onReset,focusMode,plannedVenue}:{
   symbol:string;timeframe:StableTimeframe;
   previousDay?:PreviousDayLevels;previousDayStatus:'loading'|'ready'|'error';
   previousSessions?:PreviousSessionLevels;previousSessionsStatus:'loading'|'ready'|'error';
@@ -61,7 +62,7 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
   cvdStream:ContinuousCvd;
   settings:IndicatorSettings;onToggle:(key:IndicatorKey)=>void;
   onUpdate:(patch:Partial<IndicatorSettings>)=>void;onReset:()=>void;
-  focusMode:boolean;
+  focusMode:boolean;plannedVenue:PlannedVenue;
 }){
   const{candles,status,error,lastPrice,lastUpdate}=useStableMarket(symbol,timeframe);
   const globalBias=useGlobalTrendPreview(symbol);
@@ -190,10 +191,10 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
         <section className="asc-focus-chart-column" aria-label="Главный график и индикаторы">
           <div className="asc-focus-chart-container">{chartNode}</div>
           <FocusStudiesStrip symbol={symbol} candles={candles} timeframe={timeframe}
-            cvd={cvdStream} oi={liveMetrics.oi}/>
+            cvd={cvdStream} oi={liveMetrics.oi} plannedVenue={plannedVenue}/>
         </section>
         <FocusDecisionPanel trend={trendStructure} extended={extendedTrend} decision={researchDecision}
-          liquidity={liquidityMap} narrative={chartNarrative} early={earlyResearch}/>
+          liquidity={liquidityMap} narrative={chartNarrative} early={earlyResearch} plannedVenue={plannedVenue}/>
       </div>
       {error&&<p className="asc-focus-error" role="status">{error}</p>}
     </div>:<>
@@ -283,10 +284,10 @@ function Workspace({symbol,timeframe,previousDay,previousDayStatus,previousSessi
 }
 
 
-function BybitDataWorkspace({symbol,timeframe,settings,onToggle,onUpdate,onReset,focusMode}:{
+function BybitDataWorkspace({symbol,timeframe,settings,onToggle,onUpdate,onReset,focusMode,plannedVenue}:{
   symbol:string;timeframe:StableTimeframe;settings:IndicatorSettings;
   onToggle:(key:IndicatorKey)=>void;onUpdate:(patch:Partial<IndicatorSettings>)=>void;
-  onReset:()=>void;focusMode:boolean;
+  onReset:()=>void;focusMode:boolean;plannedVenue:PlannedVenue;
 }){
   // Bybit-specific hooks run only when the selected exchange is Bybit.
   const previousDay=usePreviousDayLevels(symbol);
@@ -305,7 +306,8 @@ function BybitDataWorkspace({symbol,timeframe,settings,onToggle,onUpdate,onReset
     previousSessions={previousSessions.levels} previousSessionsStatus={previousSessions.status}
     dailyVwap={vwap.daily} vwapStatus={vwap.status} liveMetrics={liveMetrics}
     cvdStream={cvdStream} settings={settings} onToggle={onToggle}
-    onUpdate={onUpdate} onReset={onReset} focusMode={focusMode}/>;
+    onUpdate={onUpdate} onReset={onReset} focusMode={focusMode}
+     plannedVenue={plannedVenue}/>;
 }
 
 export default function StableMarketApp(){
@@ -329,6 +331,13 @@ export default function StableMarketApp(){
   const resetIndicators=()=>setSettings({...DEFAULT_INDICATORS});
 
   const[exchange,setExchange]=useState<FuturesExchange>('BYBIT');
+  const[plannedVenue,setPlannedVenue]=useState<PlannedVenue>(()=>{
+    try{const found=window.localStorage.getItem('ascend.planned.venue.v1');
+      return PLANNED_VENUES.find(v=>v===found)??'BYBIT'}catch{return 'BYBIT'}
+  });
+  useEffect(()=>{
+    try{window.localStorage.setItem('ascend.planned.venue.v1',plannedVenue)}catch{/* private mode */}
+  },[plannedVenue]);
   const[bybitSymbol,setBybitSymbol]=useState('BTCUSDT');
   const[mexcSymbol,setMexcSymbol]=useState('BTC_USDT');
   const[timeframe,setTimeframe]=useState<StableTimeframe>('15m');
@@ -429,6 +438,14 @@ export default function StableMarketApp(){
         </button>)}
       <span>Источники данных бирж разделены · только публичные рыночные данные</span>
     </nav>
+    <div className="asc-planned-venue-picker" role="group" aria-label="Выбор биржи планируемой сделки">
+      <label htmlFor="asc-planned-venue">БИРЖА СДЕЛКИ</label>
+      <select id="asc-planned-venue" value={plannedVenue}
+        onChange={event=>setPlannedVenue(event.target.value as PlannedVenue)}>
+        {PLANNED_VENUES.map(venue=><option key={venue} value={venue}>{venue}</option>)}
+      </select>
+      <small>План · данные Bid/Ask без автоордеров · источник графика не меняется</small>
+    </div>
     <div className="asc-quick-search" ref={quickRef} role="search"
       aria-label={'Поиск фьючерсов '+exchange}>
       <div className="asc-quick-search-title">
