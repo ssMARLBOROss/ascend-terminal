@@ -169,6 +169,9 @@
     button.addEventListener('click',()=>toggle(panel.hidden));
     panel.addEventListener('keydown',ev=>{if(ev.key==='Escape')toggle(false)});
     ready=true;
+    if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{
+      if(settings.targets||settings.structure||settings.blocks)plot(lastResult);
+    }).observe($('chartShell'));
     draw(true);
   }
   function toggle(open){
@@ -324,6 +327,7 @@
       if(!subscribed&&typeof chart!=='undefined'&&chart){
         chart.timeScale().subscribeVisibleLogicalRangeChange(()=>{if(settings.targets||settings.structure||settings.blocks)plot(lastResult)});
         subscribed=true;
+        draw(true); // Chart becomes ready after the initial DOM mount.
       }
       if(!document.hidden&&document.body.dataset.view==='market')draw(false);
     },2000);
