@@ -5968,5 +5968,181 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })(window);
 </script>
+
+<!-- ASCEND AXIS-IN-CHART V1: read-only research drawer; never changes CORE -->
+<style id="ascAxisChartStyleV1">
+#ascAxisChartBtn{border:1px solid #3c5e6c;border-radius:6px;padding:7px 10px;background:#0b2434;color:#d6eaf4;font:700 11px system-ui;cursor:pointer}
+#ascAxisChartBtn[aria-expanded="true"]{border-color:#55b49b;color:#86e4c0}
+#ascAxisChartDock[hidden]{display:none!important}
+#ascAxisChartDock{position:absolute;z-index:80;top:38px;right:9px;bottom:9px;width:min(366px,calc(100% - 18px));display:flex;flex-direction:column;background:rgba(5,17,29,.98);border:1px solid #416375;border-radius:12px;box-shadow:0 15px 40px #000d;color:#dcecf6;font:11px system-ui;pointer-events:auto;overflow:hidden}
+#ascAxisChartDock *{box-sizing:border-box}
+.asc-axis-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px 9px;border-bottom:1px solid #244056}
+.asc-axis-head strong{font-size:12px;letter-spacing:.04em}
+.asc-axis-head small{color:#90acba;font-size:9px;display:block;margin-top:2px}
+.asc-axis-close{background:#12293b;border:1px solid #39546a;border-radius:7px;color:#dbe8f1;padding:5px 9px;cursor:pointer}
+.asc-axis-tabs{display:flex;gap:5px;overflow-x:auto;min-height:39px;padding:7px 10px;border-bottom:1px solid #1b3549;scrollbar-width:thin}
+.asc-axis-tabs button{white-space:nowrap;flex:none;border:1px solid #2a4658;background:#0b2031;color:#9cb5c4;border-radius:6px;padding:5px 9px;font-size:10px;cursor:pointer}
+.asc-axis-tabs button[aria-selected="true"]{color:#effbff;background:#174536;border-color:#397d66}
+.asc-axis-list{padding:8px 10px;overflow-y:auto;flex:1;min-height:0}
+.asc-axis-item{width:100%;background:#0a2030;color:#dbe9f2;border:1px solid #253f54;border-radius:8px;padding:9px 10px;text-align:left;margin-bottom:6px;cursor:pointer}
+.asc-axis-item[aria-pressed="true"]{border-color:#5b9f90;background:#14303c}
+.asc-axis-item strong{display:block;font-size:11px;margin-bottom:3px}
+.asc-axis-item small{display:block;font-size:9px;line-height:1.4;color:#9ab3c4}
+.asc-axis-item em{font-size:9px;font-style:normal;color:#dec78e}
+.asc-axis-detail{border-top:1px solid #2a4859;background:#0c2332;padding:10px 12px;min-height:105px;max-height:38%;overflow-y:auto;line-height:1.5}
+.asc-axis-detail b{display:block;font-size:11px;margin-bottom:5px}
+.asc-axis-detail p{margin:5px 0;font-size:10px;color:#bad0dc}
+.asc-axis-detail .status{font-size:10px;color:#f1d38d;font-weight:700}
+.asc-axis-detail button{background:#153c37;border:1px solid #397e69;border-radius:6px;padding:6px 9px;color:#d9f7ea;font-size:10px;cursor:pointer;margin-top:6px}
+.asc-axis-foot{padding:7px 10px;background:#061925;color:#86a8b7;border-top:1px solid #20394a;font-size:9px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.asc-axis-foot button{background:transparent;border:1px solid #345369;color:#bad7e4;border-radius:5px;padding:4px 8px;font-size:9px;cursor:pointer}
+@media(max-width:720px){#ascAxisChartDock{top:5px;right:5px;bottom:5px;width:calc(100% - 10px);border-radius:9px}.asc-axis-head{padding:9px 10px}.asc-axis-detail{max-height:40%}}
+@media(prefers-reduced-motion:reduce){#ascAxisChartDock *{scroll-behavior:auto}}
+</style>
+<script id="ascAxisChartScriptV1">
+(function(root){
+ 'use strict';
+ var ITEMS=[
+  {id:'overview',group:'Рынок',title:'Глобальный рынок',desc:'BTC / ETH / SOL · направление и согласованность',source:'ASCEND GLOBAL PROXY',layer:null},
+  {id:'breadth',group:'Рынок',title:'Широта, доминирование и TOTAL',desc:'TOTAL / TOTAL2 / TOTAL3 · BTC.D / ETH.D / USDT.D',source:'Нет проверенного многорыночного ряда',layer:null},
+  {id:'relative',group:'Рынок',title:'Относительная сила и настроение',desc:'BTC vs ETH · Fear & Greed · кросс-рынок',source:'Нет синхронного источника',layer:null},
+  {id:'radar',group:'Рынок',title:'Умный радар монет',desc:'Изменение цены · оборот · зоны RC30/RC70',source:'Существующий Smart Radar',layer:null},
+  {id:'structure',group:'График',title:'Структура рынка',desc:'HH / HL / LH / LL · BOS / CHOCH',source:'ASCEND Structure Engine',layer:'structure'},
+  {id:'sessions',group:'График',title:'Сессии и принятие цены',desc:'Asia / London / NY · High / Low · acceptance',source:'ASCEND Session H/L (acceptance — без отдельного ряда)',layer:'sessions'},
+  {id:'profile',group:'График',title:'Volume Profile / TPO',desc:'POC · VAH / VAL · незавершённый аукцион',source:'Нет исторического профиля по ценам',layer:null},
+  {id:'footprint',group:'График',title:'Footprint / Delta внутри свечи',desc:'Исполнения Buy / Sell по ценовым уровням',source:'Нет полного потока тиков по ценам',layer:null},
+  {id:'vwap',group:'График',title:'VWAP / ATR / RSI',desc:'Средневзвешенная цена · риск / контекст',source:'Дневной VWAP ASCEND; другие расчёты отдельно',layer:'vwap'},
+  {id:'cvd',group:'Поток',title:'CVD / агрессивные сделки',desc:'Неполная минутная дельта MEXC, не полный CVD',source:'MEXC WS Research',layer:'participation'},
+  {id:'book',group:'Поток',title:'Стакан и глубина',desc:'Bid / Ask · ликвидность · история заявок',source:'MEXC или Bybit, строго раздельно',layer:'participation'},
+  {id:'absorption',group:'Поток',title:'Поглощение / крупные сделки',desc:'Absorption · ликвидность · след сделки',source:'Нет верифицированного детектора поглощения',layer:null},
+  {id:'liquidations',group:'Поток',title:'Ликвидации',desc:'Направление ликвидированных позиций',source:'Bybit Research (не MEXC)',layer:'participation'},
+  {id:'oi',group:'Позиции',title:'Открытый интерес / Funding',desc:'OI · премия · Basis · Cross-Venue',source:'ΔOI MEXC частично; funding других бирж не подключён',layer:'participation'},
+  {id:'cot',group:'Позиции',title:'Крупные участники / COT',desc:'Фонды · управляющие · дилеры · дата публикации',source:'Недельные PDF — не live-источник',layer:null},
+  {id:'onchain',group:'Капитал',title:'Ончейн и биржевые переводы',desc:'BTC/ETH · крупные переводы · MVRV',source:'Нет проверенного потока атрибуции',layer:null},
+  {id:'stable',group:'Капитал',title:'Стейблкоины',desc:'USDT / USDC · выпуск · привязка · предложение',source:'Нет live-источника в ASCEND',layer:null},
+  {id:'defi',group:'Капитал',title:'DeFi и протоколы',desc:'TVL · DEX оборот · комиссии · доходы',source:'Нет исторического ряда',layer:null},
+  {id:'macro',group:'Риск',title:'Макро и календарь',desc:'Ставки · новости · публикации · защитный режим',source:'Существующий макроконтекст; источник проверяется отдельно',layer:null},
+  {id:'lab',group:'Риск',title:'Волатильность и Research Lab',desc:'Стоп / ATR · P&L · проверка гипотез',source:'ASCEND Research Lab · структурный риск без изменений',layer:'analytics'}
+ ];
+ var groups=['Рынок','График','Поток','Позиции','Капитал','Риск'];
+ var selectedGroup='Рынок',selectedId='overview',opened=false,lastData=null,loadedAt=0,loadedSymbol='',busy=false;
+ var $=function(id){return document.getElementById(id)};
+ var validText=function(v){var x=String(v==null?'':v).trim();return x&&x!=='—'?x.slice(0,180):null};
+ function uiState(){
+  var s=typeof state!=='undefined'?state:null;
+  return {symbol:s&&typeof s.symbol==='string'?s.symbol:'',breadth:s?s.breadth:null};
+ }
+ function freshFeed(){
+  var s=uiState();
+  return lastData&&loadedSymbol===s.symbol&&Date.now()-loadedAt<90000?lastData:null;
+ }
+ function fact(item){
+  var feed=freshFeed(),ss=uiState(),v;
+  if(item.id==='overview'){
+   var g=root.ASCEND_GLOBAL_BIAS_LAST;
+   if(g&&g.loadedAt&&Date.now()-g.loadedAt<300000&&g.market&&g.market.state!=='NO_DATA')
+    return {status:'PROXY',value:'Рынок: '+g.market.state+' · монета: '+(g.coin&&g.coin.label||'NO DATA')+' · '+(g.alignment&&g.alignment.state||'NO DATA'),detail:'Один фьючерсный источник и радар, не глобальный индекс'};
+  }
+  if(item.id==='structure'){v=validText($('ascStructureMini')&&$('ascStructureMini').textContent);if(v&&!/ожида|нет данных|no data/i.test(v))return {status:'LOCAL',value:v,detail:'Наблюдение структуры; не новый сигнал входа'};}
+  if(item.id==='vwap'){v=validText($('vwapNow')&&$('vwapNow').textContent);if(v)return {status:'LOCAL',value:'VWAP: '+v,detail:'Существующий дневной VWAP ASCEND; RSI и ATR не подставлены'};}
+  if(item.id==='radar'&&ss.breadth)return {status:'LOCAL',value:'Сканер ASCEND подключён к рабочему экрану',detail:'Не выдаём 906 инструментов AXIS за проверенный universe ASCEND'};
+  if(item.id==='cvd'&&feed&&feed.cvd&&feed.cvd.status!=='NO DATA')return {status:feed.cvd.status,value:'Δ15м: '+Number(feed.cvd.delta_15m_contracts||0).toFixed(2)+' контрактов MEXC',detail:'Неполное покрытие, НЕ полный исторический CVD'};
+  if(item.id==='oi'&&feed&&feed.delta_oi&&Number.isFinite(Number(feed.delta_oi.change_pct)))return {status:feed.delta_oi.status||'PARTIAL',value:'ΔOI: '+Number(feed.delta_oi.change_pct).toFixed(2)+'% · MEXC',detail:'Окно исследования, биржи не объединяются'};
+  if(item.id==='book'&&feed&&feed.order_book)return {status:feed.order_book.status||'PARTIAL',value:'Стакан '+(feed.order_book.source||'не указан'),detail:'Видимые заявки могут исчезнуть без исполнения'};
+  if(item.id==='liquidations'&&feed&&feed.liquidations)return {status:feed.liquidations.status||'PARTIAL',value:'Bybit · '+Number(feed.liquidations.count_15m||0)+' событий за 15м',detail:'Только с начала наблюдения коллектора'};
+  if(item.id==='sessions')return {status:'LAYER',value:'Сессионные High / Low доступны в слоях',detail:'Acceptance за диапазоном не подтверждён отдельным источником'};
+  if(item.id==='lab')return {status:'LAYER',value:'История и журнал доступны в ASCEND Research',detail:'Исследование не участвует в боевой оценке'};
+  return {status:'NO DATA',value:'Источник ещё не подключён к графику',detail:'Снимки AXIS — исследовательский образец, не live-данные ASCEND'};
+ }
+ function el(tag,klass,text){
+  var n=document.createElement(tag);
+  if(klass)n.className=klass;
+  if(text!=null)n.textContent=text;
+  return n;
+ }
+ function render(){
+  var dock=$('ascAxisChartDock');if(!dock||!opened)return;
+  var tabs=$('ascAxisChartTabs'),list=$('ascAxisChartList'),detail=$('ascAxisChartDetail');
+  tabs.replaceChildren();list.replaceChildren();detail.replaceChildren();
+  groups.forEach(function(g){
+   var b=el('button','',g);b.type='button';b.setAttribute('role','tab');
+   b.setAttribute('aria-selected',String(selectedGroup===g));
+   b.addEventListener('click',function(){selectedGroup=g;var it=ITEMS.find(function(x){return x.group===g});selectedId=it.id;render()});
+   tabs.appendChild(b);
+  });
+  ITEMS.filter(function(x){return x.group===selectedGroup}).forEach(function(it){
+   var f=fact(it);
+   var b=el('button','asc-axis-item');b.type='button';b.setAttribute('aria-pressed',String(it.id===selectedId));
+   b.appendChild(el('strong','',it.title));
+   b.appendChild(el('small','',it.desc));
+   b.appendChild(el('em','',f.status+' · '+f.value));
+   b.addEventListener('click',function(){selectedId=it.id;render()});
+   list.appendChild(b);
+  });
+  var selected=ITEMS.find(function(x){return x.id===selectedId})||ITEMS[0],f=fact(selected);
+  detail.appendChild(el('b','',selected.title));
+  detail.appendChild(el('div','status',f.status+' · '+f.value));
+  detail.appendChild(el('p','',f.detail));
+  detail.appendChild(el('p','','Источник: '+selected.source));
+  if(selected.layer&&root.ASCEND_SMC_UI_V1&&typeof root.ASCEND_SMC_UI_V1.set==='function'){
+    var on=root.ASCEND_SMC_UI_V1.isEnabled(selected.layer);
+    var button=el('button','',on?'Скрыть существующий слой':'Показать существующий слой');
+    button.type='button';button.addEventListener('click',function(){root.ASCEND_SMC_UI_V1.set(selected.layer,!on);render()});
+    detail.appendChild(button);
+  }
+  var age=loadedAt?Math.round((Date.now()-loadedAt)/1000):null;
+  $('ascAxisChartFootText').textContent='Только график · '+ITEMS.length+' разделов · '+(age!==null&&freshFeed()?'поток '+age+'с':'поток NO DATA');
+ }
+ async function refresh(){
+  if(!opened||busy||document.hidden||document.body.dataset.view!=='market')return;
+  var sym=uiState().symbol;
+  if(!/^[A-Z0-9]+_USDT$/.test(sym))return;
+  busy=true;
+  try{
+   var r=await fetch('/api/v2/research/market-participation?symbol='+encodeURIComponent(sym),{cache:'no-store',headers:{Accept:'application/json'}});
+   if(!r.ok)throw Error('HTTP '+r.status);
+   var d=await r.json();
+   if(uiState().symbol===sym&&d&&d.symbol===sym.replace('_','')){lastData=d;loadedAt=Date.now();loadedSymbol=sym;}
+   else{lastData=null;loadedAt=0;loadedSymbol='';}
+  }catch(_){lastData=null;loadedAt=0;loadedSymbol='';}
+  finally{busy=false;render()}
+ }
+ function toggle(force){
+  opened=typeof force==='boolean'?force:!opened;
+  $('ascAxisChartDock').hidden=!opened;
+  $('ascAxisChartBtn').setAttribute('aria-expanded',String(opened));
+  if(opened){render();refresh();}
+ }
+ function mount(){
+  if($('ascAxisChartBtn'))return;
+  var bar=$('tfBar'),shell=$('chartShell');if(!bar||!shell)return;
+  var button=el('button','','◫ Контекст · 20');button.id='ascAxisChartBtn';button.type='button';
+  button.setAttribute('aria-controls','ascAxisChartDock');button.setAttribute('aria-expanded','false');
+  button.title='Все 20 аналитических направлений внутри графика · только наблюдение';
+  bar.appendChild(button);
+  var dock=el('section');dock.id='ascAxisChartDock';dock.hidden=true;
+  dock.setAttribute('role','region');dock.setAttribute('aria-label','Контекст и индикаторы внутри графика ASCEND');
+  var head=el('div','asc-axis-head'),left=el('div');
+  left.appendChild(el('strong','','ASCEND · КОНТЕКСТ РЫНКА'));
+  left.appendChild(el('small','','20 направлений · данные AXIS не копируются'));
+  var close=el('button','asc-axis-close','Закрыть');close.type='button';close.addEventListener('click',function(){toggle(false)});
+  head.appendChild(left);head.appendChild(close);dock.appendChild(head);
+  var tabs=el('nav','asc-axis-tabs');tabs.id='ascAxisChartTabs';tabs.setAttribute('role','tablist');dock.appendChild(tabs);
+  var list=el('div','asc-axis-list');list.id='ascAxisChartList';dock.appendChild(list);
+  var detail=el('div','asc-axis-detail');detail.id='ascAxisChartDetail';dock.appendChild(detail);
+  var foot=el('div','asc-axis-foot'),footText=el('span','','Режим просмотра');footText.id='ascAxisChartFootText';
+  var reload=el('button','','Обновить');reload.type='button';reload.addEventListener('click',refresh);
+  foot.appendChild(footText);foot.appendChild(reload);dock.appendChild(foot);
+  shell.appendChild(dock);
+  button.addEventListener('click',function(){toggle()});
+  dock.addEventListener('keydown',function(e){if(e.key==='Escape'){toggle(false);button.focus()}});
+  setInterval(function(){if(opened){if(Date.now()-loadedAt>30000)refresh();else render()}},12000);
+  root.ASCEND_AXIS_CHART_V1=Object.freeze({count:ITEMS.length,open:function(){toggle(true)},close:function(){toggle(false)}});
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})(window);
+</script>
+<!-- ASCEND AXIS-IN-CHART V1 END -->
+
 </body>
 </html>
