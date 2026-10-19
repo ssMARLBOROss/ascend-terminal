@@ -5993,6 +5993,14 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 .asc-axis-detail b{display:block;font-size:11px;margin-bottom:5px}
 .asc-axis-detail p{margin:5px 0;font-size:10px;color:#bad0dc}
 .asc-axis-detail .status{font-size:10px;color:#f1d38d;font-weight:700}
+
+.asc-axis-source-card{margin-top:9px;padding:8px 9px;border:1px solid #274456;border-radius:7px;background:#091d2b}
+.asc-axis-source-head{font-size:9px;font-weight:800;letter-spacing:.05em;color:#9fc8d7;margin-bottom:5px}
+.asc-axis-source-row{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px;align-items:start;padding:4px 0;border-top:1px solid #1d3748;font-size:9px;line-height:1.4}
+.asc-axis-source-row span{color:#91adbc}
+.asc-axis-source-row strong{color:#d5e6ee;font-size:9px;font-weight:600;overflow-wrap:anywhere}
+@media(max-width:420px){.asc-axis-source-row{grid-template-columns:90px minmax(0,1fr)}}
+
 .asc-axis-detail button{background:#153c37;border:1px solid #397e69;border-radius:6px;padding:6px 9px;color:#d9f7ea;font-size:10px;cursor:pointer;margin-top:6px}
 .asc-axis-foot{padding:7px 10px;background:#061925;color:#86a8b7;border-top:1px solid #20394a;font-size:9px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .asc-axis-foot button{background:transparent;border:1px solid #345369;color:#bad7e4;border-radius:5px;padding:4px 8px;font-size:9px;cursor:pointer}
@@ -6054,6 +6062,70 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   if(item.id==='lab')return {status:'LAYER',value:'История и журнал доступны в ASCEND Research',detail:'Исследование не участвует в боевой оценке'};
   return {status:'NO DATA',value:'Источник ещё не подключён к графику',detail:'Снимки AXIS — исследовательский образец, не live-данные ASCEND'};
  }
+
+ function sourcePassport(item,f){
+  var remoteIds=['cvd','oi','book','liquidations'];
+  var remote=remoteIds.indexOf(item.id)!==-1&&f.status!=='NO DATA'&&!!freshFeed();
+  var feed=remote?freshFeed():null;
+  var venue='Не подтверждена';
+  if(remote){
+   if(item.id==='cvd'||item.id==='oi')venue='MEXC';
+   if(item.id==='liquidations')venue='Bybit';
+   if(item.id==='book')venue=validText(feed.order_book&&feed.order_book.source)||'В ответе не указана';
+  }
+  var coverage={
+   overview:'Приближённый контекст; не индекс всего рынка',
+   breadth:'Нет проверенного синхронного ряда',
+   relative:'Нет проверенного синхронного ряда',
+   radar:'Охват сканера зависит от источника',
+   structure:'Локальная структура; полнота истории отдельно не подтверждена',
+   sessions:'Доступные H/L; acceptance не подтверждён',
+   profile:'Нет проверенного исторического профиля по ценам',
+   footprint:'Нет полного потока исполнений по ценам',
+   vwap:'Дневной VWAP; ATR/RSI проверяются отдельно',
+   cvd:'15 минут; неполный поток, не полный исторический CVD',
+   book:'Текущий снимок; исторический ряд не подтверждён',
+   absorption:'Нет верифицированного детектора',
+   liquidations:'Окно 15 минут; только с начала наблюдения',
+   oi:'Частичный ΔOI; полное покрытие не подтверждено',
+   cot:'Недельный отчёт с задержкой; не live',
+   onchain:'Исторический ряд не подключён',
+   stable:'Исторический ряд не подключён',
+   defi:'Исторический ряд не подключён',
+   macro:'Время и источник публикаций отдельно не подтверждены',
+   lab:'Локальная аналитика; полнота журнала отдельно проверяется'
+  }[item.id]||'Не подтверждено';
+  var updated=remote&&loadedAt?
+   new Date(loadedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' (получено терминалом)':
+   'Временная метка источника не предоставлена';
+  var quality={
+   'NO DATA':'нет подтверждённого ряда',
+   PROXY:'приближённая оценка, не весь рынок',
+   LOCAL:'локальный показатель, не отдельный внешний ряд',
+   LAYER:'слой доступен, отдельная метрика не подтверждена',
+   PARTIAL:'частичные наблюдения, неполная история'
+  }[f.status]||'качество и полнота требуют проверки';
+  return [
+   ['Источник (описание)',item.source],
+   ['Биржа потока',venue],
+   ['Покрытие',coverage],
+   ['Время обновления',updated],
+   ['Задержка данных','Не измерена: метка события источника не подтверждена'],
+   ['Достоверность',f.status+' · '+quality]
+  ];
+ }
+ function appendSourcePassport(detail,item,f){
+  var card=el('section','asc-axis-source-card');
+  card.setAttribute('aria-label','Паспорт источника данных');
+  card.appendChild(el('div','asc-axis-source-head','ПАСПОРТ ИСТОЧНИКА'));
+  sourcePassport(item,f).forEach(function(entry){
+   var line=el('div','asc-axis-source-row');
+   line.appendChild(el('span','',entry[0]));
+   line.appendChild(el('strong','',entry[1]));
+   card.appendChild(line);
+  });
+  detail.appendChild(card);
+ }
  function el(tag,klass,text){
   var n=document.createElement(tag);
   if(klass)n.className=klass;
@@ -6084,6 +6156,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   detail.appendChild(el('div','status',f.status+' · '+f.value));
   detail.appendChild(el('p','',f.detail));
   detail.appendChild(el('p','','Источник: '+selected.source));
+  appendSourcePassport(detail,selected,f);
   if(selected.layer&&root.ASCEND_SMC_UI_V1&&typeof root.ASCEND_SMC_UI_V1.set==='function'){
     var on=root.ASCEND_SMC_UI_V1.isEnabled(selected.layer);
     var button=el('button','',on?'Скрыть существующий слой':'Показать существующий слой');
