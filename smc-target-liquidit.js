@@ -283,7 +283,8 @@
         ...result.internal.slice(-3).map(p=>({...p,prefix:'М'}))
       ];
       recent.forEach(p=>{
-        const x=xOf(p.at),y=yOf(p.price);
+        // Place the label on the last confirming candle, never on an unknowable past pivot.
+        const x=xOf(p.knownAt-result.step),y=yOf(p.price);
         if(!Number.isFinite(x)||!Number.isFinite(y))return;
         write(p.prefix+' '+p.label,x-5,y+(p.type==='HIGH'?-12:17),
           p.label==='LH'||p.label==='LL'?'#ee7387':'#66d8b0');
