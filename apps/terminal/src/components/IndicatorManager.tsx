@@ -1,4 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
+import ChartIntelligenceCatalog,{CHART_INTELLIGENCE_COUNT} from './ChartIntelligenceCatalog';
 import {
   INDICATOR_CATALOG,DEFAULT_INDICATORS,
   type IndicatorSettings,type IndicatorKey
@@ -30,6 +31,7 @@ export default function IndicatorManager({
 }:Props){
   const[open,setOpen]=useState(false);
   const[filter,setFilter]=useState('');
+  const[contextMode,setContextMode]=useState(false);
   const[expanded,setExpanded]=useState<IndicatorKey|null>('fvg');
   const root=useRef<HTMLDivElement|null>(null);
 
@@ -99,7 +101,18 @@ export default function IndicatorManager({
         <input type="search" value={filter} onChange={e=>setFilter(e.target.value)}
           placeholder="Поиск индикатора…" aria-label="Найти индикатор"/>
       </div>
-      <div className="asc-indicator-list">
+      <div role="group" aria-label="Разделы индикаторов"
+        style={{display:'flex',gap:6,padding:'6px 10px 8px'}}>
+        <button type="button" aria-pressed={!contextMode}
+          style={{padding:'7px 11px',borderRadius:7,border:'1px solid '+(!contextMode?'#529c89':'#35536a'),
+            background:!contextMode?'#173d34':'#0b2030',color:'#d4e8f3',fontSize:11,cursor:'pointer'}}
+          onClick={()=>setContextMode(false)}>Индикаторы</button>
+        <button type="button" aria-pressed={contextMode}
+          style={{padding:'7px 11px',borderRadius:7,border:'1px solid '+(contextMode?'#529c89':'#35536a'),
+            background:contextMode?'#173d34':'#0b2030',color:'#d4e8f3',fontSize:11,cursor:'pointer'}}
+          onClick={()=>setContextMode(true)}>Контекст · {CHART_INTELLIGENCE_COUNT}</button>
+      </div>
+      {!contextMode&&<div className="asc-indicator-list">
         {GROUPS.map(group=>{
           const items=filtered.filter(x=>x.group===group);
           if(!items.length)return null;
@@ -197,17 +210,19 @@ export default function IndicatorManager({
           </div>;
         })}
         {!filtered.length&&<div className="asc-indicator-empty">Ничего не найдено</div>}
-      </div>
-      <footer className="asc-indicator-menu-footer">
+      </div>}
+      {contextMode&&<ChartIntelligenceCatalog settings={settings} onToggle={onToggle} filter={filter}/>}
+      {!contextMode&&<footer className="asc-indicator-menu-footer">
         <span>Стакан: {bookState}</span>
         <button type="button" onClick={()=>onUpdate(
           Object.fromEntries(INDICATOR_CATALOG.map(x=>[x.key,false])) as Partial<IndicatorSettings>
         )}>Скрыть все</button>
         <button type="button" onClick={onReset}>По умолчанию</button>
-      </footer>
+      </footer>}
       <div className="asc-indicator-menu-note">
-        Индикаторы независимы. Видимость и настройки сохраняются в этом браузере,
-        включая переходы между монетами и таймфреймами.
+        {contextMode?
+          'Раздел «Контекст» показывает только проверенные существующие слои и список будущих источников. Нет данных — не сигнал.':
+          'Индикаторы независимы. Видимость и настройки сохраняются в этом браузере, включая переходы между монетами и таймфреймами.'}
       </div>
     </section>}
   </div>;
