@@ -39,3 +39,29 @@ test('initialization has no side effects on trade engine',()=>{
   assert.equal(listeners.length,1);
   assert.equal(listeners[0][0],'DOMContentLoaded');
 });
+
+
+test('source passport preserves data quality and avoids false real-time claims',()=>{
+  assert.match(js,/function sourcePassport\(item,f\)/);
+  assert.match(js,/function appendSourcePassport\(detail,item,f\)/);
+  assert.match(js,/appendSourcePassport\(detail,selected,f\)/);
+  assert.match(js,/ПАСПОРТ ИСТОЧНИКА/);
+  assert.match(js,/Источник \(описание\)/);
+  assert.match(js,/Покрытие/);
+  assert.match(js,/Время обновления/);
+  assert.match(js,/получено терминалом/);
+  assert.match(js,/метка события источника не подтверждена/);
+  assert.match(js,/Временная метка источника не предоставлена/);
+  assert.match(js,/Не измерена/);
+  assert.match(js,/нет подтверждённого ряда/);
+  assert.match(js,/частичные наблюдения, неполная история/);
+  assert.match(js,/f\.status!=='NO DATA'&&!!freshFeed\(\)/);
+});
+
+test('source passport stays within read-only chart renderer',()=>{
+  const passport=js.slice(js.indexOf(' function sourcePassport('),js.indexOf(' function el(tag,klass,text)'));
+  assert.ok(passport.length>100);
+  assert.doesNotMatch(passport,/\b(?:POST|PUT|PATCH|DELETE)\b/);
+  assert.doesNotMatch(passport,/\b(?:fetch|executeOrder|sendOrder|placeOrder)\s*\(/);
+  assert.match(passport,/detail\.appendChild\(card\)/);
+});
