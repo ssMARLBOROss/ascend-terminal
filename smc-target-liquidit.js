@@ -106,6 +106,8 @@
     const bars=prepared(input,seconds,Number(asOf));
     if(bars.length<2*CONFIG.external+3)return {...none,bars,
       reason:'Недостаточно непрерывных закрытых '+tf+' свечей: нужно не менее '+(2*CONFIG.external+3)};
+    if(Number(asOf)-(bars.at(-1).time+seconds)>Math.max(2*seconds,180))
+      return {...none,bars,reason:'История устарела · ожидаем свежие закрытые свечи'};
     const ti=pivots(bars,seconds,CONFIG.pivot);
     const internal=withLabels(pivots(bars,seconds,CONFIG.internal));
     const external=withLabels(pivots(bars,seconds,CONFIG.external));
@@ -306,6 +308,7 @@
     const end=data.at(-1),signature=frame+'|'+data.length+'|'+(end?.time||0)+'|'+
       (end?.close||0)+'|'+settings.targets+'|'+settings.structure+'|'+settings.blocks;
     const panelOpen=!$('ascTLPanel').hidden;
+    if(!active&&!panelOpen){$('ascTLCanvas').hidden=true;lastSignature='';return;}
     if(!force&&signature===lastSignature&&!panelOpen)return;
     lastSignature=signature;
     lastResult=read();
@@ -316,7 +319,7 @@
   function start(){
     restore();mount();
     if(!ready)return;
-    const watch=setInterval(()=>{
+    setInterval(()=>{
       if(typeof state==='undefined'||!state.chartReady)return;
       if(!subscribed&&typeof chart!=='undefined'&&chart){
         chart.timeScale().subscribeVisibleLogicalRangeChange(()=>{if(settings.targets||settings.structure||settings.blocks)plot(lastResult)});
