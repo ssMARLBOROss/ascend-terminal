@@ -6155,7 +6155,6 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   detail.appendChild(el('b','',selected.title));
   detail.appendChild(el('div','status',f.status+' · '+f.value));
   detail.appendChild(el('p','',f.detail));
-  detail.appendChild(el('p','','Источник: '+selected.source));
   appendSourcePassport(detail,selected,f);
   if(selected.layer&&root.ASCEND_SMC_UI_V1&&typeof root.ASCEND_SMC_UI_V1.set==='function'){
     var on=root.ASCEND_SMC_UI_V1.isEnabled(selected.layer);
