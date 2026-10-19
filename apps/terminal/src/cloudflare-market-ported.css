@@ -1,0 +1,21 @@
+/* Safe read-only chart studies imported from the previous Cloudflare market view.
+   Scoped under ASCEND Stable Market; no account or order controls. */
+.asc-cloudflare-indicators{margin:9px 0 0;padding:11px 14px;border:1px solid #1a394c;border-radius:9px;background:#081622;color:#dceaf2}
+.asc-cloudflare-indicators-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:5px 12px;margin-bottom:10px}
+.asc-cloudflare-indicators-head strong{font-size:11px;letter-spacing:.08em;color:#d9f3fa}
+.asc-cloudflare-indicators-head span{font-size:10px;color:#7d9bab}
+.asc-cloudflare-rsi{border:1px solid #1b3549;border-radius:7px;overflow:hidden;background:#06121c}
+.asc-cloudflare-rsi-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px}
+.asc-cloudflare-rsi-head b{font-size:12px;color:#ecd89d}
+.asc-cloudflare-rsi-head small{color:#7d98ab;font-size:10px}
+.asc-cloudflare-rsi-head span{border:1px solid #39546a;border-radius:5px;padding:4px 7px;font-size:10px;color:#b8ccda}
+.asc-cloudflare-rsi-head span.lower{color:#65d8ae;border-color:#326a5c}
+.asc-cloudflare-rsi-head span.upper{color:#e9959b;border-color:#784b50}
+.asc-cloudflare-rsi svg{display:block;width:100%;height:118px;border-top:1px solid #1c3345}
+.asc-cloudflare-sma{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:8px}
+.asc-cloudflare-sma>div{min-width:0;border:1px solid #244359;border-radius:7px;padding:10px;background:#0a2030}
+.asc-cloudflare-sma small{display:block;font-size:10px;color:#7da0b5}
+.asc-cloudflare-sma b{display:block;margin-top:4px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asc-cloudflare-sma span{display:block;margin-top:3px;font-size:10px;color:#93b0be}
+.asc-cloudflare-indicators footer{margin-top:8px;color:#7b98a9;font-size:10px;line-height:1.5}
+@media(max-width:760px){.asc-cloudflare-sma{grid-template-columns:repeat(2,minmax(0,1fr))}.asc-cloudflare-rsi svg{height:96px}}

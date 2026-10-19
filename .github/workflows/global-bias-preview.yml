@@ -1,0 +1,20 @@
+name: ASCEND Global Bias Preview Tests
+on:
+  push:
+    branches:
+      - feature/global-bias-preview-20261017
+  pull_request:
+    paths:
+      - 'apps/terminal/src/market/globalTrendPreview.ts'
+      - 'apps/terminal/tests/global-trend-preview.test.mjs'
+      - '.github/workflows/global-bias-preview.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify closed-candle and alignment logic
+        run: node --experimental-strip-types apps/terminal/tests/global-trend-preview.test.mjs

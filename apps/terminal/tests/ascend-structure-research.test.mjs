@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {pathToFileURL} from 'node:url';
+import {resolve} from 'node:path';
+import {tmpdir} from 'node:os';
+const target=resolve(tmpdir(),'ascend-structure-research-test.mjs');
+await build({entryPoints:['src/market/ascendStructureResearch.ts'],
+  outfile:target,platform:'node',format:'esm',bundle:true,logLevel:'silent'});
+const {computeStructureReport}=await import(pathToFileURL(target).href);
+const minute=60000,day=Date.UTC(2026,9,8);
+const standard=(n)=>Array.from({length:n},(_,i)=>({
+  timestamp:day+i*minute,open:100,high:101,low:99,close:100,volume:2
+}));
+const initial=standard(359);
+const early=computeStructureReport('BTCUSDT',initial,day+359*minute);
+assert.equal(early.steps.sweep.status,'WAIT');
+assert.equal(early.onh,undefined);
+const noSweep=computeStructureReport('BTCUSDT',standard(370),day+370*minute);
+assert.equal(noSweep.onh,101);
+assert.equal(noSweep.onl,99);
+assert.equal(noSweep.steps.sweep.status,'WAIT');
+assert.equal(noSweep.steps.entry.status,'BLOCKED');
+const sweepBars=standard(370);
+sweepBars[362]={...sweepBars[362],high:103};
+const swept=computeStructureReport('BTCUSDT',sweepBars,day+370*minute);
+assert.equal(swept.steps.sweep.status,'OK');
+assert.equal(swept.steps.resolution.status,'OK');
+assert.equal(swept.direction,'SHORT');
+assert.equal(swept.steps.choch.status,'WAIT');
+assert.notEqual(swept.phase,'ENTRY READY');
+const incomplete=standard(365);
+incomplete.splice(45,1);
+const refused=computeStructureReport('BTCUSDT',incomplete,day+365*minute);
+assert.equal(refused.steps.sweep.status,'NODATA');
+const doubleSweep=standard(365);
+doubleSweep[362]={...doubleSweep[362],high:104,low:98};
+const ambiguous=computeStructureReport('BTCUSDT',doubleSweep,day+365*minute);
+assert.equal(ambiguous.steps.sweep.status,'WAIT');
+const bars=standard(370);
+bars[360]={...bars[360],high:103,close:102,open:100};
+for(let i=361;i<370;i++)bars[i]={...bars[i],high:103,low:101,open:102,close:102};
+const accepted=computeStructureReport('BTCUSDT',bars,day+370*minute);
+assert.equal(accepted.steps.sweep.status,'OK');
+assert.equal(accepted.steps.resolution.status,'OK');
+assert.equal(accepted.direction,'LONG');
+console.log('ASCEND structure research causal baseline tests passed');

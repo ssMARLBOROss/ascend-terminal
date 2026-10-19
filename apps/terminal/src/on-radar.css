@@ -1,0 +1,96 @@
+/* ONH/ONL-first radar: price-level proximity & event chronology, research only. */
+.asc-radar-on-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(165px,.8fr);
+  gap:9px;margin-bottom:13px;align-items:stretch}
+.asc-radar-on-tabs>button{display:flex;flex-direction:column;justify-content:center;
+  text-align:left;gap:4px;padding:10px 12px;border-radius:7px;
+  background:#0b2938;border:1px solid #335b70;color:#a6c8d4;
+  font-size:11px;font-weight:900;min-height:57px;cursor:pointer}
+.asc-radar-on-tabs>button small{font-size:9px;line-height:1.35;color:#89a7b7;
+  font-weight:500}
+.asc-radar-on-tabs>button.active{background:#123a4b;border-color:#57a6bf;
+  color:#e7f7ff;box-shadow:inset 0 0 0 1px #3c90a1}
+.asc-radar-on-tabs>button:nth-child(2).active{background:#0f352c;
+  border-color:#49bc93;color:#aaf2d3}
+.asc-radar-on-tabs>button:nth-child(3).active{background:#38252c;
+  border-color:#c27c8d;color:#f5c4ce}
+.asc-radar-only-on{display:flex;gap:9px;align-items:center;
+  border:1px solid #34657b;border-radius:7px;padding:10px 12px;
+  background:#0b2230;color:#c9e6ed;font-size:11px;font-weight:800;cursor:pointer}
+.asc-radar-only-on input{accent-color:#3fd5a8;width:17px;height:17px;flex:0 0 17px}
+.asc-radar-on-side{display:inline-block;color:#a1c7d8}
+.asc-radar-on-side.onh{color:#f2a6b2}
+.asc-radar-on-side.onl{color:#79e2b9}
+.radar-hot{color:#f2ce74!important;font-weight:900}
+.asc-radar-on-event{display:inline-block;vertical-align:middle;margin:0 4px 4px 0;
+  padding:5px 7px;border-radius:4px;font-size:9px;font-weight:900;white-space:nowrap;
+  background:#152c3e;color:#a7cfdf;border:1px solid #315970}
+.asc-radar-on-event.e-touch,.asc-radar-on-event.e-approach{
+  border-color:#4c9dac;color:#9ed9e8}
+.asc-radar-on-event.e-sweep{background:#352720;border-color:#a87b4c;color:#f5c58b}
+.asc-radar-on-event.e-reclaim{background:#14362c;border-color:#4da586;color:#96e8bc}
+.asc-radar-on-event.e-acceptance{background:#252e42;border-color:#788fc1;color:#b5c6f2}
+.asc-radar-on-event.e-forming{border-color:#81699b;color:#bea9df}
+@media(max-width:1150px){.asc-radar-on-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.asc-radar-on-tabs{grid-template-columns:1fr}
+  .asc-radar-on-tabs>button{min-height:45px}
+  .asc-radar-hero h1{font-size:18px}
+}
+
+/* ASCEND RADAR: 4/5/6 of six closed-candle directional structure periods.
+   Observation and sorting only. Never enters trades or overrides CORE. */
+.asc-radar-mode-tabs>button.tf-agreement.active{
+ background:#132f4b;border-color:#6db8ea;color:#d5efff;
+}
+.asc-radar-tf-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+ border:1px solid #395e7c;background:#0a1b32;padding:10px;
+ border-radius:7px;margin:0 0 10px}
+.asc-radar-tf-controls>strong{font-size:11px;letter-spacing:.025em;color:#cfebfb}
+.asc-radar-tf-controls>button{border:1px solid #4d6a85;border-radius:6px;
+ background:#0d293c;padding:9px 13px;color:#afcde1;font-weight:800;
+ cursor:pointer;font-size:11px}
+.asc-radar-tf-controls>button[aria-pressed="true"]{
+ border-color:#65d5ed;color:#dcfaff;background:#10465a;
+ box-shadow:inset 0 0 0 1px #4eaecb}
+.asc-radar-tf-controls>button:focus-visible{outline:2px solid #80eaf4}
+.asc-radar-tf-controls>small{width:100%;font-size:10px;color:#91b0c5}
+.asc-radar-tf-secondary{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+.asc-radar-tf-secondary>label{display:flex;flex-direction:column;gap:4px;
+ min-width:145px;font-size:10px;color:#a9cbd9}
+.asc-radar-tf-secondary select,.asc-radar-tf-secondary input{
+ height:33px;border:1px solid #42657c;border-radius:5px;color:#e7faff;
+ background:#0e293b;padding:5px 8px;font-size:11px}
+.asc-radar-tf-secondary>button{background:#153950;color:#d3efff;
+ border:1px solid #52819a;border-radius:5px;padding:8px 11px;cursor:pointer}
+.asc-radar-tf-result{min-width:150px}
+.asc-radar-tf-result>b,.asc-radar-tf-result>strong{display:block;margin-bottom:4px}
+.asc-radar-tf-result>strong{font-size:17px!important;font-weight:900;color:#cfefff}
+.asc-radar-tf-result>small{color:#9cbacf!important;max-width:220px!important}
+@media(max-width:650px){
+ .asc-radar-tf-controls{gap:5px;padding:8px}
+ .asc-radar-tf-controls>strong{flex:1 0 100%}
+ .asc-radar-tf-controls>button{flex:1;padding:9px 5px}
+ .asc-radar-tf-secondary>label{min-width:0;flex:1}
+ .asc-radar-tf-result>strong{font-size:15px!important}
+}
+
+/* Lightweight multi-TF signal candidate cards; preserve original ONH table untouched. */
+.asc-radar-tf-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;padding:11px}
+.asc-radar-tf-card{display:flex;flex-direction:column;gap:11px;padding:13px;
+ background:#0b2432;border:1px solid #315970;border-radius:9px;min-width:0}
+.asc-radar-tf-card>header{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.asc-radar-tf-card>header strong{font-size:14px;color:#e3f5ff}
+.asc-radar-tf-card>header small{display:block;color:#92b1c5;font-size:10px;margin-top:4px}
+.asc-radar-tf-card>header>b{font-size:12px;white-space:nowrap;border-radius:5px;
+ border:1px solid #34536b;padding:6px 8px;background:#122b3a}
+.asc-radar-tf-card-match{padding:10px;background:#0d3040;border-radius:7px;
+ display:flex;flex-direction:column;gap:7px;min-width:0}
+.asc-radar-tf-card-match>b{font-size:18px;color:#e1f6fb;font-variant-numeric:tabular-nums}
+.asc-radar-tf-card-match>div{font-size:11px;line-height:1.45;color:#9bc3d4;overflow-wrap:anywhere}
+.asc-radar-tf-card-match>div>strong{color:#c3e5ef}
+.asc-radar-tf-card>footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:9px;align-items:center}
+.asc-radar-tf-card>footer>span{font-size:9px;color:#e4be74;max-width:190px}
+.asc-radar-tf-card>footer>button{font-size:11px;padding:8px 11px}
+@media(max-width:650px){
+ .asc-radar-tf-cards{grid-template-columns:1fr;padding:7px;gap:7px}
+ .asc-radar-tf-card{padding:10px;gap:7px}
+}

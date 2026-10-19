@@ -1,0 +1,30 @@
+name: ASCEND Russian Approved Layout
+on:
+  push:
+    branches:
+      - feature/russian-mockup-layout-v1-20261018
+  pull_request:
+    paths:
+      - 'apps/terminal/src/StableMarketApp.tsx'
+      - 'apps/terminal/src/components/FocusDecisionPanel.tsx'
+      - 'apps/terminal/src/components/FocusStudiesStrip.tsx'
+      - 'apps/terminal/src/ascend-focus-v1.css'
+      - 'apps/terminal/src/components/FocusSessionStrip.tsx'
+      - 'apps/terminal/tests/russian-approved-layout.test.mjs'
+      - '.github/workflows/russian-approved-layout.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check approved visual structure
+        run: node --test apps/terminal/tests/russian-approved-layout.test.mjs
+      - name: Build React terminal
+        run: |
+          npm install --no-audit --no-fund
+          npm run build --workspace @ascend/terminal

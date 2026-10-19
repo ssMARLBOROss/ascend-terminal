@@ -1,0 +1,45 @@
+/* ASCEND: small event labels and a data-true, click-to-open structure chronology. */
+.asc-structure-overlay{position:absolute;inset:0;z-index:11;pointer-events:none;font-family:Inter,system-ui,sans-serif}
+.asc-structure-toggle{position:absolute;right:76px;top:9px;z-index:3;pointer-events:auto;
+  border:1px solid #28536a;background:rgba(5,23,36,.93);color:#9fbbcc;border-radius:5px;
+  padding:5px 8px;font:700 10px/1.1 Inter,system-ui,sans-serif;cursor:pointer}
+.asc-structure-toggle.active{color:#70d7e4;border-color:#237f93}
+.asc-structure-marker{position:absolute;pointer-events:auto;transform:translate(-50%,-105%);
+  border:1px solid #2a9f9e;background:rgba(6,29,39,.87);color:#6ee6c8;
+  padding:1px 4px;border-radius:4px;white-space:nowrap;line-height:1.25;
+  min-width:25px;min-height:19px;font-size:10px;font-weight:800;cursor:pointer;
+  box-shadow:0 1px 4px #0007;touch-action:manipulation}
+.asc-structure-marker.down{color:#ff8c9a;border-color:#98515f}
+.asc-structure-marker.break{color:#f4c16d;border-color:#946936;background:#2b2418df}
+.asc-structure-marker:hover,.asc-structure-marker.selected{outline:2px solid #e5b76c;z-index:5}
+.asc-structure-event-card{position:absolute;z-index:7;width:min(296px,calc(100% - 16px));
+  max-height:calc(100% - 12px);overflow:auto;pointer-events:auto;background:#061b2a;
+  border:1px solid #3a87a0;border-radius:9px;box-shadow:0 13px 28px #000b;
+  color:#d8ecf5;font-variant-numeric:tabular-nums;text-align:left}
+.asc-structure-event-card header{display:flex;align-items:start;justify-content:space-between;
+  padding:9px 10px;border-bottom:1px solid #234357;background:#0e2939;gap:5px}
+.asc-structure-event-card header div{display:flex;align-items:start;gap:7px;flex-wrap:wrap}
+.asc-structure-event-card header b{color:#71dadd;font-size:15px}
+.asc-structure-event-card header strong{font-size:11px;line-height:1.4}
+.asc-structure-event-card header button{color:#d9ebf2;background:transparent;border:none;
+  cursor:pointer;font-size:22px;line-height:15px;padding:0 3px}
+.asc-structure-event-main{display:flex;justify-content:space-between;gap:9px;padding:9px 10px;
+  background:#092a38;font-size:11px}
+.asc-structure-event-main span{display:flex;flex-direction:column;gap:3px;color:#a5bdcb}
+.asc-structure-event-main strong{color:#e6f3f7;font-size:15px}
+.asc-structure-event-main strong.up{color:#71dfb7}
+.asc-structure-event-main strong.down{color:#ff97a1}
+.asc-structure-event-card dl{display:grid;grid-template-columns:1fr auto;gap:7px 10px;
+  padding:10px;margin:0;font-size:10px}
+.asc-structure-event-card dt{color:#a1bdcd}
+.asc-structure-event-card dd{margin:0;font-weight:700;text-align:right;max-width:145px}
+.asc-structure-event-card p{margin:0;padding:5px 10px 7px;color:#d5e5ea;font-size:10px}
+.asc-structure-event-card small{display:block;border-top:1px solid #234357;padding:7px 10px;
+  font-size:9px;color:#9bb9ca;line-height:1.45}
+@media(max-width:600px){
+  .asc-structure-toggle{right:58px;top:6px;font-size:9px}
+  .asc-structure-marker{font-size:9px;padding:0 3px;min-width:22px}
+  .asc-structure-event-card{width:min(270px,calc(100% - 16px))}
+}
+/* Market context remains in the side decision panel; do not cover candles. */
+.asc-mode-focus .asc-lite-chart-stage .asc-lite-context-hud{display:none}

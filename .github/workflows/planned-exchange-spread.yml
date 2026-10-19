@@ -1,0 +1,35 @@
+name: ASCEND Planned Exchange & Spread
+on:
+  push:
+    branches:
+      - feature/cross-exchange-bid-ask-spread-focus-20261018
+  pull_request:
+    paths:
+      - 'apps/terminal/src/market/crossExchangeSpread.ts'
+      - 'apps/terminal/src/market/useCrossExchangeSpread.ts'
+      - 'apps/terminal/src/components/FocusStudiesStrip.tsx'
+      - 'apps/terminal/src/StableMarketApp.tsx'
+      - 'apps/terminal/tests/planned-exchange-spread.test.mjs'
+      - 'apps/terminal/nginx.conf'
+      - '.github/workflows/planned-exchange-spread.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check venue pricing and safety
+        run: node --experimental-strip-types apps/terminal/tests/planned-exchange-spread.test.mjs
+      - name: Verify public quote proxy routes exist
+        run: |
+          grep -q 'location /binance-market-api/' apps/terminal/nginx.conf
+          grep -q 'location /bingx-market-api/' apps/terminal/nginx.conf
+          grep -q 'location /okx-market-api/' apps/terminal/nginx.conf
+      - name: Build React terminal
+        run: |
+          npm install --no-audit --no-fund
+          npm run build --workspace @ascend/terminal
