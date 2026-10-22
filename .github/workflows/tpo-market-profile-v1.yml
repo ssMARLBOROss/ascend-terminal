@@ -1,0 +1,25 @@
+name: ASCEND TPO Market Profile V1
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tpo-market-profile-v1.js'
+      - 'tests/tpo-market-profile-v1.test.mjs'
+      - 'index.html'
+      - '.github/workflows/tpo-market-profile-v1.yml'
+  push:
+    branches: [feature/tpo-market-profile-analysis-20261022]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check TPO JavaScript syntax
+        run: node --check tpo-market-profile-v1.js
+      - name: Run TPO regression suite
+        run: node --test tests/tpo-market-profile-v1.test.mjs

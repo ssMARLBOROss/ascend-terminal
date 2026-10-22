@@ -424,6 +424,35 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
     #ascendVwapBadge.down{color:#d3b56e}
     @media(max-width:830px){#ascendVwapToggle{margin-left:0}
       #ascendVwapBadge{width:100%;font-size:10px}}
+
+/* ASCEND TPO PROFILE — isolated visual research page; trading code unaffected. */
+#ascTpoAnalysis{display:none}
+body[data-view="tpo"] .content > :not(#ascTpoAnalysis){display:none!important}
+body[data-view="tpo"] #ascTpoAnalysis{display:block!important}
+.asc-tpo-panel{background:linear-gradient(180deg,#081624,#030b13);border:1px solid #294159;border-radius:11px;padding:16px}
+.asc-tpo-title{display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+.asc-tpo-title h2{margin:0;font-size:18px;color:#e2f3fc;letter-spacing:.02em}
+.asc-tpo-title p{font-size:11px;color:#93aec0;margin:3px 0 0}
+.asc-tpo-controls{margin:14px 0 10px;display:flex;flex-wrap:wrap;align-items:end;gap:8px}
+.asc-tpo-controls label{display:grid;gap:5px;color:#91adbf;font-size:10px;font-weight:700}
+.asc-tpo-controls select,.asc-tpo-controls button{background:#0a2337;border:1px solid #34536d;color:#d9edfb;border-radius:6px;padding:8px 10px;font-size:11px;min-height:34px}
+.asc-tpo-controls button{cursor:pointer;border-color:#47bcdc;font-weight:800}
+.asc-tpo-statgrid{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:8px;margin-bottom:9px}
+.asc-tpo-stat{border:1px solid #244057;background:#071926;border-radius:8px;padding:10px;min-width:0}
+.asc-tpo-stat small{color:#86a5b7;font-size:10px;display:block;margin-bottom:3px}
+.asc-tpo-stat strong{font-size:17px;color:#f0f7fa;white-space:nowrap}
+.asc-tpo-status{color:#b7cedd;font-size:10px;line-height:1.55;margin:6px 0 10px}
+.asc-tpo-scroll{position:relative;background:#03080f;border:1px solid #1a3348;border-radius:8px;overflow-x:auto;overflow-y:hidden}
+.asc-tpo-scroll svg{display:block;width:100%;min-width:980px;height:auto}
+.asc-tpo-sessiongrid{display:grid;grid-template-columns:repeat(4,minmax(145px,1fr));gap:8px;margin-top:9px}
+.asc-tpo-session{padding:10px;background:#071725;border:1px solid #284058;border-top:2px solid var(--session-color,#568dad);border-radius:7px;font-size:11px}
+.asc-tpo-session b{color:#e2f1fb;display:block;margin-bottom:6px}
+.asc-tpo-session small{color:#819bad;display:block;margin-top:5px}
+.asc-tpo-note{color:#9ab4c4;font-size:11px;line-height:1.55;margin:11px 2px 0}
+.asc-tpo-note strong{color:#e8c87e}
+#ascTpoRowDetails{border-left:3px solid #4b99b6;padding:8px 11px;margin-top:9px;background:#0a1c2b;color:#c6dfef;font-size:11px;line-height:1.5}
+@media(max-width:850px){.asc-tpo-panel{padding:9px}.asc-tpo-statgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.asc-tpo-sessiongrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:450px){.asc-tpo-stat strong{font-size:14px}}
   </style>
 </head>
 <body>
@@ -436,6 +465,7 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
       <a href="/?view=coins" data-view-link="coins">◆ Монеты</a>
       <a href="/?view=users" data-view-link="users">Пользователи</a>
       <a href="/?view=analytics" data-view-link="analytics">Аналитика</a>
+      <a href="/?view=tpo" data-view-link="tpo">▦ TPO · Профиль</a>
       <a href="/?view=signals" data-view-link="signals">Сигналы</a>
       <a href="/?view=journal" data-view-link="journal">Журнал</a>
     </nav>
@@ -461,7 +491,7 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
       <div class="quick-search-wrap"><input class="select" id="quickSearch" placeholder="Быстрый поиск монеты / пары"><div class="quick-results" id="quickResults"></div></div><select class="select" id="symbol"><option>BTC_USDT</option></select>
     </div>
     <div class="mobile-nav">
-      <a href="/?view=market" data-view-link="market">Рынок</a><a href="/?view=coins" data-view-link="coins">Монеты</a><a href="/?view=users" data-view-link="users">Пользователи</a><a href="/?view=analytics" data-view-link="analytics">Аналитика</a><a href="/?view=signals" data-view-link="signals">Сигналы</a><a href="/?view=journal" data-view-link="journal">Журнал</a>
+      <a href="/?view=market" data-view-link="market">Рынок</a><a href="/?view=coins" data-view-link="coins">Монеты</a><a href="/?view=users" data-view-link="users">Пользователи</a><a href="/?view=analytics" data-view-link="analytics">Аналитика</a><a href="/?view=tpo" data-view-link="tpo">TPO</a><a href="/?view=signals" data-view-link="signals">Сигналы</a><a href="/?view=journal" data-view-link="journal">Журнал</a>
     </div>
     <div class="content">
       <div class="newsbar"><span class="news-title">НОВОСТИ · РЫНОК</span><div class="news-window"><div class="news-track" id="newsTrack">Загрузка новостей…</div></div></div>
@@ -770,6 +800,34 @@ body:not([data-view="market"]) .entry-market-bottom{display:none!important}
         </div>
       </section>
 
+
+      <section class="asc-tpo-panel section-anchor" id="ascTpoAnalysis" aria-label="TPO профиль рынка">
+        <div class="asc-tpo-title">
+          <div><h2>▦ TPO · ПРОФИЛЬ РЫНКА</h2><p>Время × цена · буквенные интервалы · баланс сессий · исследовательский анализ</p></div>
+          <span style="margin-left:auto;color:#67bed9;font-size:10px;font-weight:850">MEXC · USDT Futures · без торговых сигналов</span>
+        </div>
+        <div class="asc-tpo-controls">
+          <label>Период профиля<select id="ascTpoDay"><option value="0">Текущие сутки UTC</option><option value="1">Предыдущие сутки UTC</option></select></label>
+          <label>Длительность буквы<select id="ascTpoPeriod"><option value="15">15 минут</option><option value="30" selected>30 минут</option><option value="60">60 минут</option></select></label>
+          <label>Разрешение цены<select id="ascTpoRows"><option value="36">36 уровней</option><option value="48" selected>48 уровней</option><option value="72">72 уровня</option></select></label>
+          <label>Область стоимости<select id="ascTpoValue"><option value="68">68%</option><option value="70" selected>70%</option><option value="72">72%</option></select></label>
+          <button type="button" id="ascTpoRefresh">↻ Обновить свечи</button>
+        </div>
+        <div class="asc-tpo-statgrid">
+          <div class="asc-tpo-stat"><small>POC · центр времени</small><strong id="ascTpoPoc">—</strong></div>
+          <div class="asc-tpo-stat"><small>VAH · верх стоимости</small><strong id="ascTpoVah">—</strong></div>
+          <div class="asc-tpo-stat"><small>VAL · низ стоимости</small><strong id="ascTpoVal">—</strong></div>
+          <div class="asc-tpo-stat"><small>NPOC · нетестированный</small><strong id="ascTpoNpoc">—</strong></div>
+          <div class="asc-tpo-stat"><small>Цена / положение</small><strong id="ascTpoPrice">—</strong></div>
+        </div>
+        <div class="asc-tpo-status" id="ascTpoStatus" role="status">Ожидаем свечи MEXC Futures…</div>
+        <div class="asc-tpo-scroll" id="ascTpoScroll">
+          <svg id="ascTpoChart" viewBox="0 0 1120 650" role="img" aria-label="Буквенный TPO-профиль с распределением времени по ценовым уровням"><text x="35" y="60" fill="#9dc4d6">Загрузка профиля…</text></svg>
+        </div>
+        <div id="ascTpoRowDetails" aria-live="polite">Нажми на любую строку букв, чтобы увидеть цену, количество TPO и время наблюдения.</div>
+        <div class="asc-tpo-sessiongrid" id="ascTpoSessions"><div class="asc-tpo-session">Загрузка сессий…</div></div>
+        <p class="asc-tpo-note"><strong>Методика:</strong> каждый знак означает один полностью закрытый временной интервал, чей диапазон High–Low пересёк ценовой уровень. POC — максимум таких отметок, VAH/VAL — область около 70% TPO. Это приближение по OHLC 5m, не тиковый профиль, не объём торгов и не доказательство присутствия крупного капитала. Если полной истории нет, показываем неполный профиль, а не выдуманные цены. Перекрывающиеся сессии считаются независимо. Данные TPO не меняют Structure Engine, ENTRY READY или ордера.</p>
+      </section>
       <section class="lower">
         <div class="card panel section-anchor" id="analytics"><h3>АНАЛИТИКА · СТРУКТУРА ПО ТАЙМФРЕЙМАМ</h3><div class="structure-grid" id="structureGrid"></div></div>
         <div class="card panel" id="breadthPanel"><h3>MARKET BREADTH · LIVE RADAR</h3><div class="breadth"><div><small>Доступно</small><b id="breadthAvailable">—</b></div><div><small>LONG</small><b class="long" id="breadthLong">—</b></div><div><small>SHORT</small><b class="short" id="breadthShort">—</b></div><div><small>NEUTRAL</small><b class="neutral" id="breadthNeutral">—</b></div></div><div class="scan-meta" id="breadthBasis">Источник: LIVE REVERSAL RADAR</div></div>
@@ -2576,9 +2634,9 @@ latestStructureEvidence=null;structureEvidenceKey='';
 latestSessionHL=null;sessionHLRenderKey='';
 latestConfirmationV2=null;confirmationV2Key='';
 if(state.chartReady){clearLines();ascendLiquidityDraw();}
-renderTFHealth();if(state.chartReady){candles.setData([]);sma20.setData([]);sma50.setData([]);sma200.setData([]);vol.setData([]);candles.setMarkers([])}$("pairTop").textContent=sym.replace("_","/");$("chartTitle").textContent=sym.replace("_"," / ")+" · загрузка…";if(currentView()!=="market"){history.pushState(null,"","/?view=market");applyView()}loadMarket(true)}
+renderTFHealth();if(state.chartReady){candles.setData([]);sma20.setData([]);sma50.setData([]);sma200.setData([]);vol.setData([]);candles.setMarkers([])}$("pairTop").textContent=sym.replace("_","/");$("chartTitle").textContent=sym.replace("_"," / ")+" · загрузка…";if(currentView()!=="market"&&currentView()!=="tpo"){history.pushState(null,"","/?view=market");applyView()}loadMarket(true)}
 function setTimeframe(tf){if(!state.tf[tf]?.length)return;state.timeframe=tf;state.needsFit=true;document.querySelectorAll("[data-tf]").forEach(b=>b.classList.toggle("active",b.dataset.tf===tf));renderStructure();renderChart()}
-function currentView(){const v=new URLSearchParams(location.search).get("view")||"market";return ["market","users","analytics","signals","journal","coins"].includes(v)?v:"market"}
+function currentView(){const v=new URLSearchParams(location.search).get("view")||"market";return ["market","users","analytics","signals","journal","coins","tpo"].includes(v)?v:"market"}
 function applyView(){const v=currentView();document.body.dataset.view=v;document.querySelectorAll("[data-view-link]").forEach(a=>a.classList.toggle("active",a.dataset.viewLink===v));if(v==="market"&&state.chartReady){requestAnimationFrame(()=>{chart.applyOptions({width:$("chart").clientWidth,height:$("chart").clientHeight});scheduleOverlay()})}if(v==="users")setTimeout(loadAdminUsers,0);if(v==="coins")setTimeout(renderCoins,0);return v}
 $("symbol").addEventListener("change",e=>chooseSymbol(e.target.value));
 $("majorWrap")?.addEventListener("click",e=>{
@@ -6144,5 +6202,325 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 </script>
 <!-- ASCEND AXIS-IN-CHART V1 END -->
 
+<!-- ASCEND TPO ENGINE V1 embedded exactly as tpo-market-profile-v1.js -->
+<script>
+/* ASCEND TPO MARKET PROFILE V1 — research only.
+ * TPO is count of TIME brackets touching a price bin, not executed volume.
+ * No network, order routing, trading signals, or forecast.
+ */
+(function(root){
+'use strict';
+const STEP=300,DAY=86400,ALPHABET='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+const sessionDefs=[
+ {id:'asia',label:'Азия',from:0,to:8,color:'#49b9a9'},
+ {id:'frankfurt',label:'Франкфурт',from:6,to:9,color:'#e7b24c'},
+ {id:'london',label:'Лондон',from:7,to:16,color:'#629be8'},
+ {id:'newyork',label:'Нью-Йорк',from:13,to:22,color:'#d99263'}
+];
+const finite=x=>typeof x==='number'&&Number.isFinite(x);
+function prepare(raw,asOf){
+ if(!Array.isArray(raw)||!finite(asOf))return [];
+ const out=[],seen=new Set();
+ for(const x of raw){
+  if(!x||!finite(Number(x.time)))continue;
+  const t=Number(x.time);
+  if(!finite(t)||t%STEP!==0||t+STEP>asOf||seen.has(t))continue;
+  const a={time:t,open:Number(x.open),high:Number(x.high),low:Number(x.low),
+   close:Number(x.close),volume:Number(x.volume)||0};
+  if(![a.open,a.high,a.low,a.close].every(v=>finite(v)&&v>0)||
+   a.low>Math.min(a.open,a.close)||a.high<Math.max(a.open,a.close))continue;
+  seen.add(t);out.push(a);
+ }
+ return out.sort((a,b)=>a.time-b.time);
+}
+function niceStep(range,requested=48){
+ const target=range/Math.max(16,Math.min(100,Number(requested)||48));
+ if(!finite(target)||target<=0)return 0;
+ const pow=10**Math.floor(Math.log10(target)),ratio=target/pow;
+ return (ratio<=1?1:ratio<=2?2:ratio<=5?5:10)*pow;
+}
+function brackets(bars,start,end,period=30){
+ const span=Number(period)*60;
+ if(![900,1800,3600].includes(span))return [];
+ const n=span/STEP,groups=new Map();
+ for(const b of bars){
+  if(b.time<start||b.time>=end)continue;
+  const k=Math.floor(b.time/span)*span;
+  if(!groups.has(k))groups.set(k,[]);
+  groups.get(k).push(b);
+ }
+ const out=[];
+ for(const [t,rows] of [...groups.entries()].sort((a,b)=>a[0]-b[0])){
+  if(rows.length!==n||rows[0].time!==t||rows.some((x,i)=>x.time!==t+i*STEP))continue;
+  out.push({time:t,at:t+span,high:Math.max(...rows.map(x=>x.high)),
+   low:Math.min(...rows.map(x=>x.low)),open:rows[0].open,
+   close:rows.at(-1).close,letter:ALPHABET[Math.floor((t-start)/span)%ALPHABET.length],
+   ordinal:Math.floor((t-start)/span),volume:rows.reduce((n,x)=>n+x.volume,0)});
+ }
+ return out;
+}
+function calculate(book,opts={}){
+ if(!book?.length)return null;
+ const tick=Number(opts.priceStep)||niceStep(Math.max(...book.map(x=>x.high))-
+   Math.min(...book.map(x=>x.low)),opts.rows||48);
+ if(!finite(tick)||tick<=0)return null;
+ const origin=Math.floor(Math.min(...book.map(x=>x.low))/tick)*tick;
+ const map=new Map();
+ for(const br of book){
+  const lo=Math.max(0,Math.floor((br.low-origin)/tick+1e-8));
+  const hi=Math.max(lo,Math.floor((br.high-origin)/tick+1e-8));
+  for(let idx=lo;idx<=hi&&idx<1000;idx++){
+   const current=map.get(idx)||{index:idx,count:0,letters:[],volume:0};
+   current.count++;current.letters.push({letter:br.letter,time:br.time});
+   map.set(idx,current);
+  }
+ }
+ if(!map.size||map.size>450)return null;
+ const ascending=[...map.values()].sort((a,b)=>a.index-b.index);
+ const maxCount=Math.max(...ascending.map(x=>x.count));
+ const midpoint=(Math.max(...book.map(x=>x.high))+Math.min(...book.map(x=>x.low)))/2;
+ const candidates=ascending.filter(z=>z.count===maxCount);
+ const pocRow=candidates.sort((a,b)=>Math.abs(origin+(a.index+.5)*tick-midpoint)-
+   Math.abs(origin+(b.index+.5)*tick-midpoint)||a.index-b.index)[0];
+ const total=ascending.reduce((sum,x)=>sum+x.count,0),ratio=Math.max(.5,Math.min(.9,Number(opts.valuePct||70)/100));
+ const byIndex=new Map(ascending.map(x=>[x.index,x]));
+ let lowIdx=pocRow.index,highIdx=pocRow.index,included=pocRow.count;
+ while(included<total*ratio){
+  const lower=byIndex.get(lowIdx-1),upper=byIndex.get(highIdx+1);
+  if(!lower&&!upper)break;
+  if(upper&&(!lower||upper.count>=lower.count)){included+=upper.count;highIdx++;}
+  else {included+=lower.count;lowIdx--;}
+ }
+ const center=i=>Number((origin+(i+.5)*tick).toPrecision(13));
+ const areaLo=center(lowIdx),areaHi=center(highIdx),poc=center(pocRow.index);
+ return {
+  poc,vah:areaHi,val:areaLo,tick,maxCount,total,coverage:included/total,
+  high:Math.max(...book.map(x=>x.high)),low:Math.min(...book.map(x=>x.low)),
+  start:book[0].time,end:book.at(-1).at,countBrackets:book.length,
+  rows:ascending.slice().reverse().map(z=>({...z,price:center(z.index),value:z.index>=lowIdx&&z.index<=highIdx})),
+  periodMin:opts.period||30
+ };
+}
+function study(raw,asOf,options={}){
+ const period=[15,30,60].includes(Number(options.period))?Number(options.period):30;
+ const prepared=prepare(raw,asOf);
+ if(!prepared.length)return {status:'NO_DATA',reason:'Нет закрытых свечей MEXC 5m',sessions:[]};
+ const newest=prepared.at(-1).time+STEP;
+ const refDay=Math.floor((newest-1)/DAY)*DAY;
+ const offset=options.dayOffset===1?1:0,day=refDay-offset*DAY;
+ const dayBars=prepared.filter(x=>x.time>=day&&x.time<day+DAY);
+ const dayBooks=brackets(prepared,day,day+DAY,period);
+ const global=calculate(dayBooks,{rows:options.rows||48,period,valuePct:options.valuePct||70});
+ if(!global)return {status:'NO_DATA',reason:'Нет полных TPO-интервалов за выбранный день',
+  day,dayOffset:offset,latestCloseAt:newest,candles:dayBars.length,sessions:[]};
+ const sessions=sessionDefs.map(def=>{
+  const book=dayBooks.filter(b=>{
+   const t=(b.time-day)/3600;
+   return t>=def.from&&t<def.to;
+  });
+  const p=calculate(book,{priceStep:global.tick,period,valuePct:options.valuePct||70});
+  const completeExpected=(def.to-def.from)*60/period;
+  return {...def,profile:p,brackets:book.length,expected:completeExpected,
+   complete:book.length===completeExpected};
+ });
+ const expected=24*60/period,complete=dayBooks.length===expected;
+ let npoc=null;
+ const before=brackets(prepared,day-DAY,day,period);
+ if(before.length===expected){
+  const prev=calculate(before,{rows:options.rows||48,period,valuePct:options.valuePct||70});
+  if(prev){
+   const later=prepared.filter(x=>x.time>=day&&x.time+STEP<=asOf);
+   if(later.length&&!later.some(b=>b.low<=prev.poc&&b.high>=prev.poc))
+    npoc={price:prev.poc,day:day-DAY,untestedSince:day};
+  }
+ }
+ const lastClose=dayBars.at(-1)?.close??null;
+ const location=lastClose===null?'NO_DATA':lastClose>global.vah?'ABOVE_VAH':
+   lastClose<global.val?'BELOW_VAL':lastClose>global.poc?'UPPER_VALUE':
+   lastClose<global.poc?'LOWER_VALUE':'POC';
+ const stale=Number.isFinite(Number(options.now))?Number(options.now)-newest>15*60:asOf-newest>15*60;
+ return {
+  status:complete?'COMPLETE':'PARTIAL',day,dayOffset:offset,latestCloseAt:newest,
+  candles:dayBars.length,complete,actualBrackets:dayBooks.length,expectedBrackets:expected,
+  book:dayBooks,profile:global,sessions,npoc,lastClose,location,stale,
+  source:'MEXC USDT Futures 5m · закрытые свечи',
+  note:'TPO показывает число 15/30/60-минутных периодов на уровне. Не Volume Profile и не сигнал.'
+ };
+}
+root.ASCEND_TPO_PROFILE_V1=Object.freeze({prepare,niceStep,brackets,calculate,study,sessionDefs,STEP,DAY});
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+
+<!-- ASCEND TPO UI V1 — independent research-only profile -->
+<script>
+(function(root){
+'use strict';
+const engine=root.ASCEND_TPO_PROFILE_V1;
+if(!engine)return;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dayfmt=t=>new Date(t*1000).toLocaleDateString('ru-RU',{timeZone:'UTC',day:'2-digit',month:'2-digit',year:'numeric'});
+const timefmt=t=>new Date(t*1000).toISOString().slice(11,16)+' UTC';
+let source=[],loadedSymbol='',loadedAt=0,busy=false,generation=0,report=null;
+function active(){return typeof currentView==='function'&&currentView()==='tpo'}
+function num(n,tick=1){
+ if(typeof n!=='number'||!Number.isFinite(n))return '—';
+ const decimals=tick>=10?1:tick>=1?2:Math.min(8,Math.max(3,Math.ceil(-Math.log10(tick))+1));
+ return n.toLocaleString('ru-RU',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
+function options(){return {
+ dayOffset:Number($('ascTpoDay').value),period:Number($('ascTpoPeriod').value),
+ rows:Number($('ascTpoRows').value),valuePct:Number($('ascTpoValue').value)}}
+function labelPosition(location){
+ return ({ABOVE_VAH:'Выше VAH',BELOW_VAL:'Ниже VAL',UPPER_VALUE:'Между POC и VAH',
+ LOWER_VALUE:'Между VAL и POC',POC:'У POC'})[location]||'Нет данных';
+}
+function setStatus(message){$('ascTpoStatus').textContent=message}
+async function refresh(force=false){
+ if(!active()||busy||typeof state==='undefined')return;
+ const symbol=String(state.symbol||'BTC_USDT');
+ if(!force&&loadedSymbol===symbol&&Date.now()-loadedAt<90e3){draw();return}
+ busy=true;const seq=++generation;setStatus('Загружаем закрытые 5m свечи '+symbol.replace('_','/')+' с MEXC…');
+ try{
+  // The same endpoint used by the main chart, but a longer historical request.
+  const url='/api/v2/klines?symbol='+encodeURIComponent(symbol)+'&timeframe=5m&limit=700';
+  const response=await fetch(url,{cache:'no-store'});
+  if(!response.ok)throw new Error('HTTP '+response.status);
+  const json=await response.json();
+  if(seq!==generation||symbol!==state.symbol)return;
+  source=Array.isArray(json.candles)?json.candles:[];
+  loadedSymbol=symbol;loadedAt=Date.now();
+  draw();
+ }catch(e){
+  if(seq!==generation)return;
+  // Never mix data from the wrong symbol. Main terminal 5m is an optional partial fallback.
+  source=Array.isArray(state.tf?.['5m'])?state.tf['5m']:[];
+  loadedSymbol=symbol;loadedAt=Date.now();
+  draw('История загружена частично: '+String(e?.message||'сбой запроса'));
+ }finally{busy=false;}
+}
+function paint(report){
+ const el=$('ascTpoChart'),p=report.profile;
+ const rows=p.rows,cellH=12,top=51,bottom=104,height=Math.max(605,top+rows.length*cellH+bottom);
+ const fmt=n=>num(n,p.tick),wid=1120,lettersX=112,histX=735,histMax=194;
+ const colors={asia:'#50bda5',frankfurt:'#e5b04b',london:'#78aaf0',newyork:'#e8a177'};
+ const sessionColor=t=>{
+  const h=(t-report.day)/3600;
+  return h>=13&&h<22?colors.newyork:h>=7&&h<16?colors.london:h>=6&&h<9?colors.frankfurt:h<8?colors.asia:'#a4afbb'
+ };
+ const lineAt=(price,name,color,dash)=>{
+  if(!Number.isFinite(price))return '';
+  const idx=rows.reduce((best,x,i)=>Math.abs(x.price-price)<Math.abs(rows[best].price-price)?i:best,0);
+  const y=top+idx*cellH+5;
+  return '<line x1="20" x2="1000" y1="'+y+'" y2="'+y+'" stroke="'+color+'" stroke-width="1.3" stroke-dasharray="'+(dash?'4 5':'8 3')+'" opacity=".89"/>'+
+  '<rect x="1005" y="'+(y-9)+'" width="110" height="17" rx="3" fill="#0f2537" stroke="'+color+'" stroke-opacity=".55"/>'+
+  '<text x="1011" y="'+(y+3)+'" fill="'+color+'" font-size="10" font-weight="750">'+name+' '+esc(fmt(price))+'</text>';
+ };
+ let html='<rect x="0" y="0" width="'+wid+'" height="'+height+'" fill="#030913"/>'+
+  '<text x="20" y="23" fill="#b8dbea" font-size="13" font-weight="800">'+
+  esc(String(state.symbol||'').replace('_','/'))+' · '+dayfmt(report.day)+' · '+p.periodMin+'m · TPO</text>'+
+  '<text x="114" y="39" fill="#7392a4" font-size="10">Время на ценовом уровне · буквы закрытых периодов</text>'+
+  '<text x="'+histX+'" y="39" fill="#7392a4" font-size="10">ЧИСЛО TPO</text>'+
+  '<text x="998" y="39" fill="#7392a4" font-size="10">УРОВНИ</text>';
+ rows.forEach((z,i)=>{
+  const y=top+i*cellH,width=Math.round((z.count/p.maxCount)*histMax);
+  let span='';
+  z.letters.forEach((token,index)=>{
+   if(index>=54)return;
+   span+='<tspan fill="'+sessionColor(token.time)+'">'+esc(token.letter)+'</tspan>';
+  });
+  const priceText=fmt(z.price),selected=z.value;
+  html+='<g data-tpo-bin="'+i+'" role="button" aria-label="TPO цена '+esc(priceText)+', интервалов '+z.count+'">'+
+   '<title>Цена '+esc(priceText)+' · '+z.count+' временных интервалов</title>'+
+   '<rect x="17" y="'+y+'" width="980" height="'+cellH+'" fill="'+(selected?'#112038':'#060e19')+'" opacity="'+(i%2===0?'.85':'.58')+'"/>'+
+   '<rect x="'+histX+'" y="'+(y+2)+'" width="'+width+'" height="8" rx="1" fill="'+(Math.abs(z.price-p.poc)<p.tick/20?'#f3ca62':'#6594a8')+'" opacity=".52"/>'+
+   '<text x="'+lettersX+'" y="'+(y+10)+'" font-family="ui-monospace,monospace" font-size="10" letter-spacing="1.2">'+span+'</text>'+
+   '<text x="951" y="'+(y+10)+'" text-anchor="end" fill="#a8b4c6" font-size="10">'+z.count+'</text>'+
+   '<text x="965" y="'+(y+10)+'" fill="'+(selected?'#b9d7e9':'#788c9f')+'" font-size="9">'+esc(priceText)+'</text></g>';
+ });
+ html+=lineAt(p.vah,'VAH','#a0e1de',true)+lineAt(p.poc,'POC','#ffd36a',false)+
+  lineAt(p.val,'VAL','#71d1a0',true);
+ if(report.npoc&&report.npoc.price>=p.low&&report.npoc.price<=p.high)
+  html+=lineAt(report.npoc.price,'NPOC','#c5afea',true);
+ if(report.lastClose!==null&&report.lastClose>=p.low&&report.lastClose<=p.high)
+  html+=lineAt(report.lastClose,'ЦЕНА','#e7a083',true);
+ const foot=top+rows.length*cellH+20;
+ html+='<line x1="17" x2="997" y1="'+(foot-7)+'" y2="'+(foot-7)+'" stroke="#294457"/>'+
+  '<text x="19" y="'+(foot+8)+'" fill="#83a8bd" font-size="10">UTC · раскраска букв по сессиям (при перекрытии — приоритет Нью-Йорк → Лондон)</text>';
+ const legend=[['Азия',colors.asia],['Франкфурт',colors.frankfurt],['Лондон',colors.london],['Нью-Йорк',colors.newyork]];
+ legend.forEach((x,i)=>{
+  const xx=21+i*170;
+  html+='<rect x="'+xx+'" y="'+(foot+23)+'" width="9" height="9" rx="2" fill="'+x[1]+'"/>'+
+   '<text x="'+(xx+16)+'" y="'+(foot+32)+'" fill="#c0d4e0" font-size="11">'+x[0]+'</text>';
+ });
+ html+='<text x="19" y="'+(foot+54)+'" fill="#7190a2" font-size="9">'+
+  esc(report.book.length+' полных интервалов из '+report.expectedBrackets+
+  ' · Суммарное число TPO-отметок '+p.total+' · шаг цены '+fmt(p.tick))+'</text>';
+ el.setAttribute('viewBox','0 0 '+wid+' '+height);
+ el.innerHTML=html;
+}
+function draw(reason=''){
+ if(!active())return;
+ const latest=source.reduce((max,x)=>Math.max(max,Number(x?.time||0)+300),0);
+ const asOf=Math.min(Date.now()/1000,latest>0?latest:Date.now()/1000);
+ report=engine.study(source,asOf,{...options(),now:Date.now()/1000});
+ if(report.status==='NO_DATA'){
+  for(const id of ['ascTpoPoc','ascTpoVah','ascTpoVal','ascTpoNpoc','ascTpoPrice'])$(id).textContent='—';
+  $('ascTpoChart').innerHTML='<text x="45" y="65" fill="#a4bed0" font-size="14">TPO · NO DATA · закрытые 5m свечи отсутствуют</text>';
+  $('ascTpoSessions').replaceChildren();
+  setStatus((reason?reason+' · ':'')+String(report.reason||'NO DATA'));return;
+ }
+ const p=report.profile;
+ $('ascTpoPoc').textContent=num(p.poc,p.tick);
+ $('ascTpoVah').textContent=num(p.vah,p.tick);
+ $('ascTpoVal').textContent=num(p.val,p.tick);
+ $('ascTpoNpoc').textContent=report.npoc?num(report.npoc.price,p.tick):'Нет данных';
+ $('ascTpoPrice').textContent=num(report.lastClose,p.tick);
+ const part=report.status==='PARTIAL'?'НЕПОЛНЫЙ ПРОФИЛЬ':'ПОЛНЫЕ СУТКИ';
+ setStatus((reason?reason+' · ':'')+report.source+' · '+part+' · '+
+  dayfmt(report.day)+' · '+report.actualBrackets+'/'+report.expectedBrackets+
+  ' интервалов · '+labelPosition(report.location)+
+  (report.stale?' · Данные устарели':'')+
+  ' · данные 5m OHLC; TPO без сделок');
+ paint(report);
+ const cards=report.sessions.map(s=>{
+  const z=s.profile;
+  return '<article class="asc-tpo-session" style="--session-color:'+s.color+'">'+
+   '<b>'+esc(s.label)+' · '+String(s.from).padStart(2,'0')+':00–'+String(s.to).padStart(2,'0')+':00 UTC</b>'+
+   (z?'<div>POC <b style="display:inline;color:#ffd36a">'+num(z.poc,z.tick)+'</b></div>'+
+    '<div>VAH '+num(z.vah,z.tick)+' · VAL '+num(z.val,z.tick)+'</div>'+
+    '<small>Диапазон '+num(z.low,z.tick)+'–'+num(z.high,z.tick)+'</small>':'<div>НЕТ ДАННЫХ</div>')+
+   '<small>'+s.brackets+'/'+s.expected+' полных интервалов'+(s.complete?' · FROZEN':' · LIVE / PARTIAL')+'</small></article>';
+ }).join('');
+ $('ascTpoSessions').innerHTML=cards;
+ $('ascTpoRowDetails').textContent='Нажми на строку букв — увидишь уровень, TPO и часы первого/последнего касания.';
+}
+function mount(){
+ const page=$('ascTpoAnalysis');if(!page||page.dataset.mounted)return;
+ page.dataset.mounted='1';
+ for(const id of ['ascTpoDay','ascTpoPeriod','ascTpoRows','ascTpoValue'])
+  $(id).addEventListener('change',draw);
+ $('ascTpoRefresh').addEventListener('click',()=>refresh(true));
+ $('ascTpoChart').addEventListener('click',e=>{
+  const node=e.target.closest('[data-tpo-bin]');
+  const idx=Number(node?.getAttribute('data-tpo-bin')),row=report?.profile?.rows?.[idx];
+  if(!node||!row)return;
+  $('ascTpoRowDetails').textContent='Уровень '+num(row.price,report.profile.tick)+
+   ' · '+row.count+' TPO-интервалов · '+(row.value?'в зоне стоимости':'вне зоны стоимости')+
+   ' · первый: '+timefmt(row.letters[0].time)+
+   ' · последний: '+timefmt(row.letters.at(-1).time);
+ });
+ if(active())refresh(true);
+ setInterval(()=>{if(!active())return;if(loadedSymbol!==String(state.symbol||'')||
+  Date.now()-loadedAt>=90000)refresh();},12000);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+root.ASCEND_TPO_UI_V1=Object.freeze({refresh,draw});
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<!-- ASCEND TPO UI V1 END -->
+
 </body>
 </html>
+
