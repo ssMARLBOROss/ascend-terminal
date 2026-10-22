@@ -132,7 +132,7 @@ function study(raw,asOf,options={}){
  const location=lastClose===null?'NO_DATA':lastClose>global.vah?'ABOVE_VAH':
    lastClose<global.val?'BELOW_VAL':lastClose>global.poc?'UPPER_VALUE':
    lastClose<global.poc?'LOWER_VALUE':'POC';
- const stale=asOf-newest>15*60;
+ const stale=Number.isFinite(Number(options.now))?Number(options.now)-newest>15*60:asOf-newest>15*60;
  return {
   status:complete?'COMPLETE':'PARTIAL',day,dayOffset:offset,latestCloseAt:newest,
   candles:dayBars.length,complete,actualBrackets:dayBooks.length,expectedBrackets:expected,
