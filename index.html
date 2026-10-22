@@ -6202,9 +6202,6 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 </script>
 <!-- ASCEND AXIS-IN-CHART V1 END -->
 
-</body>
-</html>
-
 <!-- ASCEND TPO ENGINE V1 embedded exactly as tpo-market-profile-v1.js -->
 <script>
 /* ASCEND TPO MARKET PROFILE V1 — research only.
@@ -6341,7 +6338,7 @@ function study(raw,asOf,options={}){
  const location=lastClose===null?'NO_DATA':lastClose>global.vah?'ABOVE_VAH':
    lastClose<global.val?'BELOW_VAL':lastClose>global.poc?'UPPER_VALUE':
    lastClose<global.poc?'LOWER_VALUE':'POC';
- const stale=asOf-newest>15*60;
+ const stale=Number.isFinite(Number(options.now))?Number(options.now)-newest>15*60:asOf-newest>15*60;
  return {
   status:complete?'COMPLETE':'PARTIAL',day,dayOffset:offset,latestCloseAt:newest,
   candles:dayBars.length,complete,actualBrackets:dayBooks.length,expectedBrackets:expected,
@@ -6387,7 +6384,7 @@ async function refresh(force=false){
  busy=true;const seq=++generation;setStatus('Загружаем закрытые 5m свечи '+symbol.replace('_','/')+' с MEXC…');
  try{
   // The same endpoint used by the main chart, but a longer historical request.
-  const url='/api/v2/klines?symbol='+encodeURIComponent(symbol)+'&timeframe=5m&limit=750';
+  const url='/api/v2/klines?symbol='+encodeURIComponent(symbol)+'&timeframe=5m&limit=700';
   const response=await fetch(url,{cache:'no-store'});
   if(!response.ok)throw new Error('HTTP '+response.status);
   const json=await response.json();
@@ -6410,7 +6407,7 @@ function paint(report){
  const colors={asia:'#50bda5',frankfurt:'#e5b04b',london:'#78aaf0',newyork:'#e8a177'};
  const sessionColor=t=>{
   const h=(t-report.day)/3600;
-  return h>=13&&h<22?colors.newyork:h>=7&&h<16?colors.london:h>=6&&h<9?colors.frankfurt:colors.asia
+  return h>=13&&h<22?colors.newyork:h>=7&&h<16?colors.london:h>=6&&h<9?colors.frankfurt:h<8?colors.asia:'#a4afbb'
  };
  const lineAt=(price,name,color,dash)=>{
   if(!Number.isFinite(price))return '';
@@ -6437,7 +6434,7 @@ function paint(report){
   html+='<g data-tpo-bin="'+i+'" role="button" aria-label="TPO цена '+esc(priceText)+', интервалов '+z.count+'">'+
    '<title>Цена '+esc(priceText)+' · '+z.count+' временных интервалов</title>'+
    '<rect x="17" y="'+y+'" width="980" height="'+cellH+'" fill="'+(selected?'#112038':'#060e19')+'" opacity="'+(i%2===0?'.85':'.58')+'"/>'+
-   '<rect x="'+histX+'" y="'+(y+2)+'" width="'+width+'" height="8" rx="1" fill="'+(z.index===Math.round((p.poc-(z.price-z.index*p.tick))/p.tick-.5)?'#f3ca62':'#6594a8')+'" opacity=".52"/>'+
+   '<rect x="'+histX+'" y="'+(y+2)+'" width="'+width+'" height="8" rx="1" fill="'+(Math.abs(z.price-p.poc)<p.tick/20?'#f3ca62':'#6594a8')+'" opacity=".52"/>'+
    '<text x="'+lettersX+'" y="'+(y+10)+'" font-family="ui-monospace,monospace" font-size="10" letter-spacing="1.2">'+span+'</text>'+
    '<text x="951" y="'+(y+10)+'" text-anchor="end" fill="#a8b4c6" font-size="10">'+z.count+'</text>'+
    '<text x="965" y="'+(y+10)+'" fill="'+(selected?'#b9d7e9':'#788c9f')+'" font-size="9">'+esc(priceText)+'</text></g>';
@@ -6467,7 +6464,7 @@ function draw(reason=''){
  if(!active())return;
  const latest=source.reduce((max,x)=>Math.max(max,Number(x?.time||0)+300),0);
  const asOf=Math.min(Date.now()/1000,latest>0?latest:Date.now()/1000);
- report=engine.study(source,asOf,options());
+ report=engine.study(source,asOf,{...options(),now:Date.now()/1000});
  if(report.status==='NO_DATA'){
   for(const id of ['ascTpoPoc','ascTpoVah','ascTpoVal','ascTpoNpoc','ascTpoPrice'])$(id).textContent='—';
   $('ascTpoChart').innerHTML='<text x="45" y="65" fill="#a4bed0" font-size="14">TPO · NO DATA · закрытые 5m свечи отсутствуют</text>';
@@ -6523,3 +6520,7 @@ root.ASCEND_TPO_UI_V1=Object.freeze({refresh,draw});
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 <!-- ASCEND TPO UI V1 END -->
+
+</body>
+</html>
+
