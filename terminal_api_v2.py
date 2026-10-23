@@ -233,6 +233,89 @@ async def _klines(symbol: str, timeframe: str, limit: int = 260) -> list[dict[st
 
 
 
+
+# ASCEND historical replay — bounded, observational, no orders and no Core writes.
+_REPLAY_CANDLE_CACHE: dict[tuple[str, str, int, int], tuple[float, dict[str, Any]]] = {}
+
+
+async def _replay_historical_klines(
+    symbol: str, timeframe: str, start_ts: int, end_ts: int
+) -> dict[str, Any]:
+    if timeframe not in {"1m", "5m", "15m"}:
+        raise HTTPException(status_code=400, detail="Replay supports only 1m/5m/15m")
+    step = TIMEFRAMES[timeframe][1]
+    if end_ts <= start_ts or start_ts % step or end_ts % step:
+        raise HTTPException(status_code=400, detail="Range must be aligned and increasing")
+    max_seconds = {"1m": 24 * 3600, "5m": 72 * 3600, "15m": 96 * 3600}[timeframe]
+    if end_ts - start_ts > max_seconds:
+        raise HTTPException(status_code=400, detail="Requested historical range too large")
+    if end_ts > int(time.time()) + step:
+        raise HTTPException(status_code=400, detail="Future candles cannot be requested")
+    expected = (end_ts - start_ts) // step
+    cache_key = (symbol, timeframe, start_ts, end_ts)
+    cached = _REPLAY_CANDLE_CACHE.get(cache_key)
+    if cached and time.monotonic() - cached[0] < 300:
+        return cached[1]
+    interval = TIMEFRAMES[timeframe][0]
+    candles: dict[int, dict[str, Any]] = {}
+    # Limit historical exchange calls to small disjoint windows, never synthesize missing bars.
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            for window_start in range(start_ts, end_ts, step * 600):
+                window_end = min(end_ts, window_start + step * 600)
+                response = await client.get(
+                    MEXC_KLINE_URL.format(symbol=symbol),
+                    params={
+                        "interval": interval,
+                        "start": window_start,
+                        "end": window_end - 1,
+                    },
+                )
+                response.raise_for_status()
+                payload = response.json()
+                if not payload.get("success"):
+                    raise ValueError(str(payload.get("message") or "MEXC error"))
+                data = payload.get("data") or {}
+                required = ("time", "open", "high", "low", "close", "vol")
+                if any(k not in data for k in required):
+                    raise ValueError("Incomplete historical MEXC OHLCV")
+                size = min(len(data[k]) for k in required)
+                for i in range(size):
+                    t = int(data["time"][i])
+                    if t < window_start or t >= window_end or t % step:
+                        continue
+                    row = {
+                        "time": t, "open": _f(data["open"][i]),
+                        "high": _f(data["high"][i]), "low": _f(data["low"][i]),
+                        "close": _f(data["close"][i]), "volume": _f(data["vol"][i]),
+                    }
+                    if not all(math.isfinite(row[k]) and row[k] > 0
+                               for k in ("open", "high", "low", "close")):
+                        continue
+                    if (row["low"] > min(row["open"], row["close"])
+                            or row["high"] < max(row["open"], row["close"])):
+                        continue
+                    candles[t] = row
+    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(
+            status_code=502, detail=f"Historical MEXC candles unavailable: {exc}"
+        ) from exc
+    rows = [candles[t] for t in sorted(candles)]
+    missing = expected - len(rows)
+    result = {
+        "symbol": symbol, "timeframe": timeframe,
+        "exchange": "MEXC", "source": "MEXC_PUBLIC_OHLCV_HISTORICAL",
+        "research_only": True, "entry_gate": False,
+        "from_ts": start_ts, "to_ts": end_ts, "server_time": int(time.time()),
+        "candles": rows, "count": len(rows), "expected": expected,
+        "missing": missing, "status": "COMPLETE" if missing == 0 else "PARTIAL",
+    }
+    if len(_REPLAY_CANDLE_CACHE) > 70:
+        _REPLAY_CANDLE_CACHE.clear()
+    _REPLAY_CANDLE_CACHE[cache_key] = (time.monotonic(), result)
+    return result
+
+
 async def _bybit_usdt_symbols(force: bool = False) -> list[str]:
     now = time.monotonic()
     cached = list(_BYBIT_SYMBOL_CACHE.get("symbols") or [])
@@ -864,6 +947,17 @@ def install(app: Any) -> None:
             {"symbol": safe, "timeframe": timeframe, "candles": rows, "server_time": int(time.time())},
             headers={"Cache-Control": "no-store"},
         )
+
+    @app.get("/api/v2/research/replay/candles")
+    async def research_replay_candles(
+        symbol: str = Query(default="BTC_USDT"),
+        timeframe: str = Query(default="1m"),
+        start_ts: int = Query(..., ge=1),
+        end_ts: int = Query(..., ge=1),
+    ):
+        safe = _safe_symbol(symbol)
+        result = await _replay_historical_klines(safe, timeframe, start_ts, end_ts)
+        return JSONResponse(result, headers={"Cache-Control": "private, no-store"})
 
     @app.get("/api/v2/history/status")
     async def history_status():
