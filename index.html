@@ -6395,10 +6395,11 @@ async function load(){
  const seq=++version;loading=true;historyData=null;moments=[];events=[];trades=[];
  $('ascReplayLedger').textContent='Нет результатов исследования.';
  const symbol=$('ascReplaySymbol').value,day=parsedDate();
+ if(day+12*3600>=Math.floor(Date.now()/60000)*60){notice('NO DATA: выбранный период ещё не наступил.');return;}
  const spec=[
-  ['1m',day+12*3600,day+33*3600],
-  ['5m',day-86400,day+33*3600],
-  ['15m',day-86400,day+33*3600]
+  ['1m',day+12*3600,Math.min(day+33*3600,Math.floor(Date.now()/60000)*60)],
+  ['5m',day-86400,Math.min(day+33*3600,Math.floor(Date.now()/300000)*300)],
+  ['15m',day-86400,Math.min(day+33*3600,Math.floor(Date.now()/900000)*900)]
  ];
  notice('Запрашиваем исторические свечи MEXC Futures · '+symbol+'; данные из других бирж не подставляются.');
  $('ascReplayLoad').disabled=true;
