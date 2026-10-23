@@ -6247,6 +6247,250 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 </script>
 <!-- ASCEND AXIS-IN-CHART V1 END -->
 
+<!-- ASCEND MARKET REPLAY UI V1 · pure read-only research -->
+<script>
+(function(root){
+'use strict';
+const E=root.ASCEND_MARKET_REPLAY_V1;
+if(!E)return;
+const $=id=>document.getElementById(id);
+const stamp=t=>new Date(t*1000).toLocaleString('ru-RU',{
+ timeZone:'Europe/Kyiv',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+const num=(v,n=1)=>Number.isFinite(Number(v))?Number(v).toLocaleString('ru-RU',{
+ minimumFractionDigits:n,maximumFractionDigits:n}):'—';
+const names={context:'30m / 15m · контекст',sweep:'SWEEP / RECLAIM · frozen level',
+ choch:'10m · CHOCH',mss:'5m · MSS',retest:'3m · ретест + HL/LH',
+ micro:'1m · micro-BOS + volume',risk:'Структурный SL / TP · R:R'};
+let historyData=null,moments=[],cursor=0,events=[],trades=[],loading=false,version=0,scanning=false;
+function live(){return document.body?.dataset?.view==='replay'}
+function notice(t){$('ascReplayStatus').textContent=t}
+function parsedDate(){
+ const s=$('ascReplayDate').value,d=Date.parse(s+'T00:00:00Z');
+ if(!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(s)||!Number.isFinite(d))throw Error('Некорректная дата');
+ const now=Date.now();if(d>now)throw Error('Будущая дата недоступна');
+ return d/1000;
+}
+async function load(){
+ if(loading)return;
+ const seq=++version;loading=true;historyData=null;moments=[];events=[];trades=[];
+ $('ascReplayLedger').textContent='Нет результатов исследования.';
+ const symbol=$('ascReplaySymbol').value,day=parsedDate();
+ const spec=[
+  ['1m',day+12*3600,day+33*3600],
+  ['5m',day-86400,day+33*3600],
+  ['15m',day-86400,day+33*3600]
+ ];
+ notice('Запрашиваем исторические свечи MEXC Futures · '+symbol+'; данные из других бирж не подставляются.');
+ $('ascReplayLoad').disabled=true;
+ try{
+  const result=await Promise.all(spec.map(async ([tf,from,to])=>{
+   const url='/api/v2/research/replay/candles?symbol='+encodeURIComponent(symbol)+
+    '&timeframe='+tf+'&start_ts='+from+'&end_ts='+to;
+   const response=await fetch(url,{cache:'no-store',headers:{Accept:'application/json'}});
+   if(!response.ok){const payload=await response.json().catch(()=>({}));
+    throw Error(tf+': '+(payload.detail||'HTTP '+response.status));}
+   return response.json();
+  }));
+  if(seq!==version)return;
+  if(result.some(r=>r.symbol!==symbol||r.exchange!=='MEXC'||r.research_only!==true))
+   throw Error('Не удалось подтвердить происхождение MEXC OHLCV');
+  const raw=Object.fromEntries(result.map(r=>[r.timeframe,r.candles||[]]));
+  const status=result.map(r=>r.timeframe+': '+r.count+'/'+r.expected+
+    (r.missing?' · ПРОПУСКИ '+r.missing:' · FULL')).join(' | ');
+  historyData={raw,symbol,day,source:'MEXC',feed:result};
+  moments=raw['1m'].filter(x=>x.time>=day+12*3600&&x.time<day+33*3600)
+   .map(x=>x.time+60).filter(t=>t<=Math.floor(Date.now()/60000)*60);
+  cursor=Math.max(0,Math.min(moments.length-1,moments.findIndex(t=>t>=day+20*3600)));
+  if(!moments.length){notice('NO DATA: архив минутных свечей за выбранный период пуст.');return;}
+  $('ascReplaySlider').min='0';$('ascReplaySlider').max=String(moments.length-1);
+  events=makeEvents(raw,day);
+  notice('MEXC · '+symbol+' · '+status+
+    ' · бары только по времени закрытия; NO DATA при разрывах');
+  display();
+ }catch(e){notice('NO DATA · '+e.message);$('ascReplayDecision').textContent='Источник недоступен';
+  $('ascReplayChart').innerHTML='<text fill="#e5a8ae" x="25" y="42">Нет проверенных исторических свечей</text>';
+ }finally{loading=false;$('ascReplayLoad').disabled=false}
+}
+function makeEvents(raw,day){
+ const eng=root.ASCEND_CONFIRMATION_V2,choch=root.ASCEND_CHOCH_10M;
+ if(!eng||!choch)return[];
+ const last=day+33*3600;
+ const five=E.contiguous(raw['5m'],300,last),ten=eng.combine(five,300,600,last);
+ const cs=choch.scan(ten,last).events.filter(x=>x.at>=day+12*3600&&x.at<=last);
+ return cs.map(x=>({type:'CHOCH',at:x.at,dir:x.dir,level:x.level,price:x.price,
+  source:'ASCEND CHOCH 10m · известен по закрытию свечи'})).sort((a,b)=>a.at-b.at);
+}
+function gotoIndex(i){
+ if(!moments.length)return;
+ cursor=Math.max(0,Math.min(moments.length-1,i));
+ display();
+}
+function snap(){return historyData&&moments.length?
+ E.assess(historyData.raw,moments[cursor],historyData.symbol):null}
+function display(){
+ if(!historyData||!moments.length)return;
+ const asOf=moments[cursor],s=snap();
+ $('ascReplaySlider').value=String(cursor);
+ $('ascReplayClock').textContent='Историческое время: '+stamp(asOf)+
+  ' · курсор по закрытой 1m · источник MEXC';
+ const plan=s?.plan,stage=s?.steps||[],ch=s?.choch?.latest;
+ const value=s?.status||'NO DATA',tone=value==='CANDIDATE'?'ready':value==='SKIP'?'skip':'wait';
+ $('ascReplayDecision').innerHTML='<b class="'+tone+'">'+value+'</b>'+
+  '<div style="margin-top:4px">'+(s?.reason||'Нет подтверждения')+'</div>'+
+  '<div style="margin-top:7px">Контекст: 30m '+(s?.context?.t30||'—')+
+   ' · 15m '+(s?.context?.t15||'—')+'</div>'+
+  '<div>10m CHOCH: '+(ch?.dir||'нет')+
+   (ch?.at?' · '+stamp(ch.at):'')+'</div>'+
+  '<div>Frozen levels: '+(s?.frozen?.ready??0)+' · CORE: NOT REPLAYED</div>';
+ $('ascReplayStages').innerHTML=stage.length?stage.map(x=>
+  '<div class="asc-replay-step"><div style="flex:1"><b>'+names[x.name]+'</b>'+
+  '<small>'+(x.note||'Нет подтверждения')+(x.at?' · '+stamp(x.at):'')+'</small></div>'+
+  '<span class="replay-mark '+(x.status==='CONFIRMED'?'confirm':'')+'">'+x.status+'</span></div>'
+ ).join(''):'<p class="asc-replay-note">Не хватает непрерывной истории / исходного уровня.</p>';
+ const targets=plan&&Number.isFinite(plan.stop)?'<div class="asc-replay-row"><span>Entry</span><b>'+num(plan.entry)+'</b></div>'+
+  '<div class="asc-replay-row"><span>SL</span><b>'+num(plan.stop)+'</b></div>'+
+  '<div class="asc-replay-row"><span>TP</span><b>'+num(plan.target)+'</b></div>'+
+  '<div class="asc-replay-row"><span>R:R gross</span><b>'+num(plan.rr,2)+'</b></div>':
+  '<div>Нет структурного Entry / SL / TP по всем условиям.</div>';
+ $('ascReplayPlan').innerHTML=targets+'<div style="margin-top:9px">ENTER запрещён без CORE; оценка только исследовательская.</div>';
+ $('ascReplayEvents').innerHTML=events.filter(e=>e.at<=asOf).slice(-10).reverse().map(e=>
+  '<button class="asc-replay-event" data-replay-at="'+e.at+'">'+stamp(e.at)+' · '+
+  e.dir+' · '+e.type+' · '+num(e.level)+' · '+e.source+'</button>').join('')||
+  '<span class="asc-replay-note">CHOCH ещё не подтвердился по алгоритму.</span>';
+ renderChart(asOf,s);
+}
+function renderChart(asOf,s){
+ const candles=(historyData.raw['1m']||[]).filter(x=>x.time+60<=asOf).slice(-95);
+ if(!candles.length)return;
+ const W=980,H=380,top=24,bottom=35,left=20,right=93;
+ const current=candles.at(-1).close;
+ const levels=(s?.frozen?.levels?.all?.uppers||[]).concat(s?.frozen?.levels?.all?.lowers||[])
+  .filter(x=>Math.abs(x.level/current-1)<.025);
+ const prices=candles.flatMap(x=>[x.high,x.low]).concat(levels.map(x=>x.level));
+ let high=Math.max(...prices),low=Math.min(...prices),range=high-low||1;
+ high+=range*.11;low-=range*.11;
+ const y=p=>top+(high-p)/(high-low)*(H-top-bottom);
+ const x=i=>left+(i+.5)*(W-left-right)/candles.length;
+ const step=(W-left-right)/candles.length;
+ let svg='<rect width="'+W+'" height="'+H+'" fill="#040d19"/>';
+ for(let i=0;i<6;i++){
+  const price=low+(high-low)*i/5,yy=y(price);
+  svg+='<line x1="15" x2="885" y1="'+yy+'" y2="'+yy+
+  '" stroke="#274057" stroke-dasharray="3 5" opacity=".65"/>'+
+  '<text x="891" y="'+(yy+3)+'" fill="#91adc0" font-size="11">'+num(price,1)+'</text>';
+ }
+ for(const [i,c] of candles.entries()){
+  const xx=x(i),up=c.close>=c.open,stroke=up?'#2edab0':'#e77586';
+  svg+='<line x1="'+xx+'" x2="'+xx+'" y1="'+y(c.high)+'" y2="'+y(c.low)+
+   '" stroke="'+stroke+'" stroke-width="1"/>'+
+   '<rect x="'+(xx-Math.max(1,step*.33))+'" y="'+Math.min(y(c.open),y(c.close))+
+   '" width="'+Math.max(1.8,step*.66)+'" height="'+Math.max(1,Math.abs(y(c.close)-y(c.open)))+
+   '" fill="'+stroke+'"/>';
+ }
+ levels.forEach(l=>{
+  const col=l.side==='upper'?'#d68a98':'#49cbae',yy=y(l.level);
+  svg+='<line x1="20" x2="885" y1="'+yy+'" y2="'+yy+'" stroke="'+col+
+   '" stroke-width="1.1" stroke-dasharray="7 4"/>'+
+   '<text x="795" y="'+(yy-4)+'" font-size="10" fill="'+col+'">'+l.key+' '+num(l.level,1)+'</text>';
+ });
+ const cy=y(current);
+ svg+='<line x1="20" x2="885" y1="'+cy+'" y2="'+cy+'" stroke="#ffcb7b" stroke-dasharray="2 4"/>'+
+  '<text x="892" y="'+(cy-4)+'" font-size="12" fill="#ffce75">'+num(current,1)+'</text>';
+ svg+='<text x="20" y="18" fill="#b6cfdf" font-size="11">'+
+  historyData.symbol+' · MEXC Futures · 1m · '+stamp(asOf)+'</text>';
+ const tags=[0,25,50,75,94];
+ tags.forEach(i=>{const c=candles[Math.min(i,candles.length-1)];
+ if(c)svg+='<text x="'+x(Math.min(i,candles.length-1))+'" y="'+(H-8)+
+ '" font-size="10" fill="#7195ab">'+stamp(c.time+60).slice(-5)+'</text>'});
+ $('ascReplayChart').innerHTML=svg;
+}
+function scan(){
+ if(!historyData||scanning||!events.length)return;
+ scanning=true;$('ascReplayScan').disabled=true;
+ const symbols=historyData.symbol,feePct=Number($('ascReplayFee').value),
+  slippagePct=Number($('ascReplaySlip').value);
+ trades=[];let i=0;
+ notice('Проверяем подтверждения после каждого CHOCH. ENTER без BASE CORE не создаём.');
+ const process=()=>{
+  const start=performance.now();
+  while(i<events.length){
+   const ev=events[i++],limit=ev.at+3*3600;
+   let candidate=null,best=null;
+   const candidates=moments.filter(t=>t>ev.at&&t<=limit);
+   for(const t of candidates){
+    const analysis=E.assess(historyData.raw,t,symbols);
+    const steps=analysis.steps||[];
+    const n=steps.filter(x=>x.status==='CONFIRMED').length;
+    if(!best||n>best.steps)best={steps:n,reason:analysis.reason,asOf:t};
+    if(analysis.status==='CANDIDATE'&&analysis.report?.side===ev.dir){
+      candidate=analysis;break;
+    }
+   }
+   const out=candidate?E.outcome(historyData.raw,ev.dir,candidate.plan,candidate.asOf,
+    {feePct,slippagePct,horizonMin:240}):{status:'NO TRADE',
+     reason:best?.reason||'Полная цепочка подтверждений отсутствует'};
+   trades.push({event:ev,candidate,result:out,stepCount:best?.steps||0,
+    reason:out.reason||candidate?.reason||best?.reason||'—'});
+   if(performance.now()-start>200)break;
+  }
+  renderLedger();
+  if(i<events.length)setTimeout(process,0);
+  else{scanning=false;$('ascReplayScan').disabled=false;
+   notice('Исследование завершено: '+trades.length+' подтверждённых CHOCH · '+
+    trades.filter(x=>x.candidate).length+' модельных кандидатов · 0 реальных ордеров.');}
+ };
+ setTimeout(process,0);
+}
+function renderLedger(){
+ const rows=trades.map(x=>{
+  const c=x.candidate,r=x.result;
+  return '<tr><td>'+stamp(x.event.at)+'</td><td>'+x.event.dir+'</td>'+
+   '<td>'+(c?stamp(c.asOf):'—')+'</td><td>'+(c?num(c.plan?.entry):'—')+'</td>'+
+   '<td>'+(c?num(c.plan?.stop):'—')+'</td><td>'+(c?num(c.plan?.target):'—')+'</td>'+
+   '<td>'+(r?.status||'—')+'</td><td>'+x.stepCount+'/7 · '+x.reason+'</td></tr>';
+ }).join('');
+ $('ascReplayLedger').innerHTML='<table><thead><tr><th>CHOCH, Киев</th><th>Направление</th>'+
+  '<th>Кандидат</th><th>Entry</th><th>SL</th><th>TP</th><th>Итог модели</th><th>Причина / этапы</th>'+
+  '</tr></thead><tbody>'+rows+'</tbody></table>'+
+  '<p class="asc-replay-note">Результаты рассчитаны на MEXC OHLCV с модельными комиссией и проскальзыванием. Не сделки ASCEND.</p>';
+}
+function exportCSV(){
+ if(!trades.length)return;
+ const lines=[['choch_at_kyiv','symbol','side','candidate_at_kyiv','entry','sl','tp',
+   'model_status','net_R','reason']];
+ trades.forEach(x=>lines.push([stamp(x.event.at),historyData.symbol,x.event.dir,
+  x.candidate?stamp(x.candidate.asOf):'',
+  x.candidate?.plan?.entry??'',x.candidate?.plan?.stop??'',x.candidate?.plan?.target??'',
+  x.result?.status||'',x.result?.netR??'',x.reason]));
+ const escape=t=>'"'+String(t).replace(/"/g,'""')+'"';
+ const blob=new Blob(['\uFEFF'+lines.map(r=>r.map(escape).join(';')).join('\n')],{type:'text/csv;charset=utf-8'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;
+ a.download='ASCEND_REPLAY_'+historyData.symbol+'_'+$('ascReplayDate').value+'.csv';a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function mount(){
+ if(!$('ascReplayLoad'))return;
+ const date=$('ascReplayDate');
+ date.max=new Date().toISOString().slice(0,10);
+ $('ascReplayLoad').addEventListener('click',load);
+ $('ascReplaySlider').addEventListener('input',e=>gotoIndex(Number(e.target.value)));
+ $('ascReplayBack').addEventListener('click',()=>gotoIndex(cursor-5));
+ $('ascReplayNext').addEventListener('click',()=>gotoIndex(cursor+5));
+ $('ascReplayScan').addEventListener('click',scan);
+ $('ascReplayExport').addEventListener('click',exportCSV);
+ $('ascReplayEvents').addEventListener('click',e=>{
+  const target=e.target.closest('[data-replay-at]');if(!target)return;
+  const stamp=Number(target.dataset.replayAt);
+  const i=moments.findIndex(t=>t>=stamp);
+  if(i>=0)gotoIndex(i);
+ });
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+root.ASCEND_MARKET_REPLAY_UI_V1=Object.freeze({load,display,scan});
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<!-- ASCEND MARKET REPLAY UI V1 END -->
+
 <!-- ASCEND MARKET REPLAY PURE ENGINE V1 -->
 <script>
 /* ASCEND Historical Replay V1 — strict read-only research.  No broker operations. */
