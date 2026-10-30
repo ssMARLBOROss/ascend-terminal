@@ -21,3 +21,34 @@ Frontend получает реальные свечи MEXC через Railway AP
 Данные — уже загруженные свечи MEXC OHLCV выбранной пары и ТФ. Проверяются непрерывность, полное закрытие, актуальность и наличие подтверждающих правых свечей. Недостоверные данные дают NO DATA. У каждого события отделены время экстремума и момент, когда он стал известен.
 
 Это нативный исследовательский аналог, **не копия** Pine Script сторонних индикаторов. Отдельный canvas, никаких изменений Structure Engine, Confirmation, ENTRY READY, SL/TP, PAPER или реальных ордеров.
+
+
+### Radar zones · nearest confirmed 2–3 (Research V1)
+
+The **SMC Target Liquidit** panel now includes **Радар зон · 2–3 ближайшие · ATR14 (30m)**,
+OFF by default, together with the existing three independent visual layers.
+The radar uses only already loaded MEXC 30m and 5m closed OHLCV candles;
+the 30m series comes from complete 15m aggregation. Strict source validation,
+staleness and gaps cause \`NO DATA\` instead of simulated levels.
+
+Candidate levels, and **the earliest time each becomes available**, are:
+- 30m confirmed swing highs/lows (3 closed bars on the right; no backdated alerts);
+- YH/YL of the fully complete **previous UTC day**;
+- high/low of **completed** UTC Asia (00–08), London (07–16) and New York (13–22) windows,
+  only when every 30m candle exists.
+
+Nearby same-side levels are grouped (within 0.25 × 30m ATR14); each zone spans
+its anchor ±0.25 × ATR14. Only the **nearest up to three** zones appear, with
+source, distance, trend alignment and a **descriptive** 1–4 evidence score
+(not statistical success probability). The tracking states are:
+
+- ОЖИДАНИЕ (no recent contact);
+- ГОРЯЧЕЕ НАБЛЮДЕНИЕ (touch/nearby);
+- СНЯТИЕ? · ждём возврата (possible sweep, **not** yet a confirmed reclaim);
+- ВОЗВРАТ · проверка структуры (closed 5m candle reclaims the anchor);
+- РЕАКЦИЯ ПОДТВЕРЖДЕНА · только анализ (5m closed break after reclaim plus
+  reclaim volume ≥1.5× the previous 20 5m candles).
+
+NO state is an order, ENTRY READY, risk change or advice to place a trade.
+No promise of coverage when there are fewer than 2 confirmed zones.
+Use BingX GOLD(XAU) separately; this radar cannot replace that venue's execution data.
