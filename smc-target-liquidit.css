@@ -24,3 +24,14 @@
 .asc-tl-fact span{color:#8eaabb}.asc-tl-fact b{font-weight:600;overflow-wrap:anywhere;color:#dce8f0}
 .asc-tl-foot{display:block;padding:7px 12px;border-top:1px solid #243c4c;color:#a0b4c1;line-height:1.35}
 @media(max-width:720px){#chartShell #ascTLPanel{top:5px;right:5px;bottom:5px;width:calc(100% - 10px);border-radius:9px}#ascTLButton{padding:6px 8px;font-size:10px}}
+
+/* Compact ATR Zone Radar. Three zones maximum; defaults OFF. */
+#ascTLRadar{display:grid;gap:5px;padding:8px 10px;border-bottom:1px solid #2a4253;max-height:41%;overflow:auto;background:#0a1e2c}
+.asc-tl-radar-head{font-size:10px;color:#f2d8a3;font-weight:700;line-height:1.4}
+.asc-tl-radar-item{display:grid;gap:3px;text-align:left;border:1px solid #3d5969;border-radius:7px;background:#0f2837;color:#dff0f5;padding:8px 9px;cursor:pointer;line-height:1.35}
+.asc-tl-radar-item strong{font-size:11px;color:#e2edfa}
+.asc-tl-radar-item span{font-weight:700;font-size:10px;color:#d4b878}
+.asc-tl-radar-item small{font-size:10px;color:#98b4c4}
+.asc-tl-radar-item:hover,.asc-tl-radar-item:focus-visible{border-color:#e3b855;background:#173546}
+.asc-tl-radar-disclaimer{font-size:9px;line-height:1.4;color:#859faf}
+@media(max-width:720px){#ascTLRadar{max-height:38%;padding:6px}}
