@@ -1,0 +1,37 @@
+/* ASCEND SMC Target Liquidit V1 — self-contained observational overlay */
+#ascTLButton{border:1px solid #a68b45;border-radius:7px;padding:7px 10px;background:#302719;color:#f1d79b;font:800 11px system-ui;cursor:pointer;white-space:nowrap}
+#ascTLButton[aria-expanded="true"]{border-color:#e2bd61;background:#554125;color:#fff1c2}
+#chartShell #ascTLCanvas{position:absolute;inset:0;z-index:30;pointer-events:none;display:block}
+#chartShell #ascTLCanvas[hidden]{display:none!important}
+#chartShell #ascTLPanel[hidden]{display:none!important}
+#chartShell #ascTLPanel{position:absolute;z-index:85;top:40px;right:9px;bottom:9px;width:min(370px,calc(100% - 18px));display:flex;flex-direction:column;overflow:hidden;border:1px solid #887142;border-radius:12px;background:rgba(4,16,27,.97);box-shadow:0 18px 38px rgba(0,0,0,.70);color:#dbe8f1;font:11px system-ui;pointer-events:auto}
+#ascTLPanel *{box-sizing:border-box}
+.asc-tl-header{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:11px 12px 8px;border-bottom:1px solid #24415a}
+.asc-tl-header strong{color:#f1d59b;font-size:12px;letter-spacing:.03em}
+.asc-tl-header button{padding:4px 9px;border:1px solid #496176;border-radius:6px;background:#122b3c;color:#e8edf1;cursor:pointer;font-size:15px}
+.asc-tl-note{padding:0 12px;margin:8px 0;color:#9ab1be;line-height:1.4;font-size:10px}
+.asc-tl-options{display:grid;gap:7px;padding:9px 12px;border-bottom:1px solid #254054;background:#081c2b}
+.asc-tl-option{display:flex;align-items:center;gap:9px;min-height:23px;cursor:pointer;color:#dceaf3}
+.asc-tl-option input{width:15px;height:15px;accent-color:#d9b657}
+.asc-tl-status{padding:8px 12px;color:#bcd2de;border-bottom:1px solid #223a4e;font-size:10px;line-height:1.45}
+.asc-tl-items{display:grid;gap:5px;overflow:auto;min-height:36px;padding:8px 12px;flex:1}
+.asc-tl-item{border:1px solid #294355;border-radius:6px;padding:8px 9px;background:#0a2232;color:#d8e8f1;text-align:left;cursor:pointer;font:600 10px system-ui;line-height:1.4}
+.asc-tl-item:hover,.asc-tl-item:focus-visible{border-color:#c6a15b;background:#173043}
+.asc-tl-empty{color:#8ca8b9;padding:12px;font-size:10px}
+.asc-tl-detail{padding:9px 12px;max-height:34%;overflow-y:auto;background:#0b2230;border-top:1px solid #2c475b;color:#c5d8e4;font-size:10px}
+.asc-tl-detail>strong{display:block;margin-bottom:5px;color:#f1d59b}
+.asc-tl-fact{display:grid;grid-template-columns:1fr 1.5fr;gap:8px;border-top:1px solid #233e51;padding:4px 0}
+.asc-tl-fact span{color:#8eaabb}.asc-tl-fact b{font-weight:600;overflow-wrap:anywhere;color:#dce8f0}
+.asc-tl-foot{display:block;padding:7px 12px;border-top:1px solid #243c4c;color:#a0b4c1;line-height:1.35}
+@media(max-width:720px){#chartShell #ascTLPanel{top:5px;right:5px;bottom:5px;width:calc(100% - 10px);border-radius:9px}#ascTLButton{padding:6px 8px;font-size:10px}}
+
+/* Compact ATR Zone Radar. Three zones maximum; defaults OFF. */
+#ascTLRadar{display:grid;gap:5px;padding:8px 10px;border-bottom:1px solid #2a4253;max-height:41%;overflow:auto;background:#0a1e2c}
+.asc-tl-radar-head{font-size:10px;color:#f2d8a3;font-weight:700;line-height:1.4}
+.asc-tl-radar-item{display:grid;gap:3px;text-align:left;border:1px solid #3d5969;border-radius:7px;background:#0f2837;color:#dff0f5;padding:8px 9px;cursor:pointer;line-height:1.35}
+.asc-tl-radar-item strong{font-size:11px;color:#e2edfa}
+.asc-tl-radar-item span{font-weight:700;font-size:10px;color:#d4b878}
+.asc-tl-radar-item small{font-size:10px;color:#98b4c4}
+.asc-tl-radar-item:hover,.asc-tl-radar-item:focus-visible{border-color:#e3b855;background:#173546}
+.asc-tl-radar-disclaimer{font-size:9px;line-height:1.4;color:#859faf}
+@media(max-width:720px){#ascTLRadar{max-height:38%;padding:6px}}
