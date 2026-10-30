@@ -60,7 +60,8 @@ test('future bars and open bars do not rewrite past zone assessments',()=>{
   assert.deepEqual(JSON.parse(JSON.stringify(first)),JSON.parse(JSON.stringify(again)));
 });
 test('no levels from incomplete previous day',()=>{
-  const bad30=thirty.filter(b=>b.time!==at-86400-1800);
+  const previousDayStart=Math.floor((at-1)/86400)*86400-86400;
+  const bad30=thirty.filter(b=>b.time!==previousDayStart);
   const r=radar.scan({rows30:bad30,rows5:five,asOf:at});
   assert.equal(r.status,'RESEARCH'); // enough bars after the gap to recover
   assert.ok(r.zones.every(z=>!z.sources.some(s=>s.startsWith('YH')||s.startsWith('YL'))));
