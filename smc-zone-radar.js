@@ -78,7 +78,7 @@
     return groups;
   }
   function stateOf(z,rows5,atr,asOf){
-    const recent=rows5.filter(b=>b.time+300<=asOf&&b.time+300>=Math.max(z.knownAt,asOf-4*3600));
+    const recent=rows5.filter(b=>b.time+300<=asOf&&b.time>=Math.max(z.knownAt,asOf-4*3600));
     const last=rows5.at(-1);
     const near=last.low<=z.high&&last.high>=z.low;
     const distance=last.close<z.low?z.low-last.close:last.close>z.high?last.close-z.high:0;
