@@ -122,13 +122,13 @@
   }
   root.ASCEND_SMC_TARGET_LIQUIDIT_V1=Object.freeze({scan,pivots,sessionAt,CONFIG,TF});
 
-  let settings={targets:false,structure:false,blocks:false},ready=false,subscribed=false;
-  let lastResult=null,lastSignature='',lastView='',lastAsOf=0;
+  let settings={targets:false,structure:false,blocks:false,radar:false},ready=false,subscribed=false;
+  let lastResult=null,lastRadar=null,lastSignature='',lastView='',lastAsOf=0;
   function persist(){try{localStorage.setItem(KEY,JSON.stringify(settings))}catch(_){}}
   function restore(){
     try{
       const saved=JSON.parse(localStorage.getItem(KEY)||'{}');
-      ['targets','structure','blocks'].forEach(k=>{settings[k]=saved[k]===true});
+      ['targets','structure','blocks','radar'].forEach(k=>{settings[k]=saved[k]===true});
     }catch(_){}
   }
   function node(tag,className,textValue){
@@ -148,6 +148,7 @@
     panel.appendChild(node('p','asc-tl-note','Один инструмент · данные MEXC OHLCV · только наблюдение. Не оригинальные алгоритмы TradingView.'));
     const opts=node('div','asc-tl-options');
     const labels=[
+      ['radar','Радар зон · 2–3 ближайшие · ATR14 (30m)'],
       ['targets','Цели ликвидности · Pivot 10 · до 5'],
       ['structure','Внутренняя 3 / внешняя 25 · структура'],
       ['blocks','Блоки ордеров · до 10 · исследование']
@@ -159,6 +160,7 @@
       line.append(input,node('span','',label));opts.appendChild(line);
     });
     panel.appendChild(opts);
+    panel.appendChild(node('div','asc-tl-zone-radar','Радар выключен')).id='ascTLRadar';
     panel.appendChild(node('div','asc-tl-status','NO DATA · ожидаем подтверждённые свечи')).id='ascTLStatus';
     panel.appendChild(node('div','asc-tl-items')).id='ascTLItems';
     panel.appendChild(node('div','asc-tl-detail','Выберите строку уровня, чтобы узнать время подтверждения.')).id='ascTLDetail';
@@ -170,7 +172,7 @@
     panel.addEventListener('keydown',ev=>{if(ev.key==='Escape')toggle(false)});
     ready=true;
     if(typeof ResizeObserver!=='undefined')new ResizeObserver(()=>{
-      if(settings.targets||settings.structure||settings.blocks)plot(lastResult);
+      if(settings.targets||settings.structure||settings.blocks||settings.radar)plot(lastResult);
     }).observe($('chartShell'));
     draw(true);
   }
@@ -187,11 +189,46 @@
     details.forEach(([k,v])=>{const row=node('div','asc-tl-fact');
       row.append(node('span','',k),node('b','',String(v)));el.appendChild(row)});
   }
+  function renderRadar(){
+    const box=$('ascTLRadar');if(!box)return;
+    box.replaceChildren();
+    if(!settings.radar){box.appendChild(node('div','asc-tl-empty','Радар выключен'));return}
+    const data=lastRadar;
+    if(!data||data.status!=='RESEARCH'){
+      box.appendChild(node('div','asc-tl-empty','NO DATA · '+(data?.reason||'Радар ждёт проверенные свечи')));
+      return;
+    }
+    const head=node('div','asc-tl-radar-head','РАДАР ЗОН · '+data.zones.length+
+      ' ближайших · 30m ATR14 '+format(data.atr)+' · '+(data.trend==='LONG'?'ТРЕНД ВВЕРХ':data.trend==='SHORT'?'ТРЕНД ВНИЗ':'ТРЕНД НЕЙТРАЛЬНЫЙ'));
+    box.appendChild(head);
+    if(!data.zones.length)box.appendChild(node('div','asc-tl-empty','Нет подтверждённых уровней'));
+    for(const z of data.zones){
+      const b=node('button','asc-tl-radar-item');b.type='button';
+      b.appendChild(node('strong','',z.label+' · '+format(z.low)+'–'+format(z.high)));
+      b.appendChild(node('span','',z.status+' · приоритет '+z.priority+'/4'));
+      b.appendChild(node('small','',z.kind==='SUPPORT'?'Спрос':'Предложение'));
+      const dist=z.distPct===null?'—':z.distPct.toFixed(2)+'%';
+      b.appendChild(node('small','', 'До зоны '+dist+' · '+(z.trendAligned?'по тренду':'против тренда / переход')));
+      b.addEventListener('click',()=>info('ЗОНА · '+format(z.price),[
+        ['Источник',z.sources.join(', ')],['Статус',z.status],
+        ['Диапазон',format(z.low)+'–'+format(z.high)],
+        ['Ширина','±0,25 ATR14 (30m)'],
+        ['Появление',clock(z.originAt)],['Известна с',clock(z.knownAt)],
+        ['Снятие (кандидат)',clock(z.sweepAt)],['Возврат',clock(z.reclaimAt)],
+        ['Пробой 5m',clock(z.breakAt)],['Объём 5m ≥1,5× среднего',z.volumeConfirmed?'ДА':'НЕТ'],
+        ['Риск','Реакция зоны не является ENTRY READY']
+      ]));
+      box.appendChild(b);
+    }
+    box.appendChild(node('small','asc-tl-radar-disclaimer','Только наблюдение. Обновление по закрытым свечам 30m/5m. Не открывает сделки.'));
+  }
   function listItems(result){
     const box=$('ascTLItems'),status=$('ascTLStatus');if(!box||!status)return;
+    renderRadar();
     box.replaceChildren();
     if(!result||result.status!=='RESEARCH'){
-      status.textContent='NO DATA · '+(result?.reason||'Ожидаем историю');return;
+      status.textContent=settings.targets||settings.structure||settings.blocks?
+        'NO DATA · '+(result?.reason||'Ожидаем историю'):'Дополнительные слои выключены';return;
     }
     status.textContent='MEXC · '+(typeof state!=='undefined'?state.symbol:'—')+
       ' · '+(typeof state!=='undefined'?state.timeframe:'—')+' · '+result.bars.length+
@@ -247,14 +284,29 @@
     canvas.style.width=w+'px';canvas.style.height=h+'px';
     const ctx=canvas.getContext('2d');if(!ctx)return;
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
-    if(!result||result.status!=='RESEARCH'||typeof chart==='undefined'||!chart||
-      typeof candles==='undefined'||!candles)return;
+    if(typeof chart==='undefined'||!chart||typeof candles==='undefined'||!candles)return;
     const yOf=price=>candles.priceToCoordinate(Number(price));
     const xOf=t=>chart.timeScale().timeToCoordinate(Number(t));
     const write=(s,x,y,color)=>{
       ctx.fillStyle=color;ctx.font='600 10px system-ui';
       ctx.fillText(s,Math.max(6,Math.min(w-148,x)),Math.max(12,Math.min(h-7,y)));
     };
+    if(settings.radar&&lastRadar?.status==='RESEARCH'){
+      lastRadar.zones.forEach(z=>{
+        const y1=yOf(z.low),y2=yOf(z.high);
+        if(![y1,y2].every(Number.isFinite))return;
+        const top=Math.min(y1,y2),height=Math.max(1,Math.abs(y1-y2));
+        if(top>h||top+height<0)return;
+        ctx.fillStyle=z.kind==='SUPPORT'?'rgba(26,185,133,.07)':'rgba(224,97,108,.07)';
+        ctx.strokeStyle=z.kind==='SUPPORT'?'rgba(26,185,133,.7)':'rgba(224,97,108,.7)';
+        ctx.lineWidth=1;ctx.setLineDash([5,5]);
+        ctx.fillRect(8,top,Math.max(1,w-65),height);
+        ctx.strokeRect(8,top,Math.max(1,w-65),height);
+        ctx.setLineDash([]);
+        write('ЗОНА '+format(z.price)+' · '+z.status.slice(0,16),12,top+12,ctx.strokeStyle);
+      });
+    }
+    if(!result||result.status!=='RESEARCH')return;
     if(settings.blocks){
       // Only 2 nearby zones drawn to prevent chart clutter; all 10 remain in list.
       result.blocks.slice(-2).forEach(z=>{
@@ -296,6 +348,12 @@
       });
     }
   }
+  function readRadar(){
+    if(typeof state==='undefined'||!state.tf)return null;
+    const engine=root.ASCEND_SMC_ZONE_RADAR_V1;
+    return engine?engine.scan({rows30:state.tf['30m']||[],rows5:state.tf['5m']||[],asOf:Date.now()/1000}):
+      {status:'NO DATA',reason:'Модуль радара не загружен',zones:[]};
+  }
   function read(){
     if(typeof state==='undefined'||!state.tf)return null;
     const tf=state.timeframe,raw=state.tf[tf]||[],step=TF[tf];
@@ -305,17 +363,20 @@
   }
   function draw(force){
     if(!ready)return;
-    const active=settings.targets||settings.structure||settings.blocks;
+    const active=settings.targets||settings.structure||settings.blocks||settings.radar;
     const frame=typeof state!=='undefined'?state.symbol+'|'+state.timeframe:'?';
     const data=typeof state!=='undefined'&&Array.isArray(state.tf[state.timeframe])?
       state.tf[state.timeframe]:[];
-    const end=data.at(-1),signature=frame+'|'+data.length+'|'+(end?.time||0)+'|'+
-      (end?.close||0)+'|'+settings.targets+'|'+settings.structure+'|'+settings.blocks;
+    const end=data.at(-1),h30=state?.tf?.['30m']?.at(-1),h5=state?.tf?.['5m']?.at(-1);
+    const signature=frame+'|'+data.length+'|'+(end?.time||0)+'|'+(end?.close||0)+'|'+
+      (h30?.time||0)+'|'+(h30?.close||0)+'|'+(h5?.time||0)+'|'+(h5?.close||0)+'|'+
+      settings.targets+'|'+settings.structure+'|'+settings.blocks+'|'+settings.radar;
     const panelOpen=!$('ascTLPanel').hidden;
     if(!active&&!panelOpen){$('ascTLCanvas').hidden=true;lastSignature='';return;}
     if(!force&&signature===lastSignature&&!panelOpen)return;
     lastSignature=signature;
-    lastResult=read();
+    lastResult=settings.targets||settings.structure||settings.blocks?read():null;
+    lastRadar=settings.radar?readRadar():null;
     if(panelOpen)listItems(lastResult);
     $('ascTLCanvas').hidden=!active;
     if(active)plot(lastResult);
@@ -326,7 +387,7 @@
     setInterval(()=>{
       if(typeof state==='undefined'||!state.chartReady)return;
       if(!subscribed&&typeof chart!=='undefined'&&chart){
-        chart.timeScale().subscribeVisibleLogicalRangeChange(()=>{if(settings.targets||settings.structure||settings.blocks)plot(lastResult)});
+        chart.timeScale().subscribeVisibleLogicalRangeChange(()=>{if(settings.targets||settings.structure||settings.blocks||settings.radar)plot(lastResult)});
         subscribed=true;
         draw(true); // Chart becomes ready after the initial DOM mount.
       }
